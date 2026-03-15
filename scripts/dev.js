@@ -4,8 +4,8 @@ const { createServer } = require("vite");
 const path = require("path");
 const fs = require("fs");
 
-// Load .env file if it exists
-const envPath = path.resolve(__dirname, "../.env");
+// Load key.env file if it exists
+const envPath = path.resolve(__dirname, "../key.env");
 if (fs.existsSync(envPath)) {
   for (const line of fs.readFileSync(envPath, "utf-8").split("\n")) {
     const trimmed = line.trim();

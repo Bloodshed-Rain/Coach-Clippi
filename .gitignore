@@ -156,6 +156,7 @@ test-replays/
 
 # User config (contains API keys)
 .coach-clippi/
+key.env
 
 # Native module rebuilds
 build/

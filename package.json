@@ -35,9 +35,9 @@
     ],
     "extraResources": [
       {
-        "from": ".env",
+        "from": "key.env",
         "to": ".",
-        "filter": [".env"]
+        "filter": ["key.env"]
       }
     ],
     "win": {

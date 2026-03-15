@@ -2,11 +2,11 @@ import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 
-// Load .env from app resources (production) or project root (dev)
+// Load key.env from app resources (production) or project root (dev)
 function loadEnvFile(): void {
   const candidates = [
-    path.join(process.resourcesPath ?? "", ".env"),  // production
-    path.join(__dirname, "../../.env"),                // dev
+    path.join(process.resourcesPath ?? "", "key.env"),   // production
+    path.join(__dirname, "../../key.env"),                 // dev
   ];
   for (const envPath of candidates) {
     if (fs.existsSync(envPath)) {
