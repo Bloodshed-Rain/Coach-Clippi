@@ -4,31 +4,6 @@ AI-powered Melee coaching from your Slippi replays.
 
 Import your `.slp` files, get personalized coaching analysis from an LLM, track your stats over time, and spot trends across sessions. No other tool in the Melee ecosystem does this.
 
-## Screenshots
-
-### Coaching — Click any game for AI analysis
-![Coaching tab - light mode](screenshots/Screenshot_20260315_132050.png)
-
-### AI Coaching Analysis — Expanded
-![Coaching analysis expanded](screenshots/Screenshot_20260315_132303.png)
-
-### Coaching — Dark mode (Fox theme)
-![Coaching tab - dark mode](screenshots/Screenshot_20260315_132457.png)
-
-### Profile — Player radar chart and matchup records
-![Profile tab](screenshots/Screenshot_20260315_132405.png)
-
-### Sessions — Auto-detected sets and opponent history
-![Sessions tab](screenshots/Screenshot_20260315_132331.png)
-
-### Trends — Line charts with Coach-Clippi commentary
-![Trends tab](screenshots/Screenshot_20260315_132349.png)
-
-### Settings — 26 character themes with light/dark toggle
-![Settings tab - light](screenshots/Screenshot_20260315_132414.png)
-![Settings tab - dark](screenshots/Screenshot_20260315_132439.png)
-
----
 
 ## What it does
 
@@ -56,7 +31,6 @@ Import your `.slp` files, get personalized coaching analysis from an LLM, track 
 - **Multi-LLM provider** — OpenRouter (full model catalog with live pricing), Gemini direct, Anthropic direct, OpenAI direct, or local models via Ollama/LM Studio
 - **Rate-limited API queue** — LLM calls processed one at a time with delays, prevents 429 errors on batch imports
 - **File watcher** — point at your Slippi replay folder, auto-imports new games as you play
-- **26 character themes** — Slippi green default plus Fox, Falco, Marth, Sheik, Captain Falcon, Peach, Jigglypuff, Ice Climbers, Pikachu, Samus, Dr. Mario, Yoshi, Luigi, Mario, Ganondorf, Link, Young Link, Roy, Zelda, Donkey Kong, Bowser, Ness, Mewtwo, Kirby, and Mr. Game & Watch — each based on the character's actual default costume palette
 - **Light/dark mode** — available on every theme
 - **Local-first** — your data stays on your machine, no account needed, no server
 
