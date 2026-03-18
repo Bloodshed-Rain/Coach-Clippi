@@ -24,40 +24,36 @@ const NAV_ITEMS: { id: Page; label: string; Icon: React.FC<{ size?: number }> }[
 export function App() {
   const [page, setPage] = useState<Page>("dashboard");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [themeId, setThemeId] = useState("slippi");
+  const [themeId, setThemeId] = useState("dark");
   const [colorMode, setColorMode] = useState<ColorMode>("dark");
 
   useEffect(() => {
     async function loadTheme() {
       try {
         const config = await window.clippi.loadConfig();
-        const savedTheme = config?.theme || "slippi";
-        const savedMode = config?.colorMode || "dark";
-        setThemeId(savedTheme);
+        const savedMode: ColorMode = config?.colorMode || "dark";
+        setThemeId(savedMode);
         setColorMode(savedMode);
-        applyTheme(getResolvedTheme(savedTheme, savedMode));
+        applyTheme(getResolvedTheme(savedMode, savedMode));
       } catch {
-        applyTheme(getResolvedTheme("slippi", "dark"));
+        applyTheme(getResolvedTheme("dark", "dark"));
       }
     }
     loadTheme();
   }, []);
 
-  const handleThemeChange = useCallback((id: string) => {
-    setThemeId(id);
-    applyTheme(getResolvedTheme(id, colorMode));
-    window.clippi.loadConfig().then((config: any) => {
-      window.clippi.saveConfig({ ...config, theme: id });
-    });
-  }, [colorMode]);
+  const handleThemeChange = useCallback((_id: string) => {
+    // No-op — theme is controlled by mode toggle only
+  }, []);
 
   const handleModeChange = useCallback((mode: ColorMode) => {
     setColorMode(mode);
-    applyTheme(getResolvedTheme(themeId, mode));
+    setThemeId(mode);
+    applyTheme(getResolvedTheme(mode, mode));
     window.clippi.loadConfig().then((config: any) => {
       window.clippi.saveConfig({ ...config, colorMode: mode });
     });
-  }, [themeId]);
+  }, []);
 
   const handleImport = useCallback(() => {
     setRefreshKey((k) => k + 1);

@@ -35,6 +35,18 @@ const api = {
   getOpponents: (search) => ipcRenderer.invoke("stats:opponents", search),
   getSets: () => ipcRenderer.invoke("stats:sets"),
 
+  // Characters
+  getCharacterList: () => ipcRenderer.invoke("stats:characterList"),
+  getCharacterMatchups: (character) => ipcRenderer.invoke("stats:characterMatchups", character),
+  getCharacterStageStats: (character) => ipcRenderer.invoke("stats:characterStages", character),
+  getCharacterSignatureStats: (character) => ipcRenderer.invoke("stats:characterSignature", character),
+  getCharacterGameStats: (character) => ipcRenderer.invoke("stats:characterGameStats", character),
+
+  // LLM
+  getLLMModels: () => ipcRenderer.invoke("llm:models"),
+  getCurrentModel: () => ipcRenderer.invoke("llm:currentModel"),
+  fetchOpenRouterModels: () => ipcRenderer.invoke("openrouter:models"),
+
   // Data management
   clearAllGames: () => ipcRenderer.invoke("data:clearAll"),
 

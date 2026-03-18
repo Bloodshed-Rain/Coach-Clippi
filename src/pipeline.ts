@@ -98,11 +98,29 @@ export type CharacterSignatureStats =
   | PuffSignatureStats
   | IcClimbersSignatureStats
   | MarthSignatureStats
-  | PeachSignatureStats;
+  | PeachSignatureStats
+  | SamusSignatureStats
+  | PikachuSignatureStats
+  | LuigiSignatureStats
+  | MarioSignatureStats
+  | DocSignatureStats
+  | YoshiSignatureStats
+  | GanonSignatureStats
+  | LinkSignatureStats
+  | YLinkSignatureStats
+  | ZeldaSignatureStats
+  | RoySignatureStats
+  | MewtwoSignatureStats
+  | GnwSignatureStats
+  | NessSignatureStats
+  | BowserSignatureStats
+  | KirbySignatureStats
+  | DkSignatureStats
+  | PichuSignatureStats;
 
 export interface FoxSignatureStats {
   character: "Fox";
-  /** Conversions where shine (down b) appears 2+ times, indicating waveshine combos */
+  /** Conversions where shine (down b) appears 2+ times, indicating multi-shine combos */
   waveshines: number;
   /** Conversions with shine → usmash (21 → 11) */
   waveshineToUpsmash: number;
@@ -112,6 +130,8 @@ export interface FoxSignatureStats {
   upthrowUpairKills: number;
   /** Conversions with dair (17) → shine (21) sequence */
   drillShines: number;
+  /** Conversions ending in shine that killed while opponent was offstage */
+  shineSpikeKills: number;
 }
 
 export interface FalcoSignatureStats {
@@ -139,19 +159,21 @@ export interface SheikSignatureStats {
 }
 
 export interface FalconSignatureStats {
-  character: "Captain Falcon";
+  character: "Falcon";
   /** Conversions ending with fair (knee) that killed */
   kneeKills: number;
   /** Conversions with dair → fair (stomp to knee) */
   stompKnees: number;
   /** Conversions with uthrow → ... → fair that killed */
   upthrowKnees: number;
-  /** Conversions starting with grab and containing 3+ moves */
+  /** Conversions starting with grab where opponent was in tech/down state */
   techChaseGrabs: number;
+  /** Jab1 → jab2 → jab3 without transitioning to rapid jab */
+  gentlemanCount: number;
 }
 
 export interface PuffSignatureStats {
-  character: "Jigglypuff";
+  character: "Puff";
   /** Conversions ending with down b (rest) that killed */
   restKills: number;
   /** Conversions containing down b (rest) total */
@@ -160,16 +182,22 @@ export interface PuffSignatureStats {
   bairStrings: number;
   /** Max consecutive bairs in any conversion */
   longestBairString: number;
+  /** What move preceded rest in each conversion, sorted by frequency */
+  restSetups: { move: string; count: number }[];
 }
 
 export interface IcClimbersSignatureStats {
-  character: "Ice Climbers";
+  character: "ICs";
   /** Conversions with 8+ pummel hits (moveId 51) — wobble detection */
   wobbles: number;
   /** Wobbles that killed */
   wobbleKills: number;
-  /** Desync count — not detectable from conversion data, always 0 */
+  /** Count of independent Nana actions (frame data detection) */
   desyncs: number;
+  /** Kill conversions where Nana was dead */
+  sopoKills: number;
+  /** Times Nana lost a stock */
+  nanaDeaths: number;
 }
 
 export interface MarthSignatureStats {
@@ -180,8 +208,8 @@ export interface MarthSignatureStats {
   kenComboKills: number;
   /** Conversions with 2+ throws (chain grabs) */
   chainGrabs: number;
-  /** Conversions ending with fsmash that killed (proxy for tipper — can't distinguish tipper/sourspot from replay data) */
-  tipperKills: number;
+  /** Conversions ending with fsmash that killed */
+  fsmashKills: number;
 }
 
 export interface PeachSignatureStats {
@@ -196,6 +224,154 @@ export interface PeachSignatureStats {
   dsmashKills: number;
   /** Float cancel aerials — not detectable precisely, always 0 */
   floatCancelAerials: number;
+}
+
+export interface SamusSignatureStats {
+  character: "Samus";
+  chargeShotKills: number;
+  missileCount: number;
+  upBKills: number;
+  dairKills: number;
+}
+
+export interface PikachuSignatureStats {
+  character: "Pikachu";
+  thunderKills: number;
+  upSmashKills: number;
+  upairChains: number;
+  nairCombos: number;
+}
+
+export interface LuigiSignatureStats {
+  character: "Luigi";
+  shoryukenKills: number;
+  dairKills: number;
+  downSmashKills: number;
+  fireBallCount: number;
+}
+
+export interface MarioSignatureStats {
+  character: "Mario";
+  capeCount: number;
+  fireBallCount: number;
+  fsmashKills: number;
+  upSmashKills: number;
+  fairSpikeKills: number;
+}
+
+export interface DocSignatureStats {
+  character: "Doc";
+  pillCount: number;
+  fsmashKills: number;
+  upBKills: number;
+  dairKills: number;
+  fairSpikeKills: number;
+}
+
+export interface YoshiSignatureStats {
+  character: "Yoshi";
+  eggThrowCount: number;
+  dairKills: number;
+  upSmashKills: number;
+  fairSpikeKills: number;
+}
+
+export interface GanonSignatureStats {
+  character: "Ganon";
+  stompKills: number;
+  warlocKickKills: number;
+  upTiltKills: number;
+  fairKills: number;
+}
+
+export interface LinkSignatureStats {
+  character: "Link";
+  boomerangCount: number;
+  bombCount: number;
+  dairSpikeKills: number;
+  upSmashKills: number;
+  grabCombos: number;
+}
+
+export interface YLinkSignatureStats {
+  character: "YLink";
+  fireArrowCount: number;
+  bombCount: number;
+  dairSpikeKills: number;
+  nairCombos: number;
+}
+
+export interface ZeldaSignatureStats {
+  character: "Zelda";
+  lightningKickKills: number;
+  dinsFireCount: number;
+  upBKills: number;
+}
+
+export interface RoySignatureStats {
+  character: "Roy";
+  fsmashKills: number;
+  blazerKills: number;
+  counterCount: number;
+  chainGrabs: number;
+  dtiltConversions: number;
+}
+
+export interface MewtwoSignatureStats {
+  character: "Mewtwo";
+  shadowBallCount: number;
+  confusionCount: number;
+  upThrowKills: number;
+  fairKills: number;
+}
+
+export interface GnwSignatureStats {
+  character: "G&W";
+  judgementCount: number;
+  judgementKills: number;
+  upAirKills: number;
+  baconCount: number;
+}
+
+export interface NessSignatureStats {
+  character: "Ness";
+  pkFireCount: number;
+  backThrowKills: number;
+  dairKills: number;
+  fairKills: number;
+}
+
+export interface BowserSignatureStats {
+  character: "Bowser";
+  flameCount: number;
+  koopaClaw: number;
+  upBKills: number;
+  fsmashKills: number;
+}
+
+export interface KirbySignatureStats {
+  character: "Kirby";
+  inhaleCount: number;
+  upTiltKills: number;
+  fsmashKills: number;
+  dairCombos: number;
+  stoneKills: number;
+}
+
+export interface DkSignatureStats {
+  character: "DK";
+  giantPunchKills: number;
+  headbuttCount: number;
+  spikeKills: number;
+  bairKills: number;
+}
+
+export interface PichuSignatureStats {
+  character: "Pichu";
+  thunderJoltCount: number;
+  thunderKills: number;
+  upSmashKills: number;
+  nairCombos: number;
 }
 
 export interface GameSummary {
@@ -830,10 +1006,15 @@ function buildPlayerSummary(
     kenCombos: detectKenCombos(player.characterId, myConversions),
     signatureStats: detectSignatureStats(
       character,
+      playerIndex,
       myConversions,
       moveUsageMap,
       turnipPulls,
       detectKenCombos(player.characterId, myConversions),
+      frames,
+      lastFrame,
+      stageId,
+      allConversions,
     ),
   };
 }
@@ -935,6 +1116,7 @@ function countMoveId(moves: ConversionType["moves"], moveId: number): number {
 }
 
 const MOVE_SHINE = 21;
+const MOVE_DOWN_B = 21; // Same as MOVE_SHINE — used by all characters' down-b
 const MOVE_USMASH = 11;
 const MOVE_UTHROW = 54;
 const MOVE_UAIR = 16;
@@ -948,13 +1130,25 @@ const MOVE_DTHROW = 55;
 const MOVE_NEUTRAL_B = 18;
 const MOVE_FSMASH = 10;
 const MOVE_DSMASH = 12;
+const MOVE_SIDE_B = 19;
+const MOVE_UP_B = 20;
+const MOVE_UTILT = 8;
+const MOVE_DTILT = 9;
+const MOVE_NAIR = 13;
+const MOVE_BTHROW = 53;
+const MOVE_DASH_ATTACK = 6;
 
 function detectSignatureStats(
   character: string,
+  playerIndex: number,
   myConversions: ConversionType[],
   moveUsageMap: Map<string, { count: number; hits: number }>,
   turnipPullStats: TurnipPullStats | null,
   kenComboStats: KenComboStats | null,
+  frames: FramesType,
+  lastFrame: number,
+  stageId: number,
+  allConversions: ConversionType[],
 ): CharacterSignatureStats | null {
   switch (character) {
     case "Fox": {
@@ -963,10 +1157,11 @@ function detectSignatureStats(
       let upthrowUpairs = 0;
       let upthrowUpairKills = 0;
       let drillShines = 0;
+      let shineSpikeKills = 0;
 
       for (const conv of myConversions) {
         const { moves } = conv;
-        // Waveshines: shine appears 2+ times in a conversion
+        // Multi-shine combos: shine appears 2+ times in a conversion
         if (countMoveId(moves, MOVE_SHINE) >= 2) waveshines++;
         // Waveshine to upsmash: shine → usmash sequence
         if (hasSequence(moves, MOVE_SHINE, MOVE_USMASH)) waveshineToUpsmash++;
@@ -977,9 +1172,31 @@ function detectSignatureStats(
         }
         // Drill (dair) → shine
         if (hasAdjacentSequence(moves, MOVE_DAIR, MOVE_SHINE)) drillShines++;
+        // Shine spike kills: conversion ending in shine where opponent dies offstage
+        if (moves.length > 0) {
+          const lastMove = moves[moves.length - 1]!;
+          if (lastMove.moveId === MOVE_DOWN_B && conv.didKill) {
+            const endFrame = conv.endFrame;
+            if (endFrame != null) {
+              const victimIndex = conv.playerIndex;
+              const fd = frames[endFrame];
+              if (fd) {
+                const victimPost = fd.players[victimIndex]?.post;
+                if (victimPost) {
+                  const posX = victimPost.positionX ?? 0;
+                  const posY = victimPost.positionY ?? 0;
+                  const bounds = stageBounds(stageId);
+                  if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
+                    shineSpikeKills++;
+                  }
+                }
+              }
+            }
+          }
+        }
       }
 
-      return { character: "Fox", waveshines, waveshineToUpsmash, upthrowUpairs, upthrowUpairKills, drillShines };
+      return { character: "Fox", waveshines, waveshineToUpsmash, upthrowUpairs, upthrowUpairKills, drillShines, shineSpikeKills };
     }
 
     case "Falco": {
@@ -1012,21 +1229,48 @@ function detectSignatureStats(
 
       for (const conv of myConversions) {
         const { moves } = conv;
-        // Tech chase: starts from dthrow or fthrow, 3+ total moves
-        if (moves.length >= 3 && (moves[0]!.moveId === MOVE_DTHROW || moves[0]!.moveId === MOVE_FTHROW)) {
-          techChases++;
-          if (conv.didKill) techChaseKills++;
-        }
+        if (moves.length === 0) continue;
         // Needle hits
         needleHits += countMoveId(moves, MOVE_NEUTRAL_B);
         // Fair chains: 3+ consecutive fairs
         if (maxConsecutive(moves, MOVE_FAIR) >= 3) fairChains++;
+
+        // Tech chase: conversion with a throw that has the opponent in tech/down state
+        const hasThrow = moves.some(m => m.moveId === MOVE_DTHROW || m.moveId === MOVE_FTHROW);
+        if (!hasThrow || moves.length < 2) continue;
+
+        const startFrame = conv.startFrame;
+        if (startFrame == null) continue;
+
+        let hasTechSituation = false;
+        const endF = conv.endFrame ?? startFrame + 300;
+        const victimIndex = conv.playerIndex;
+        for (let f = startFrame; f <= Math.min(endF, lastFrame); f++) {
+          const fd = frames[f];
+          if (!fd) continue;
+          const victimPost = fd.players[victimIndex]?.post;
+          if (!victimPost) continue;
+          const victimState = victimPost.actionStateId ?? 0;
+          if (
+            (victimState >= State.DOWN_START && victimState <= State.DOWN_END) ||
+            (victimState >= State.TECH_START && victimState <= State.TECH_END) ||
+            (victimState >= 195 && victimState <= 198)
+          ) {
+            hasTechSituation = true;
+            break;
+          }
+        }
+
+        if (hasTechSituation && moves.length >= 3) {
+          techChases++;
+          if (conv.didKill) techChaseKills++;
+        }
       }
 
       return { character: "Sheik", techChases, techChaseKills, needleHits, fairChains };
     }
 
-    case "Captain Falcon": {
+    case "Falcon": {
       let kneeKills = 0;
       let stompKnees = 0;
       let upthrowKnees = 0;
@@ -1043,18 +1287,72 @@ function detectSignatureStats(
         if (hasSequence(moves, MOVE_DAIR, MOVE_FAIR)) stompKnees++;
         // Upthrow → knee kill: starts with uthrow, ends with fair kill
         if (moves[0]!.moveId === MOVE_UTHROW && lastMove.moveId === MOVE_FAIR && conv.didKill) upthrowKnees++;
-        // Tech chase grabs: starts with grab, 3+ moves
-        if (moves[0]!.moveId === MOVE_GRAB && moves.length >= 3) techChaseGrabs++;
+        // Tech chase grabs: starts with grab and opponent was in tech/down state
+        if (moves[0]!.moveId !== MOVE_GRAB) continue;
+
+        const startFrame = conv.startFrame;
+        if (startFrame == null) continue;
+        const victimIndex = conv.playerIndex;
+
+        for (let f = startFrame - 10; f <= startFrame; f++) {
+          const fd = frames[f];
+          if (!fd) continue;
+          const victimPost = fd.players[victimIndex]?.post;
+          if (!victimPost) continue;
+          const victimState = victimPost.actionStateId ?? 0;
+          if (
+            (victimState >= State.DOWN_START && victimState <= State.DOWN_END) ||
+            (victimState >= State.TECH_START && victimState <= State.TECH_END) ||
+            (victimState >= 195 && victimState <= 198)
+          ) {
+            techChaseGrabs++;
+            break;
+          }
+        }
       }
 
-      return { character: "Captain Falcon", kneeKills, stompKnees, upthrowKnees, techChaseGrabs };
+      // Gentleman detection: jab1 → jab2 → jab3 without transitioning to rapid jab
+      let gentlemanCount = 0;
+      let jabSequence = 0; // 0=none, 1=jab1, 2=jab2, 3=jab3
+      let lastJabFrame = 0;
+
+      for (let f = Frames.FIRST_PLAYABLE; f <= lastFrame; f++) {
+        const frame = frames[f];
+        if (!frame) continue;
+        const pd = frame.players[playerIndex]?.post;
+        if (!pd) continue;
+        const actionState = pd.actionStateId ?? 0;
+
+        if (actionState === State.ATTACK_JAB1) {
+          jabSequence = 1;
+          lastJabFrame = f;
+        } else if (actionState === 45 && jabSequence === 1 && f - lastJabFrame < 30) {
+          jabSequence = 2;
+          lastJabFrame = f;
+        } else if (actionState === 46 && jabSequence === 2 && f - lastJabFrame < 30) {
+          jabSequence = 3;
+          lastJabFrame = f;
+        } else if (actionState === 47 && jabSequence === 3) {
+          // Went into rapid jab — not a gentleman
+          jabSequence = 0;
+        } else if (jabSequence === 3 && f - lastJabFrame > 20) {
+          // jab3 happened and no rapid jab followed — gentleman!
+          gentlemanCount++;
+          jabSequence = 0;
+        } else if (jabSequence > 0 && f - lastJabFrame > 40) {
+          jabSequence = 0;
+        }
+      }
+
+      return { character: "Falcon", kneeKills, stompKnees, upthrowKnees, techChaseGrabs, gentlemanCount };
     }
 
-    case "Jigglypuff": {
+    case "Puff": {
       let restKills = 0;
       let restAttempts = 0;
       let bairStrings = 0;
       let longestBairString = 0;
+      const restSetupMap = new Map<string, number>();
 
       for (const conv of myConversions) {
         const { moves } = conv;
@@ -1062,10 +1360,16 @@ function detectSignatureStats(
         const lastMove = moves[moves.length - 1]!;
 
         // Rest: down b in conversion
-        if (moves.some((m) => m.moveId === MOVE_SHINE)) {
-          // down b = 21 = MOVE_SHINE (same moveId)
+        if (moves.some((m) => m.moveId === MOVE_DOWN_B)) {
           restAttempts++;
-          if (lastMove.moveId === MOVE_SHINE && conv.didKill) restKills++;
+          if (lastMove.moveId === MOVE_DOWN_B && conv.didKill) restKills++;
+        }
+        // Rest setup: track what move preceded rest
+        for (let i = 0; i < moves.length; i++) {
+          if (moves[i]!.moveId === MOVE_DOWN_B && i > 0) {
+            const setupMove = moveIdToName[moves[i - 1]!.moveId] ?? getMoveName(moves[i - 1]!.moveId);
+            restSetupMap.set(setupMove, (restSetupMap.get(setupMove) ?? 0) + 1);
+          }
         }
         // Bair strings
         const maxBairs = maxConsecutive(moves, MOVE_BAIR);
@@ -1073,10 +1377,14 @@ function detectSignatureStats(
         if (maxBairs > longestBairString) longestBairString = maxBairs;
       }
 
-      return { character: "Jigglypuff", restKills, restAttempts, bairStrings, longestBairString };
+      const restSetups = [...restSetupMap.entries()]
+        .map(([move, count]) => ({ move, count }))
+        .sort((a, b) => b.count - a.count);
+
+      return { character: "Puff", restKills, restAttempts, bairStrings, longestBairString, restSetups };
     }
 
-    case "Ice Climbers": {
+    case "ICs": {
       let wobbles = 0;
       let wobbleKills = 0;
 
@@ -1089,14 +1397,75 @@ function detectSignatureStats(
         }
       }
 
-      return { character: "Ice Climbers", wobbles, wobbleKills, desyncs: 0 };
+      // Desync detection: Nana performing different attacks while Popo is in a different state
+      let desyncs = 0;
+      let inDesync = false;
+
+      for (let f = Frames.FIRST_PLAYABLE; f <= lastFrame; f++) {
+        const frame = frames[f];
+        if (!frame) continue;
+        const popo = frame.players[playerIndex]?.post;
+        const nana = frame.followers?.[playerIndex]?.post;
+        if (!popo || !nana) continue;
+        if ((nana.stocksRemaining ?? 0) <= 0) continue;
+
+        const popoState = popo.actionStateId ?? 0;
+        const nanaState = nana.actionStateId ?? 0;
+
+        const nanaAttacking =
+          (nanaState >= State.GROUND_ATTACK_START && nanaState <= State.GROUND_ATTACK_END) ||
+          (nanaState >= State.AERIAL_ATTACK_START && nanaState <= State.AERIAL_DAIR) ||
+          nanaState === State.GRAB || nanaState === State.DASH_GRAB;
+        const popoAttacking =
+          (popoState >= State.GROUND_ATTACK_START && popoState <= State.GROUND_ATTACK_END) ||
+          (popoState >= State.AERIAL_ATTACK_START && popoState <= State.AERIAL_DAIR) ||
+          popoState === State.GRAB || popoState === State.DASH_GRAB;
+
+        const isDesync = nanaAttacking && (!popoAttacking || Math.abs(popoState - nanaState) > 2);
+
+        if (isDesync && !inDesync) {
+          desyncs++;
+          inDesync = true;
+        } else if (!isDesync) {
+          inDesync = false;
+        }
+      }
+
+      // Sopo kills: kills while Nana is dead
+      let sopoKills = 0;
+      for (const conv of myConversions) {
+        if (!conv.didKill) continue;
+        const startFrame = conv.startFrame;
+        if (startFrame == null) continue;
+        const nana = frames[startFrame]?.followers?.[playerIndex]?.post;
+        if (!nana || (nana.stocksRemaining ?? 0) <= 0) {
+          sopoKills++;
+        }
+      }
+
+      // Nana deaths: count how many times Nana lost a stock
+      let nanaDeaths = 0;
+      let prevNanaStocks = 4;
+      for (let f = Frames.FIRST_PLAYABLE; f <= lastFrame; f++) {
+        const frame = frames[f];
+        if (!frame) continue;
+        const nana = frame.followers?.[playerIndex]?.post;
+        if (!nana) continue;
+        const nanaStocks = nana.stocksRemaining ?? prevNanaStocks;
+        if (nanaStocks < prevNanaStocks) {
+          nanaDeaths += prevNanaStocks - nanaStocks;
+        }
+        prevNanaStocks = nanaStocks;
+      }
+
+      return { character: "ICs", wobbles, wobbleKills, desyncs, sopoKills, nanaDeaths };
     }
 
     case "Marth": {
       const kenCombos = kenComboStats?.total ?? 0;
       const kenComboKills = kenComboStats?.kills ?? 0;
       let chainGrabs = 0;
-      let tipperKills = 0;
+      let fsmashKills = 0;
 
       for (const conv of myConversions) {
         const { moves } = conv;
@@ -1107,12 +1476,12 @@ function detectSignatureStats(
         const throwCount = moves.filter((m) => throwIds.includes(m.moveId)).length;
         if (throwCount >= 2) chainGrabs++;
 
-        // Tipper kills: fsmash kill (approximate — can't distinguish tipper from sourspot)
+        // Fsmash kills
         const lastMove = moves[moves.length - 1]!;
-        if (lastMove.moveId === MOVE_FSMASH && conv.didKill) tipperKills++;
+        if (lastMove.moveId === MOVE_FSMASH && conv.didKill) fsmashKills++;
       }
 
-      return { character: "Marth", kenCombos, kenComboKills, chainGrabs, tipperKills };
+      return { character: "Marth", kenCombos, kenComboKills, chainGrabs, fsmashKills };
     }
 
     case "Peach": {
@@ -1127,14 +1496,512 @@ function detectSignatureStats(
 
       const stitchFaces = turnipPullStats?.faces.find((f) => f.face === "stitch face")?.count ?? 0;
 
+      // Float cancel aerials: detect aerials performed while floating low to ground
+      // Float = airborne + near-zero Y velocity + low altitude + performing aerial
+      let floatCancelAerials = 0;
+      let wasFloatAerial = false;
+
+      for (let f = Frames.FIRST_PLAYABLE; f <= lastFrame; f++) {
+        const frame = frames[f];
+        if (!frame) continue;
+        const pd = frame.players[playerIndex]?.post;
+        if (!pd) continue;
+        const actionState = pd.actionStateId ?? 0;
+        const posY = pd.positionY ?? 0;
+        const isAirborne = pd.isAirborne === true;
+        const speeds = pd.selfInducedSpeeds;
+        const ySpeed = speeds?.y ?? 999;
+
+        // Aerial attack action states
+        const isAerial = actionState >= State.AERIAL_ATTACK_START && actionState <= State.AERIAL_DAIR;
+        // Floating near ground: airborne, low altitude, near-zero self-induced Y velocity
+        const isLowFloat = isAirborne && posY > 0 && posY < 15 && Math.abs(ySpeed) < 1.0;
+
+        if (isAerial && isLowFloat && !wasFloatAerial) {
+          floatCancelAerials++;
+          wasFloatAerial = true;
+        } else if (!isAerial) {
+          wasFloatAerial = false;
+        }
+      }
+
       return {
         character: "Peach",
         turnipPulls: turnipPullStats?.totalPulls ?? 0,
         turnipHits: turnipPullStats?.turnipsHit ?? 0,
         stitchFaces,
         dsmashKills,
-        floatCancelAerials: 0,
+        floatCancelAerials,
       };
+    }
+
+    case "Samus": {
+      let chargeShotKills = 0;
+      let upBKills = 0;
+      let dairKills = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_NEUTRAL_B && conv.didKill) chargeShotKills++;
+        if (lastMove.moveId === MOVE_UP_B && conv.didKill) upBKills++;
+        if (lastMove.moveId === MOVE_DAIR && conv.didKill) dairKills++;
+      }
+
+      const missileEntry = moveUsageMap.get("side b");
+      const missileCount = missileEntry?.count ?? 0;
+
+      return { character: "Samus", chargeShotKills, missileCount, upBKills, dairKills };
+    }
+
+    case "Pikachu": {
+      let thunderKills = 0;
+      let upSmashKills = 0;
+      let upairChains = 0;
+      let nairCombos = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_DOWN_B && conv.didKill) thunderKills++;
+        if (lastMove.moveId === MOVE_USMASH && conv.didKill) upSmashKills++;
+        if (maxConsecutive(moves, MOVE_UAIR) >= 3) upairChains++;
+        if (countMoveId(moves, MOVE_NAIR) >= 2) nairCombos++;
+      }
+
+      return { character: "Pikachu", thunderKills, upSmashKills, upairChains, nairCombos };
+    }
+
+    case "Luigi": {
+      let shoryukenKills = 0;
+      let dairKills = 0;
+      let downSmashKills = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_UP_B && conv.didKill) shoryukenKills++;
+        if (lastMove.moveId === MOVE_DAIR && conv.didKill) dairKills++;
+        if (lastMove.moveId === MOVE_DSMASH && conv.didKill) downSmashKills++;
+      }
+
+      const fireBallEntry = moveUsageMap.get("neutral b");
+      const fireBallCount = fireBallEntry?.count ?? 0;
+
+      return { character: "Luigi", shoryukenKills, dairKills, downSmashKills, fireBallCount };
+    }
+
+    case "Mario": {
+      let fsmashKills = 0;
+      let upSmashKills = 0;
+      let fairSpikeKills = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_FSMASH && conv.didKill) fsmashKills++;
+        if (lastMove.moveId === MOVE_USMASH && conv.didKill) upSmashKills++;
+        if (lastMove.moveId === MOVE_FAIR && conv.didKill) {
+          if (conv.endFrame != null) {
+            const victimIndex = conv.playerIndex;
+            const fd = frames[conv.endFrame];
+            if (fd) {
+              const victimPost = fd.players[victimIndex]?.post;
+              if (victimPost) {
+                const posX = victimPost.positionX ?? 0;
+                const posY = victimPost.positionY ?? 0;
+                const bounds = stageBounds(stageId);
+                if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
+                  fairSpikeKills++;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const capeEntry = moveUsageMap.get("side b");
+      const capeCount = capeEntry?.count ?? 0;
+      const marioFireBallEntry = moveUsageMap.get("neutral b");
+      const marioFireBallCount = marioFireBallEntry?.count ?? 0;
+
+      return { character: "Mario", capeCount, fireBallCount: marioFireBallCount, fsmashKills, upSmashKills, fairSpikeKills };
+    }
+
+    case "Doc": {
+      let fsmashKills = 0;
+      let upBKills = 0;
+      let dairKills = 0;
+      let fairSpikeKills = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_FSMASH && conv.didKill) fsmashKills++;
+        if (lastMove.moveId === MOVE_UP_B && conv.didKill) upBKills++;
+        if (lastMove.moveId === MOVE_DAIR && conv.didKill) dairKills++;
+        if (lastMove.moveId === MOVE_FAIR && conv.didKill) {
+          if (conv.endFrame != null) {
+            const victimIndex = conv.playerIndex;
+            const fd = frames[conv.endFrame];
+            if (fd) {
+              const victimPost = fd.players[victimIndex]?.post;
+              if (victimPost) {
+                const posX = victimPost.positionX ?? 0;
+                const posY = victimPost.positionY ?? 0;
+                const bounds = stageBounds(stageId);
+                if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
+                  fairSpikeKills++;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const pillEntry = moveUsageMap.get("neutral b");
+      const pillCount = pillEntry?.count ?? 0;
+
+      return { character: "Doc", pillCount, fsmashKills, upBKills, dairKills, fairSpikeKills };
+    }
+
+    case "Yoshi": {
+      let dairKills = 0;
+      let upSmashKills = 0;
+      let fairSpikeKills = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_DAIR && conv.didKill) dairKills++;
+        if (lastMove.moveId === MOVE_USMASH && conv.didKill) upSmashKills++;
+        if (lastMove.moveId === MOVE_FAIR && conv.didKill) {
+          if (conv.endFrame != null) {
+            const victimIndex = conv.playerIndex;
+            const fd = frames[conv.endFrame];
+            if (fd) {
+              const victimPost = fd.players[victimIndex]?.post;
+              if (victimPost) {
+                const posX = victimPost.positionX ?? 0;
+                const posY = victimPost.positionY ?? 0;
+                const bounds = stageBounds(stageId);
+                if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
+                  fairSpikeKills++;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const eggThrowEntry = moveUsageMap.get("neutral b");
+      const eggThrowCount = eggThrowEntry?.count ?? 0;
+
+      return { character: "Yoshi", eggThrowCount, dairKills, upSmashKills, fairSpikeKills };
+    }
+
+    case "Ganon": {
+      let stompKills = 0;
+      let warlocKickKills = 0;
+      let upTiltKills = 0;
+      let fairKills = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_DAIR && conv.didKill) stompKills++;
+        if (lastMove.moveId === MOVE_SIDE_B && conv.didKill) warlocKickKills++;
+        if (lastMove.moveId === MOVE_UTILT && conv.didKill) upTiltKills++;
+        if (lastMove.moveId === MOVE_FAIR && conv.didKill) fairKills++;
+      }
+
+      return { character: "Ganon", stompKills, warlocKickKills, upTiltKills, fairKills };
+    }
+
+    case "Link": {
+      let dairSpikeKills = 0;
+      let upSmashKills = 0;
+      let grabCombos = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_USMASH && conv.didKill) upSmashKills++;
+        if (lastMove.moveId === MOVE_DAIR && conv.didKill) {
+          if (conv.endFrame != null) {
+            const victimIndex = conv.playerIndex;
+            const fd = frames[conv.endFrame];
+            if (fd) {
+              const victimPost = fd.players[victimIndex]?.post;
+              if (victimPost) {
+                const posX = victimPost.positionX ?? 0;
+                const posY = victimPost.positionY ?? 0;
+                const bounds = stageBounds(stageId);
+                if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
+                  dairSpikeKills++;
+                }
+              }
+            }
+          }
+        }
+        // Grab combos: starts with grab, 3+ moves
+        if (moves[0]!.moveId === MOVE_GRAB && moves.length >= 3) grabCombos++;
+      }
+
+      const boomerangEntry = moveUsageMap.get("side b");
+      const boomerangCount = boomerangEntry?.count ?? 0;
+      const linkBombEntry = moveUsageMap.get("down b");
+      const linkBombCount = linkBombEntry?.count ?? 0;
+
+      return { character: "Link", boomerangCount, bombCount: linkBombCount, dairSpikeKills, upSmashKills, grabCombos };
+    }
+
+    case "YLink": {
+      let dairSpikeKills = 0;
+      let nairCombos = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_DAIR && conv.didKill) {
+          if (conv.endFrame != null) {
+            const victimIndex = conv.playerIndex;
+            const fd = frames[conv.endFrame];
+            if (fd) {
+              const victimPost = fd.players[victimIndex]?.post;
+              if (victimPost) {
+                const posX = victimPost.positionX ?? 0;
+                const posY = victimPost.positionY ?? 0;
+                const bounds = stageBounds(stageId);
+                if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
+                  dairSpikeKills++;
+                }
+              }
+            }
+          }
+        }
+        if (countMoveId(moves, MOVE_NAIR) >= 2) nairCombos++;
+      }
+
+      const fireArrowEntry = moveUsageMap.get("neutral b");
+      const fireArrowCount = fireArrowEntry?.count ?? 0;
+      const ylinkBombEntry = moveUsageMap.get("down b");
+      const ylinkBombCount = ylinkBombEntry?.count ?? 0;
+
+      return { character: "YLink", fireArrowCount, bombCount: ylinkBombCount, dairSpikeKills, nairCombos };
+    }
+
+    case "Zelda": {
+      let lightningKickKills = 0;
+      let upBKills = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if ((lastMove.moveId === MOVE_FAIR || lastMove.moveId === MOVE_BAIR) && conv.didKill) lightningKickKills++;
+        if (lastMove.moveId === MOVE_UP_B && conv.didKill) upBKills++;
+      }
+
+      const dinsFireEntry = moveUsageMap.get("side b");
+      const dinsFireCount = dinsFireEntry?.count ?? 0;
+
+      return { character: "Zelda", lightningKickKills, dinsFireCount, upBKills };
+    }
+
+    case "Roy": {
+      let fsmashKills = 0;
+      let blazerKills = 0;
+      let chainGrabs = 0;
+      let dtiltConversions = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_FSMASH && conv.didKill) fsmashKills++;
+        if (lastMove.moveId === MOVE_UP_B && conv.didKill) blazerKills++;
+
+        // Chain grabs: 2+ throws
+        const throwIds = [MOVE_FTHROW, MOVE_UTHROW, MOVE_DTHROW, MOVE_BTHROW];
+        const throwCount = moves.filter((m) => throwIds.includes(m.moveId)).length;
+        if (throwCount >= 2) chainGrabs++;
+
+        // Dtilt conversions: starts with dtilt, 2+ moves
+        if (moves[0]!.moveId === MOVE_DTILT && moves.length >= 2) dtiltConversions++;
+      }
+
+      const counterEntry = moveUsageMap.get("down b");
+      const counterCount = counterEntry?.count ?? 0;
+
+      return { character: "Roy", fsmashKills, blazerKills, counterCount, chainGrabs, dtiltConversions };
+    }
+
+    case "Mewtwo": {
+      let upThrowKills = 0;
+      let fairKills = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_FAIR && conv.didKill) fairKills++;
+        if (moves.some((m) => m.moveId === MOVE_UTHROW) && conv.didKill) upThrowKills++;
+      }
+
+      const shadowBallEntry = moveUsageMap.get("neutral b");
+      const shadowBallCount = shadowBallEntry?.count ?? 0;
+      const confusionEntry = moveUsageMap.get("side b");
+      const confusionCount = confusionEntry?.count ?? 0;
+
+      return { character: "Mewtwo", shadowBallCount, confusionCount, upThrowKills, fairKills };
+    }
+
+    case "G&W": {
+      let judgementKills = 0;
+      let upAirKills = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_SIDE_B && conv.didKill) judgementKills++;
+        if (lastMove.moveId === MOVE_UAIR && conv.didKill) upAirKills++;
+      }
+
+      const judgementEntry = moveUsageMap.get("side b");
+      const judgementCount = judgementEntry?.count ?? 0;
+      const baconEntry = moveUsageMap.get("neutral b");
+      const baconCount = baconEntry?.count ?? 0;
+
+      return { character: "G&W", judgementCount, judgementKills, upAirKills, baconCount };
+    }
+
+    case "Ness": {
+      let backThrowKills = 0;
+      let dairKills = 0;
+      let fairKills = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_DAIR && conv.didKill) dairKills++;
+        if (lastMove.moveId === MOVE_FAIR && conv.didKill) fairKills++;
+        if (moves.some((m) => m.moveId === MOVE_BTHROW) && conv.didKill) backThrowKills++;
+      }
+
+      const pkFireEntry = moveUsageMap.get("side b");
+      const pkFireCount = pkFireEntry?.count ?? 0;
+
+      return { character: "Ness", pkFireCount, backThrowKills, dairKills, fairKills };
+    }
+
+    case "Bowser": {
+      let upBKills = 0;
+      let fsmashKills = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_UP_B && conv.didKill) upBKills++;
+        if (lastMove.moveId === MOVE_FSMASH && conv.didKill) fsmashKills++;
+      }
+
+      const flameEntry = moveUsageMap.get("neutral b");
+      const flameCount = flameEntry?.count ?? 0;
+      const koopaClawEntry = moveUsageMap.get("side b");
+      const koopaClaw = koopaClawEntry?.count ?? 0;
+
+      return { character: "Bowser", flameCount, koopaClaw, upBKills, fsmashKills };
+    }
+
+    case "Kirby": {
+      let upTiltKills = 0;
+      let fsmashKills = 0;
+      let dairCombos = 0;
+      let stoneKills = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_UTILT && conv.didKill) upTiltKills++;
+        if (lastMove.moveId === MOVE_FSMASH && conv.didKill) fsmashKills++;
+        if (lastMove.moveId === MOVE_DOWN_B && conv.didKill) stoneKills++;
+        if (maxConsecutive(moves, MOVE_DAIR) >= 3) dairCombos++;
+      }
+
+      const inhaleEntry = moveUsageMap.get("neutral b");
+      const inhaleCount = inhaleEntry?.count ?? 0;
+
+      return { character: "Kirby", inhaleCount, upTiltKills, fsmashKills, dairCombos, stoneKills };
+    }
+
+    case "DK": {
+      let giantPunchKills = 0;
+      let spikeKills = 0;
+      let bairKills = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_NEUTRAL_B && conv.didKill) giantPunchKills++;
+        if (lastMove.moveId === MOVE_BAIR && conv.didKill) bairKills++;
+        if (lastMove.moveId === MOVE_FAIR && conv.didKill) {
+          if (conv.endFrame != null) {
+            const victimIndex = conv.playerIndex;
+            const fd = frames[conv.endFrame];
+            if (fd) {
+              const victimPost = fd.players[victimIndex]?.post;
+              if (victimPost) {
+                const posX = victimPost.positionX ?? 0;
+                const posY = victimPost.positionY ?? 0;
+                const bounds = stageBounds(stageId);
+                if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
+                  spikeKills++;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const headbuttEntry = moveUsageMap.get("side b");
+      const headbuttCount = headbuttEntry?.count ?? 0;
+
+      return { character: "DK", giantPunchKills, headbuttCount, spikeKills, bairKills };
+    }
+
+    case "Pichu": {
+      let thunderKills = 0;
+      let upSmashKills = 0;
+      let nairCombos = 0;
+
+      for (const conv of myConversions) {
+        const { moves } = conv;
+        if (moves.length === 0) continue;
+        const lastMove = moves[moves.length - 1]!;
+        if (lastMove.moveId === MOVE_DOWN_B && conv.didKill) thunderKills++;
+        if (lastMove.moveId === MOVE_USMASH && conv.didKill) upSmashKills++;
+        if (countMoveId(moves, MOVE_NAIR) >= 2) nairCombos++;
+      }
+
+      const thunderJoltEntry = moveUsageMap.get("neutral b");
+      const thunderJoltCount = thunderJoltEntry?.count ?? 0;
+
+      return { character: "Pichu", thunderJoltCount, thunderKills, upSmashKills, nairCombos };
     }
 
     default:
@@ -1650,6 +2517,53 @@ For a multi-game SET, also provide:
    that makes a player go "oh shit, you're right." Don't repeat anything from
    the sections above. This is your unique insight.
 
+CHARACTER-SPECIFIC SIGNATURE STATS:
+
+The data includes a "signatureStats" field on each player with character-specific
+metrics. Use these to evaluate how well the player is executing their character's
+core techniques. Key stats by character:
+
+Fox: waveshines (multi-shine combos), waveshineToUpsmash, upthrowUpairs/Kills,
+  drillShines, shineSpikeKills. High waveshines + upthrowUpairKills = strong Fox
+  punish. Low drillShines may indicate poor approach variety.
+
+Falco: pillarCombos/Kills (dair→shine→dair), shineGrabs, laserCount. Pillars
+  are Falco's bread and butter — low count means punish game needs work. High
+  laser count with low neutral wins may indicate over-reliance on lasers.
+
+Marth: kenCombos/Kills (fair→dair), chainGrabs, fsmashKills. Ken combos show
+  edgeguard quality. Chain grabs show punish optimization. Fsmash kills indicate
+  spacing ability.
+
+Sheik: techChases/Kills, needleHits, fairChains. Tech chases are Sheik's core
+  punish — low count means they're not capitalizing off downthrow. Fair chains
+  show combo extension ability.
+
+Falcon: kneeKills, stompKnees (dair→fair), upthrowKnees, techChaseGrabs,
+  gentlemanCount. Knee kills show kill setup ability. Tech chase grabs show
+  reaction tech chasing. Gentlemen show execution precision.
+
+Puff: restKills, restAttempts, bairStrings, longestBairString. Rest kill rate
+  (kills/attempts) shows rest setup quality. Bair strings show wall-of-pain
+  execution and spacing.
+
+ICs: wobbles/wobbleKills, desyncs, sopoKills, nanaDeaths. Wobble rate shows grab
+  punish. Desyncs show advanced ICs tech. High nanaDeaths means they need to
+  protect Nana better. Sopo kills show ability to close stocks alone.
+
+Peach: turnipPulls, turnipHits, stitchFaces, dsmashKills, floatCancelAerials.
+  Float cancel aerials show Peach-specific tech. Turnip hit rate shows neutral
+  tool usage. Dsmash kills show defensive kill setups.
+
+Other characters also have signature stats relevant to their kit (e.g., Pikachu
+thunder kills, Ganon stomp kills, Samus charge shot kills, etc.). When present,
+reference these stats to show the player how effectively they're using their
+character's key tools.
+
+Also included: "turnipPulls" (Peach-only) has turnip face breakdown and hit
+rates. "kenCombos" (Marth-only) has individual combo details. Use these for
+specific coaching about the player's item game or edgeguard setups.
+
 WHAT NOT TO DO:
 - Don't recite stats back without interpretation. The player can see the
   numbers — you need to explain what they MEAN.
@@ -1879,6 +2793,24 @@ export function computeAdaptationSignals(
 
 // ── Prompt assembly ───────────────────────────────────────────────────
 
+/** Strip null/undefined values and empty arrays from an object for cleaner LLM input */
+function stripNulls(obj: unknown): unknown {
+  if (obj === null || obj === undefined) return undefined;
+  if (Array.isArray(obj)) {
+    const filtered = obj.map(stripNulls).filter((v) => v !== undefined);
+    return filtered.length > 0 ? filtered : undefined;
+  }
+  if (typeof obj === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
+      const stripped = stripNulls(val);
+      if (stripped !== undefined) result[key] = stripped;
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  }
+  return obj;
+}
+
 export function assembleUserPrompt(
   gameResults: GameResult[],
   targetPlayerTag: string,
@@ -1911,13 +2843,13 @@ export function assembleUserPrompt(
       `Result: ${r.winner} wins (${r.finalStocks[0]}-${r.finalStocks[1]} stocks, ${r.finalPercents[0]}%-${r.finalPercents[1]}%)`,
       "",
       `--- ${gp1.tag} (${gp1.character}) ---`,
-      JSON.stringify(gp1, null, 2),
+      JSON.stringify(stripNulls(gp1), null, 2),
       "",
       `--- ${gp2.tag} (${gp2.character}) ---`,
-      JSON.stringify(gp2, null, 2),
+      JSON.stringify(stripNulls(gp2), null, 2),
       "",
       `--- Derived Insights ---`,
-      JSON.stringify(insightsObj, null, 2),
+      JSON.stringify(stripNulls(insightsObj), null, 2),
     );
   }
 

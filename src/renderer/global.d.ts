@@ -11,6 +11,7 @@ declare global {
       analyzeTrends: (trendSummary: string) => Promise<string>;
       getLLMModels: () => Promise<any[]>;
       getCurrentModel: () => Promise<{ modelId: string; label: string }>;
+      fetchOpenRouterModels: () => Promise<any[]>;
       getOverallRecord: () => Promise<any>;
       getMatchupRecords: () => Promise<any[]>;
       getStageRecords: () => Promise<any[]>;
@@ -23,6 +24,7 @@ declare global {
       getCharacterMatchups: (character: string) => Promise<any[]>;
       getCharacterStageStats: (character: string) => Promise<any[]>;
       getCharacterSignatureStats: (character: string) => Promise<any>;
+      getCharacterGameStats: (character: string) => Promise<any[]>;
       startWatcher: (replayFolder: string, targetPlayer: string) => Promise<boolean>;
       stopWatcher: () => Promise<boolean>;
       onImported: (callback: (result: any) => void) => () => void;

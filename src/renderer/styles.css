@@ -54,7 +54,7 @@ body {
 }
 
 .sidebar {
-  width: 240px;
+  width: 210px;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   display: flex;
@@ -66,7 +66,7 @@ body {
 }
 
 .sidebar-brand {
-  padding: 20px 18px 12px;
+  padding: 24px 18px 18px;
   -webkit-app-region: drag;
   border-bottom: 1px solid var(--border);
 }
@@ -78,8 +78,8 @@ body {
 }
 
 .sidebar-logo-icon {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
 }
 
@@ -89,9 +89,9 @@ body {
 }
 
 .sidebar-brand-name {
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: -0.3px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
   color: var(--sidebar-accent);
   transition: color 0.3s ease;
   line-height: 1.1;
@@ -109,8 +109,8 @@ body {
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 16px 12px;
+  gap: 6px;
+  padding: 20px 12px;
   flex: 1;
   -webkit-app-region: no-drag;
 }
@@ -124,10 +124,11 @@ body {
   cursor: pointer;
   color: var(--text-dim);
   text-decoration: none;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
-  transition: background 0.15s, color 0.15s;
-  border: none;
+  letter-spacing: 0.1px;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  border: 1px solid transparent;
   background: none;
   width: 100%;
   text-align: left;
@@ -136,16 +137,20 @@ body {
 .nav-item:hover {
   background: var(--bg-hover);
   color: var(--text);
+  border-color: var(--border);
+  box-shadow: 0 0 12px var(--accent-glow), inset 0 0 8px rgba(255,255,255,0.02);
 }
 
 .nav-item.active {
   background: var(--accent-glow);
   color: var(--accent);
   font-weight: 600;
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 16px var(--accent-glow), 0 0 4px var(--accent-glow);
 }
 
 .nav-icon {
-  width: 20px;
+  width: 18px;
   height: 18px;
   display: flex;
   align-items: center;
@@ -931,6 +936,30 @@ body {
   color: var(--text-dim);
 }
 
+/* ── Model select dropdown ────────────────────────────────────────── */
+
+.model-select {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6;
+  border: 1px solid var(--border);
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.model-select option {
+  background: #1a1a2e;
+  color: #e0e0e0;
+}
+
+.model-select optgroup {
+  background: #12121f;
+  color: #a0a0b8;
+  font-weight: 600;
+}
+
 /* ── Characters page ─────────────────────────────────────────────── */
 
 .char-grid {
@@ -1002,46 +1031,126 @@ body {
   margin-top: 8px;
 }
 
-.char-hero {
+/* Back button */
+.char-back-btn {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  transition: color 0.2s, background 0.2s;
+}
+.char-back-btn:hover {
+  color: var(--text);
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 24px 28px;
-  margin-bottom: 16px;
-  border-left: 4px solid var(--char-color, var(--accent));
 }
 
-.char-hero-icon {
-  font-size: 56px;
-  line-height: 1;
+/* Detail layout */
+.char-detail-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+/* Left panel - character hero card */
+.char-detail-left {
+  width: 38%;
+  min-width: 300px;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
 }
 
-.char-hero-name {
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  margin: 0 0 4px;
+/* Right panel - scrollable stats */
+.char-detail-right {
+  flex: 1;
+  min-width: 0;
 }
 
-.char-hero-record {
+/* Hero card in detail view - 16:9 */
+.char-hero-card {
+  aspect-ratio: 16 / 9;
+  background: var(--bg-card);
+  border: 2px solid var(--char-color, var(--border));
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 0 30px var(--char-glow, transparent);
+}
+
+.char-hero-card-emoji {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.char-hero-card-name {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--char-color, var(--text));
+}
+
+.char-hero-card-record {
+  font-size: 16px;
+  font-family: var(--font-mono, monospace);
+}
+
+.char-hero-card-meta {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* Baseline stats grid inside hero card */
+.char-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 16px;
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.char-hero-stat {
+  text-align: center;
+}
+
+.char-hero-stat-value {
   font-size: 16px;
   font-weight: 600;
-  font-family: var(--font-mono);
+  font-family: var(--font-mono, monospace);
+  color: var(--text);
 }
 
-.char-hero-games {
-  color: var(--text-dim);
-  font-weight: 400;
-}
-
-.char-hero-last {
+.char-hero-stat-label {
   font-size: 11px;
   color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Small baseline stats on grid cards */
+.char-card-baseline {
+  display: flex;
+  gap: 8px;
   margin-top: 4px;
+  justify-content: center;
+}
+
+.char-card-baseline-stat {
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-dim);
 }
 
 /* Signature stats */

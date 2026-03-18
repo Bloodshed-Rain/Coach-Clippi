@@ -25,6 +25,7 @@ const api = {
   // LLM
   getLLMModels: () => ipcRenderer.invoke("llm:models"),
   getCurrentModel: () => ipcRenderer.invoke("llm:currentModel"),
+  fetchOpenRouterModels: () => ipcRenderer.invoke("openrouter:models"),
 
   // Stats
   getOverallRecord: () => ipcRenderer.invoke("stats:overall"),
@@ -39,6 +40,7 @@ const api = {
   getCharacterMatchups: (character: string) => ipcRenderer.invoke("stats:characterMatchups", character),
   getCharacterStageStats: (character: string) => ipcRenderer.invoke("stats:characterStages", character),
   getCharacterSignatureStats: (character: string) => ipcRenderer.invoke("stats:characterSignature", character),
+  getCharacterGameStats: (character: string) => ipcRenderer.invoke("stats:characterGameStats", character),
 
   // File watcher
   startWatcher: (replayFolder: string, targetPlayer: string) =>

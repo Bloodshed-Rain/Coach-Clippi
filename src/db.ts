@@ -769,4 +769,31 @@ export function getCharacterSignatureAggregates(character: string): any {
   return rows.map(r => JSON.parse(r.signature_json));
 }
 
+// ── Per-character game stats (for radar chart) ──────────────────────
+
+export interface CharacterGameStat {
+  neutralWinRate: number;
+  lCancelRate: number;
+  openingsPerKill: number;
+  avgDamagePerOpening: number;
+  conversionRate: number;
+  avgDeathPercent: number;
+}
+
+export function getCharacterGameStats(character: string): CharacterGameStat[] {
+  return getDb().prepare(`
+    SELECT
+      gs.neutral_win_rate as neutralWinRate,
+      gs.l_cancel_rate as lCancelRate,
+      gs.openings_per_kill as openingsPerKill,
+      gs.avg_damage_per_opening as avgDamagePerOpening,
+      gs.conversion_rate as conversionRate,
+      gs.avg_death_percent as avgDeathPercent
+    FROM games g
+    JOIN game_stats gs ON gs.game_id = g.id
+    WHERE g.player_character = ?
+    ORDER BY g.played_at DESC
+  `).all(character) as CharacterGameStat[];
+}
+
 export { DB_PATH, DATA_DIR };

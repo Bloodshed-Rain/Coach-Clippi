@@ -167,6 +167,9 @@ key.env
 # Native module rebuilds
 build/
 
+# Screenshots
+screenshots/
+
 # OS files
 .DS_Store
 Thumbs.db

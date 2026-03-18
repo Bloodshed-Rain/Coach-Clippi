@@ -33,6 +33,7 @@ import {
   insertCoachingAnalysis, clearAllGames,
   getCharacterList, getCharacterMatchups,
   getCharacterStageStats, getCharacterSignatureAggregates,
+  getCharacterGameStats,
 } from "../db";
 import { importReplays, importAndAnalyze } from "../importer";
 import { watchReplays } from "../watcher";
@@ -252,6 +253,14 @@ Open with a quick vibe check on their overall trajectory, then hit the highlight
     return analysis;
   });
 
+  // Fetch OpenRouter models from main process (renderer is blocked by CSP)
+  ipcMain.handle("openrouter:models", async () => {
+    const res = await fetch("https://openrouter.ai/api/v1/models");
+    if (!res.ok) throw new Error(`OpenRouter API ${res.status}`);
+    const json = await res.json() as { data: any[] };
+    return json.data;
+  });
+
   // LLM models list — for the Settings UI
   ipcMain.handle("llm:models", () => MODELS);
   ipcMain.handle("llm:currentModel", () => {
@@ -278,6 +287,7 @@ Open with a quick vibe check on their overall trajectory, then hit the highlight
   ipcMain.handle("stats:characterMatchups", (_e, character: string) => getCharacterMatchups(character));
   ipcMain.handle("stats:characterStages", (_e, character: string) => getCharacterStageStats(character));
   ipcMain.handle("stats:characterSignature", (_e, character: string) => getCharacterSignatureAggregates(character));
+  ipcMain.handle("stats:characterGameStats", (_e, character: string) => getCharacterGameStats(character));
   ipcMain.handle("data:clearAll", () => {
     clearAllGames();
     return true;
