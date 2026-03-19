@@ -4,10 +4,9 @@ AI-powered Melee coaching from your Slippi replays.
 
 Import your `.slp` files, get personalized coaching analysis from an LLM, track your stats over time, and spot trends across sessions. No other tool in the Melee ecosystem does this.
 
-
-
 ---[Screencast_20260319_190122.webm](https://github.com/user-attachments/assets/e41e7616-ed56-41b9-aa28-3ef38f0d0d97)
 
+---
 
 ## What it does
 
@@ -17,7 +16,7 @@ Import your `.slp` files, get personalized coaching analysis from an LLM, track 
 
 **Know your matchups.** Win/loss records by character, by stage, by opponent. Search your history against any player. Auto-detected sets with scores.
 
-**Make it yours.** 26 character-themed UI skins, each based on the character's actual default costume palette. Ganondorf's theme is dark and heavy. Jigglypuff's is light and pink. Fox is warm tawny and red. Every theme has distinct title, label, and body text colors.
+**Character-specific stats.** Fox waveshine combos, Falco pillar counts, Marth Ken combos, Sheik tech chases, Falcon knee kills, Puff rest stats, Peach turnip tracking — signature stats for 20+ characters, aggregated across all your games.
 
 ## Features
 
@@ -26,16 +25,16 @@ Import your `.slp` files, get personalized coaching analysis from an LLM, track 
 - **Trend charts** — 5-game rolling averages for every tracked stat with visual line graphs
 - **MAGI trend commentary** — AI personality that reacts to your trajectory with blunt, witty feedback
 - **Player radar chart** — six-axis archetype visualization (Neutral, Punish, Tech Skill, Defense, Aggression, Consistency)
+- **Character pages** — per-character stats, radar charts, signature stats, matchup and stage records with character card art
 - **Set detection** — auto-groups games against the same opponent within 15 minutes
 - **Opponent history** — searchable by tag or connect code, shows record/characters/last played
 - **Matchup & stage records** — win rate bars for every character and stage you've played
 - **Replay deduplication** — SHA-256 hash on import, never imports the same file twice
 - **Analysis caching** — coaching results stored in the database, clicking the same game twice costs $0
-- **Character-specific stats** — Peach turnip pull tracking (face breakdown, rare items, hit rate) and Marth Ken combo detection (fair(s) → dair spike sequences)
-- **Multi-LLM provider** — OpenRouter (full model catalog with live pricing), Gemini direct, Anthropic direct, OpenAI direct, or local models via Ollama/LM Studio
-- **Rate-limited API queue** — LLM calls processed one at a time with delays, prevents 429 errors on batch imports
+- **Multi-LLM provider** — OpenRouter (full model catalog), Gemini direct, Anthropic direct, OpenAI direct, or local models via Ollama/LM Studio
+- **Rate-limited API queue** — LLM calls processed one at a time with backoff, handles 429 rate limits gracefully
 - **File watcher** — point at your Slippi replay folder, auto-imports new games as you play
-- **Light/dark mode** — available on every theme
+- **Light/dark mode** — clean toggle in the sidebar
 - **Local-first** — your data stays on your machine, no account needed, no server
 
 ## Tech Stack
@@ -86,23 +85,11 @@ npm run dev
 The analysis pipeline also works from the command line:
 
 ```bash
-# One-time setup
-npx tsx src/setup.ts --tag YourTag --folder /path/to/replays --openrouter-key sk-or-...
-
-# Import replays
-npx tsx src/import-cli.ts
-
-# Import + get AI coaching
-npx tsx src/import-cli.ts --analyze
-
-# View stats
-npx tsx src/stats.ts
-
-# View opponent history
-npx tsx src/stats.ts opponents SomePlayer
+# Analyze a single replay
+npx tsx src/pipeline.ts path/to/game.slp --target YourTag
 
 # Watch for new replays
-npx tsx src/watcher.ts
+npx tsx src/watcher.ts /path/to/replays --target YourTag
 ```
 
 ## Architecture
@@ -113,9 +100,9 @@ npx tsx src/watcher.ts
     v
 [slippi-js parser] --> GameSummary + DerivedInsights (JSON)
     |
-    +---> [SQLite] --> persistent stats, trends, opponent history
+    +--> [SQLite] --> persistent stats, trends, opponent history
     |
-    +---> [LLM Queue] --> rate-limited API calls (OpenRouter/Gemini/Claude/OpenAI/local)
+    +--> [LLM Queue] --> rate-limited API calls (OpenRouter/Gemini/Claude/OpenAI/local)
               |
               v
           [Coaching Analysis] --> cached in DB, rendered as markdown
@@ -123,24 +110,25 @@ npx tsx src/watcher.ts
 
 Key modules:
 - `src/pipeline.ts` — data pipeline: slippi-js parsing, stat computation, habit detection, character-specific stats, prompt assembly
-- `src/llm.ts` — multi-provider LLM abstraction (OpenRouter, Gemini, Anthropic, OpenAI, local)
+- `src/llm.ts` — multi-provider LLM abstraction with retry, rate-limit handling, and fetch timeout
 - `src/db.ts` — SQLite schema, queries, trend/matchup/opponent/set detection
 - `src/replayAnalyzer.ts` — deduplicated analysis flow with caching
 - `src/llmQueue.ts` — rate-limited queue for LLM API calls
-- `src/importer.ts` — batch import with SHA-256 dedup
+- `src/importer.ts` — batch import with SHA-256 dedup and per-file error recovery
 - `src/watcher.ts` — chokidar file watcher for auto-import
 - `src/main/index.ts` — Electron main process, IPC handlers
 - `src/renderer/` — React frontend (pages, components, themes)
 
 ## Cost
 
-Im not charging any money at this point, but in the future when/if enough people use it to warrant it I will implement some type of way to make the money back for the API Calls. But local LLM models/BYOK will also be supported.
+Not charging anything at this point. If enough people use it to warrant it, I'll implement something to cover API costs. Local LLM models and BYOK will always be supported.
 
 ## Roadmap
 
 - [x] Multi-provider LLM support (OpenRouter, Claude, GPT-4o, Gemini, local)
 - [x] Local model support (Ollama / LM Studio)
-- [x] Character-specific stats (Peach turnip tracking, Marth Ken combos)
+- [x] Character-specific signature stats (20+ characters)
+- [x] Character card art and per-character detail pages
 - [ ] Worker thread parsing for non-blocking bulk imports
 - [ ] Dolphin HUD mode (wrap around the emulator window)
 - [ ] Practice plan tracking with progress indicators
