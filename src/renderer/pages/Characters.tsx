@@ -1,6 +1,29 @@
 import { useEffect, useState, useCallback } from "react";
 import { PlayerRadar } from "../components/RadarChart";
 
+// Character card art imports (MAGI-branded cards)
+import foxCard from "../assets/characters/fox.jpg";
+import falcoCard from "../assets/characters/falco.jpg";
+import marthCard from "../assets/characters/marth.jpg";
+import sheikCard from "../assets/characters/sheik.jpg";
+import falconCard from "../assets/characters/falcon.jpg";
+import peachCard from "../assets/characters/peach.jpg";
+import puffCard from "../assets/characters/puff.jpg";
+import samusCard from "../assets/characters/samus.jpg";
+import pikachuCard from "../assets/characters/pikachu.jpg";
+
+const CHARACTER_CARDS: Record<string, string> = {
+  Fox: foxCard,
+  Falco: falcoCard,
+  Marth: marthCard,
+  Sheik: sheikCard,
+  Falcon: falconCard,
+  Peach: peachCard,
+  Puff: puffCard,
+  Samus: samusCard,
+  Pikachu: pikachuCard,
+};
+
 // ── Types ────────────────────────────────────────────────────────────
 
 interface CharacterOverview {
@@ -426,6 +449,24 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
           {characters.map((c) => {
             const cm = getMeta(c.character);
             const wr = (c.winRate * 100).toFixed(0);
+            const cardImg = CHARACTER_CARDS[c.character];
+
+            if (cardImg) {
+              return (
+                <button
+                  key={c.character}
+                  className="char-card char-card-art"
+                  onClick={() => setSelected(c.character)}
+                  style={{
+                    "--char-color": cm.color,
+                    "--char-glow": cm.glowColor,
+                  } as React.CSSProperties}
+                >
+                  <img src={cardImg} alt={c.character} className="char-card-art-img" />
+                </button>
+              );
+            }
+
             return (
               <button
                 key={c.character}

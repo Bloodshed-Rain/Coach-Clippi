@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-const DATA_DIR = path.join(require("os").homedir(), ".coach-clippi");
+const DATA_DIR = path.join(require("os").homedir(), ".magi-melee");
 const CONFIG_PATH = path.join(DATA_DIR, "config.json");
 
 export interface Config {

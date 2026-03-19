@@ -5,8 +5,8 @@ import fs from "fs";
 
 // ── Database path ────────────────────────────────────────────────────
 
-const DATA_DIR = path.join(os.homedir(), ".coach-clippi");
-const DB_PATH = path.join(DATA_DIR, "coach-clippi.db");
+const DATA_DIR = path.join(os.homedir(), ".magi-melee");
+const DB_PATH = path.join(DATA_DIR, "magi.db");
 
 function ensureDataDir(): void {
   if (!fs.existsSync(DATA_DIR)) {

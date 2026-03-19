@@ -2437,7 +2437,7 @@ export function processGame(filePath: string, gameNumber: number): {
 
 // ── System prompt ─────────────────────────────────────────────────────
 
-export const SYSTEM_PROMPT = `You are Coach-Clippi, an expert Super Smash Bros. Melee analyst and coach.
+export const SYSTEM_PROMPT = `You are MAGI (Melee Analysis through Generative Intelligence), an expert Super Smash Bros. Melee analyst and coach.
 You analyze competitive Melee replay data and provide specific, actionable
 coaching feedback.
 

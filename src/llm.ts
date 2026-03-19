@@ -213,8 +213,8 @@ async function callOpenRouter(
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/coach-clippi",
-        "X-Title": "Coach-Clippi",
+        "HTTP-Referer": "https://github.com/Bloodshed-Rain/MAGI",
+        "X-Title": "MAGI",
       },
       body,
     });

@@ -73,8 +73,8 @@ export function App() {
               </svg>
             </div>
             <div>
-              <div className="sidebar-brand-name">Coach-Clippi</div>
-              <div className="sidebar-brand-sub">Melee Coach</div>
+              <div className="sidebar-brand-name">MAGI</div>
+              <div className="sidebar-brand-sub">Melee Analysis through Generative Intelligence</div>
             </div>
           </div>
         </div>

@@ -24,7 +24,7 @@ export interface Theme {
   defaultMode: "dark" | "light";
 }
 
-// Coach-Clippi brand colors from coachclippi.com
+// MAGI brand colors
 // Accent green: #73f0a0 / #44d080 / #21BA45
 
 export const THEMES: Record<string, Theme> = {

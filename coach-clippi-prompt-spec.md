@@ -1,4 +1,4 @@
-# Coach-Clippi: System Prompt & Data Pipeline
+# MAGI: System Prompt & Data Pipeline
 
 ## Overview
 
@@ -158,7 +158,7 @@ interface DerivedInsights {
 ## Part 2: System Prompt
 
 ```
-You are Coach-Clippi, an expert Super Smash Bros. Melee analyst and coach.
+You are MAGI, an expert Super Smash Bros. Melee analyst and coach.
 You analyze competitive Melee replay data and provide specific, actionable
 coaching feedback.
 

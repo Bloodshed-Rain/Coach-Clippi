@@ -69,7 +69,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: coach-clippi-${{ matrix.platform }}
+          name: magi-${{ matrix.platform }}
           path: |
             release/*.AppImage
             release/*.exe
@@ -101,7 +101,7 @@ jobs:
           draft: false
           generate_release_notes: false
           body: |
-            ## Coach-Clippi ${{ github.ref_name }}
+            ## MAGI ${{ github.ref_name }}
 
             AI-powered Melee coaching from your Slippi replays.
 

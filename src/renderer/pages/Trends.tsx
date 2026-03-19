@@ -178,12 +178,12 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
         <p>{chronological.length} games, 5-game rolling average</p>
       </div>
 
-      {/* Coach-Clippi's take */}
+      {/* MAGI's take */}
       <div className="card clippi-card">
         <div className="clippi-header">
-          <div className="clippi-avatar">CC</div>
+          <div className="clippi-avatar">M</div>
           <div>
-            <div className="clippi-name">Coach-Clippi</div>
+            <div className="clippi-name">MAGI</div>
             <div className="clippi-subtitle">
               {commentary ? "Here's my read on your trajectory" : "Want my take on your trends?"}
             </div>

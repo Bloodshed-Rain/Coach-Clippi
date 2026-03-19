@@ -1,14 +1,14 @@
-# Coach-Clippi: Product Spec
+# MAGI: Product Spec
 
 ## Vision
 
-Coach-Clippi is a cross-platform desktop app that turns Slippi replay data into
+MAGI is a cross-platform desktop app that turns Slippi replay data into
 personalized AI coaching — and tracks your improvement over time. It's the tool
 that sits next to your Slippi setup, watches your games, tells you what to fix,
 and shows you whether you're actually fixing it.
 
 No other tool does this. Existing Melee stats tools show you numbers. Human
-coaches cost $20-60/hr and can't watch every set. Coach-Clippi gives you a
+coaches cost $20-60/hr and can't watch every set. MAGI gives you a
 coach that's always on, remembers everything, and costs pennies per analysis.
 
 ---
@@ -98,7 +98,7 @@ When enough data accumulates, the LLM can reference your historical trends:
 
 ### 4. Replay Folder Watching (Auto-Import)
 
-Point Coach-Clippi at your Slippi replay folder. It watches for new .slp files,
+Point MAGI at your Slippi replay folder. It watches for new .slp files,
 auto-imports them, and optionally runs analysis immediately.
 
 - Configurable: auto-analyze on import, or batch-analyze later
@@ -106,7 +106,7 @@ auto-imports them, and optionally runs analysis immediately.
   each other = same session)
 - Detects sets (same opponent, sequential games) automatically
 
-This is the "seamless" UX — you just play, and Coach-Clippi does its thing
+This is the "seamless" UX — you just play, and MAGI does its thing
 in the background.
 
 ---
@@ -316,11 +316,11 @@ practice_plans (
 - Claude Sonnet / GPT-4o: ~$0.10-0.20 (premium option)
 - Local models (Ollama/LM Studio): free, offline, lower quality (Phase 3/4)
 
-**User pays for their own API usage.** No Coach-Clippi server, no subscription.
+**User pays for their own API usage.** No MAGI server, no subscription.
 Users bring their own API key. This keeps the app free and avoids the need for
 a backend service.
 
-**Future option:** Offer a hosted mode where users pay Coach-Clippi directly
+**Future option:** Offer a hosted mode where users pay MAGI directly
 (small markup on API costs) so non-technical users don't need to get API keys.
 
 ---
@@ -329,7 +329,7 @@ a backend service.
 
 1. **No competition.** Zero tools do LLM coaching from replay data today.
 2. **Longitudinal tracking.** The more you use it, the more valuable it gets.
-   Stats tools show you one game. Coach-Clippi shows you your trajectory.
+   Stats tools show you one game. MAGI shows you your trajectory.
 3. **Actionable output.** Not just numbers — specific drills, habit callouts,
    trend alerts. Things you can act on in your next session.
 4. **Local-first.** No account, no server, no subscription. Your data stays

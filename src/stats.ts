@@ -25,7 +25,7 @@ function printOverview(): void {
 
   const winRate = total > 0 ? ((record.wins / total) * 100).toFixed(1) : "0.0";
 
-  console.log("=== Coach-Clippi Stats ===\n");
+  console.log("=== MAGI Stats ===\n");
   console.log(`Total games: ${total}`);
   console.log(`Record: ${record.wins}W - ${record.losses}L (${winRate}%)\n`);
 }

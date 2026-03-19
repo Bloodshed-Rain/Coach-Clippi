@@ -125,7 +125,7 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
                   {isAnalyzing && (
                     <div className="analyze-loading">
                       <div className="spinner" />
-                      <span>Coach-Clippi is reviewing this game...</span>
+                      <span>MAGI is analyzing this game...</span>
                     </div>
                   )}
                   {analyzeError && expandedGame === game.id && !cached && (

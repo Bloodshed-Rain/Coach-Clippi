@@ -1,15 +1,40 @@
-# Coach-Clippi
+# MAGI — Melee Analysis through Generative Intelligence
 
 AI-powered Melee coaching from your Slippi replays.
 
 Import your `.slp` files, get personalized coaching analysis from an LLM, track your stats over time, and spot trends across sessions. No other tool in the Melee ecosystem does this.
 
+## Screenshots
+
+### Coaching — Click any game for AI analysis
+![Coaching tab - light mode](screenshots/Screenshot_20260315_132050.png)
+
+### AI Coaching Analysis — Expanded
+![Coaching analysis expanded](screenshots/Screenshot_20260315_132303.png)
+
+### Coaching — Dark mode (Fox theme)
+![Coaching tab - dark mode](screenshots/Screenshot_20260315_132457.png)
+
+### Profile — Player radar chart and matchup records
+![Profile tab](screenshots/Screenshot_20260315_132405.png)
+
+### Sessions — Auto-detected sets and opponent history
+![Sessions tab](screenshots/Screenshot_20260315_132331.png)
+
+### Trends — Line charts with MAGI commentary
+![Trends tab](screenshots/Screenshot_20260315_132349.png)
+
+### Settings — 26 character themes with light/dark toggle
+![Settings tab - light](screenshots/Screenshot_20260315_132414.png)
+![Settings tab - dark](screenshots/Screenshot_20260315_132439.png)
+
+---
 
 ## What it does
 
-**Click a game, get coached.** Coach-Clippi parses your Slippi replay data, computes detailed stats (neutral win rate, L-cancel rate, conversion efficiency, habit patterns, recovery success, and more), then sends structured context to an LLM that returns specific, actionable coaching feedback — not generic advice, but observations grounded in *your* data.
+**Click a game, get coached.** MAGI parses your Slippi replay data, computes detailed stats (neutral win rate, L-cancel rate, conversion efficiency, habit patterns, recovery success, and more), then sends structured context to an LLM that returns specific, actionable coaching feedback — not generic advice, but observations grounded in *your* data.
 
-**Track your trajectory.** Every game you import gets stored locally. Over time, Coach-Clippi shows you trends: is your neutral game improving? Are your ledge options getting predictable? Are you performing worse in game 3 of a set? Line charts, rolling averages, and AI commentary on your trajectory.
+**Track your trajectory.** Every game you import gets stored locally. Over time, MAGI shows you trends: is your neutral game improving? Are your ledge options getting predictable? Are you performing worse in game 3 of a set? Line charts, rolling averages, and AI commentary on your trajectory.
 
 **Know your matchups.** Win/loss records by character, by stage, by opponent. Search your history against any player. Auto-detected sets with scores.
 
@@ -20,7 +45,7 @@ Import your `.slp` files, get personalized coaching analysis from an LLM, track 
 - **Per-game AI coaching** — click any game in the Coaching tab, get a full analysis with Melee-specific terminology and actionable drills
 - **Stat tracking** — neutral win rate, L-cancel rate, openings per kill, damage per opening, conversion rate, recovery success, death percent, and more
 - **Trend charts** — 5-game rolling averages for every tracked stat with visual line graphs
-- **Coach-Clippi trend commentary** — AI personality that reacts to your trajectory with blunt, witty feedback
+- **MAGI trend commentary** — AI personality that reacts to your trajectory with blunt, witty feedback
 - **Player radar chart** — six-axis archetype visualization (Neutral, Punish, Tech Skill, Defense, Aggression, Consistency)
 - **Set detection** — auto-groups games against the same opponent within 15 minutes
 - **Opponent history** — searchable by tag or connect code, shows record/characters/last played
@@ -55,8 +80,8 @@ Import your `.slp` files, get personalized coaching analysis from an LLM, track 
 ### Install
 
 ```bash
-git clone https://github.com/Bloodshed-Rain/Coach-Clippi.git
-cd Coach-Clippi
+git clone https://github.com/Bloodshed-Rain/MAGI.git
+cd MAGI
 npm install
 npx electron-rebuild
 ```

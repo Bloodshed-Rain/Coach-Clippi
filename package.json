@@ -1,5 +1,5 @@
 {
-  "name": "coach-clippi",
+  "name": "magi-melee",
   "version": "1.2.0",
   "description": "AI-powered Melee coaching from your Slippi replays",
   "main": "src/main/entry.js",
@@ -20,8 +20,8 @@
   "license": "MIT",
   "type": "commonjs",
   "build": {
-    "appId": "com.coach-clippi.app",
-    "productName": "Coach-Clippi",
+    "appId": "com.magi-melee.app",
+    "productName": "MAGI",
     "directories": {
       "output": "release"
     },
@@ -86,7 +86,7 @@
     "publish": {
       "provider": "github",
       "owner": "Bloodshed-Rain",
-      "repo": "Coach-Clippi"
+      "repo": "MAGI"
     }
   },
   "dependencies": {

@@ -19,7 +19,7 @@ function main() {
   const args = process.argv.slice(2);
 
   if (args.length === 0) {
-    console.log(`Coach-Clippi config (${CONFIG_PATH}):\n`);
+    console.log(`MAGI config (${CONFIG_PATH}):\n`);
     printConfig();
     console.log();
     console.log("Usage:");

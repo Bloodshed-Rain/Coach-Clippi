@@ -77,7 +77,7 @@ function createWindow(): void {
       sandbox: false, // needed for preload to use require()
     },
     titleBarStyle: "hiddenInset",
-    title: "Coach-Clippi",
+    title: "MAGI",
   });
 
   // In dev, load from Vite dev server; in prod, load built files
@@ -235,11 +235,11 @@ function setupIPC(): void {
     return analysis;
   });
 
-  // Trend commentary — Coach-Clippi reacts to your trend data
+  // Trend commentary — MAGI reacts to your trend data
   ipcMain.handle("analyze:trends", async (_e, trendSummary: string) => {
     const llmConfig = resolveLLMConfig();
 
-    const trendPrompt = `You are Coach-Clippi, a Melee coaching assistant with personality. You're reviewing a player's stat trends over their recent games.
+    const trendPrompt = `You are MAGI (Melee Analysis through Generative Intelligence), a Melee coaching assistant with personality. You're reviewing a player's stat trends over their recent games.
 
 Your voice: You're like a sharp, witty practice partner who genuinely wants to see them improve. Think of the energy of a commentator who actually knows the game — mix real analysis with personality. You can be funny, you can be blunt, you can hype them up when something's genuinely impressive. Use Melee terminology naturally.
 
