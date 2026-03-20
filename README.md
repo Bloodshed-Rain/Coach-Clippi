@@ -23,7 +23,7 @@ Import your `.slp` files, get personalized coaching analysis from an LLM, track 
 ### Sessions — Opponent history
 ![Sessions tab](screenshots/Screenshot_20260319_191239.png)
 
-### Characters — Grid view with card art
+### Characters — Grid view with card art (UNFINISHED!!!!)
 ![Characters grid](screenshots/Screenshot_20260319_191414.png)
 
 ### Characters — Detail view with signature stats
