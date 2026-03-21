@@ -357,17 +357,23 @@ Open with a quick vibe check on their overall trajectory, then hit the highlight
     // Auto-detect common Slippi Dolphin locations if not configured
     if (!dolphinPath) {
       const { execSync } = require("child_process") as typeof import("child_process");
+      const home = require("os").homedir();
       const candidates = process.platform === "linux"
         ? [
+            // Slippi Launcher standard paths (most common)
+            path.join(home, ".config/Slippi Launcher/playback/Slippi_Playback-x86_64.AppImage"),
+            path.join(home, ".config/Slippi Launcher/netplay/Slippi_Online-x86_64.AppImage"),
+            // Flatpak / system installs
             "/usr/bin/slippi-dolphin",
             "/usr/local/bin/slippi-dolphin",
-            path.join(require("os").homedir(), "Slippi-Dolphin/squashfs-root/usr/bin/dolphin-emu"),
-            path.join(require("os").homedir(), ".local/bin/slippi-dolphin"),
+            path.join(home, "Slippi-Dolphin/squashfs-root/usr/bin/dolphin-emu"),
+            path.join(home, ".local/bin/slippi-dolphin"),
           ]
         : process.platform === "darwin"
           ? [
               "/Applications/Slippi Dolphin.app/Contents/MacOS/Slippi Dolphin",
-              path.join(require("os").homedir(), "Applications/Slippi Dolphin.app/Contents/MacOS/Slippi Dolphin"),
+              path.join(home, "Applications/Slippi Dolphin.app/Contents/MacOS/Slippi Dolphin"),
+              path.join(home, "Library/Application Support/Slippi Launcher/playback/Slippi Dolphin.app/Contents/MacOS/Slippi Dolphin"),
             ]
           : [
               "C:\\Users\\" + require("os").userInfo().username + "\\AppData\\Roaming\\Slippi Launcher\\playback\\Slippi Dolphin.exe",
