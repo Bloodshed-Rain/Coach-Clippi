@@ -11,7 +11,7 @@ MAGI (Melee Analysis through Generative Intelligence) is an Electron + React des
 - **Dev mode**: `npm run dev` — starts Vite dev server + Electron concurrently
 - **Build**: `npm run build` — compiles main process TS, builds renderer via Vite, packages with electron-builder
 - **Platform builds**: `npm run build:linux`, `build:win`, `build:mac`
-- **Run pipeline CLI**: `npx tsx src/pipeline.ts <file.slp> [--target player] [--json]`
+- **Run pipeline CLI**: `npx tsx src/pipeline-cli.ts <file.slp> [--target player] [--json]`
 - **Type-check main process**: `npx tsc -p tsconfig.main.json --noEmit`
 - **Run tests**: `npm test` — runs vitest (pipeline, config, db, importer tests)
 - **Watch tests**: `npm run test:watch` — vitest in watch mode
@@ -28,11 +28,15 @@ Three processes communicate via IPC:
 
 ### Data Pipeline
 
-`src/pipeline.ts` is the core analysis engine:
-1. Parses .slp files via `SlippiGame` from `@slippi/slippi-js/node`
-2. Computes `GameSummary` (player stats, stocks, conversions, movement) + `DerivedInsights` (punish game, neutral, movement, defense ratings)
-3. For multi-game sets, `computeAdaptationSignals` tracks cross-game changes
-4. `assembleUserPrompt` + `SYSTEM_PROMPT` produce the LLM coaching prompt
+`src/pipeline/` is the core analysis engine (barrel-exported via `index.ts`):
+- `types.ts`: All interfaces (`GameSummary`, `PlayerSummary`, `DerivedInsights`, signature stats)
+- `helpers.ts`: Shared utilities (frame conversion, action state classifiers, stage bounds)
+- `processGame.ts`: Main orchestrator — parses .slp via `SlippiGame`
+- `playerSummary.ts`: Builds per-player stats (neutral, conversions, movement, recovery, edgeguards)
+- `signatureStats.ts`: Character-specific stat detection (26 characters)
+- `derivedInsights.ts`: Habit profiles, key moments, performance by stock
+- `adaptation.ts`: Cross-game adaptation signals for multi-game sets
+- `prompt.ts`: `SYSTEM_PROMPT` + `assembleUserPrompt` for LLM coaching
 
 ### Supporting Modules
 

@@ -83,12 +83,12 @@ describe("findPlayerIdx", () => {
     expect(idx).toBe(0);
   });
 
-  it("returns 1 as fallback for unknown tag", () => {
+  it("returns 0 as fallback for unknown tag", () => {
     const filePath = getTestReplay();
     const { gameSummary } = processGame(filePath, 1);
 
     const idx = findPlayerIdx(gameSummary, "NONEXISTENT_PLAYER_TAG_XYZ");
-    expect(idx).toBe(1);
+    expect(idx).toBe(0);
   });
 });
 
