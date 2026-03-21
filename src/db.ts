@@ -83,7 +83,10 @@ const SCHEMA = `
     recovery_success_rate REAL NOT NULL,
     ledge_entropy REAL NOT NULL,
     knockdown_entropy REAL NOT NULL,
-    shield_pressure_entropy REAL NOT NULL
+    shield_pressure_entropy REAL NOT NULL,
+    power_shield_count INTEGER NOT NULL DEFAULT 0,
+    edgeguard_attempts INTEGER NOT NULL DEFAULT 0,
+    edgeguard_success_rate REAL NOT NULL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS coaching_analyses (
@@ -131,6 +134,15 @@ export function getDb(): Database.Database {
       db.pragma("journal_mode = WAL");
       db.pragma("foreign_keys = ON");
       db.exec(SCHEMA);
+      // Migrate: add power_shield_count if missing (for existing DBs)
+      const columns = db.pragma("table_info(game_stats)") as { name: string }[];
+      if (!columns.some(c => c.name === "power_shield_count")) {
+        db.exec("ALTER TABLE game_stats ADD COLUMN power_shield_count INTEGER NOT NULL DEFAULT 0");
+      }
+      if (!columns.some(c => c.name === "edgeguard_attempts")) {
+        db.exec("ALTER TABLE game_stats ADD COLUMN edgeguard_attempts INTEGER NOT NULL DEFAULT 0");
+        db.exec("ALTER TABLE game_stats ADD COLUMN edgeguard_success_rate REAL NOT NULL DEFAULT 0");
+      }
     } catch (err) {
       db = null;
       throw new Error(
@@ -256,6 +268,9 @@ export interface InsertGameStatsParams {
   ledgeEntropy: number;
   knockdownEntropy: number;
   shieldPressureEntropy: number;
+  powerShieldCount: number;
+  edgeguardAttempts: number;
+  edgeguardSuccessRate: number;
 }
 
 export function insertGameStats(params: InsertGameStatsParams): void {
@@ -269,7 +284,9 @@ export function insertGameStats(params: InsertGameStatsParams): void {
       avg_stage_position_x, time_on_platform, time_in_air, time_at_ledge,
       total_damage_taken, total_damage_dealt, avg_death_percent,
       recovery_attempts, recovery_success_rate,
-      ledge_entropy, knockdown_entropy, shield_pressure_entropy
+      ledge_entropy, knockdown_entropy, shield_pressure_entropy,
+      power_shield_count,
+      edgeguard_attempts, edgeguard_success_rate
     ) VALUES (
       ?,
       ?, ?, ?, ?,
@@ -279,7 +296,9 @@ export function insertGameStats(params: InsertGameStatsParams): void {
       ?, ?, ?, ?,
       ?, ?, ?,
       ?, ?,
-      ?, ?, ?
+      ?, ?, ?,
+      ?,
+      ?, ?
     )
   `);
 
@@ -293,6 +312,8 @@ export function insertGameStats(params: InsertGameStatsParams): void {
     params.totalDamageTaken, params.totalDamageDealt, params.avgDeathPercent,
     params.recoveryAttempts, params.recoverySuccessRate,
     params.ledgeEntropy, params.knockdownEntropy, params.shieldPressureEntropy,
+    params.powerShieldCount,
+    params.edgeguardAttempts, params.edgeguardSuccessRate,
   );
 }
 
@@ -376,7 +397,8 @@ export function getStatTrend(
     "time_in_air", "time_at_ledge", "avg_stage_position_x",
     "neutral_wins", "neutral_losses", "counter_hits",
     "total_openings", "total_conversions", "kill_conversions",
-    "recovery_attempts",
+    "recovery_attempts", "power_shield_count",
+    "edgeguard_attempts", "edgeguard_success_rate",
   ];
   if (!allowedColumns.includes(statColumn)) {
     throw new Error(`Invalid stat column: ${statColumn}`);
@@ -471,12 +493,23 @@ export interface RecentGame {
   opponentCharacter: string;
   opponentTag: string;
   result: string;
+  playerFinalStocks: number;
+  opponentFinalStocks: number;
   neutralWinRate: number;
   lCancelRate: number;
   openingsPerKill: number;
   avgDamagePerOpening: number;
   conversionRate: number;
   avgDeathPercent: number;
+  powerShieldCount: number;
+  edgeguardAttempts: number;
+  edgeguardSuccessRate: number;
+  recoverySuccessRate: number;
+  wavedashCount: number;
+  dashDanceFrames: number;
+  ledgeEntropy: number;
+  knockdownEntropy: number;
+  shieldPressureEntropy: number;
 }
 
 export function getRecentGames(limit: number = 100): RecentGame[] {
@@ -488,12 +521,23 @@ export function getRecentGames(limit: number = 100): RecentGame[] {
       g.opponent_character as opponentCharacter,
       g.opponent_tag as opponentTag,
       g.result,
+      g.player_final_stocks as playerFinalStocks,
+      g.opponent_final_stocks as opponentFinalStocks,
       gs.neutral_win_rate as neutralWinRate,
       gs.l_cancel_rate as lCancelRate,
       gs.openings_per_kill as openingsPerKill,
       gs.avg_damage_per_opening as avgDamagePerOpening,
       gs.conversion_rate as conversionRate,
-      gs.avg_death_percent as avgDeathPercent
+      gs.avg_death_percent as avgDeathPercent,
+      gs.power_shield_count as powerShieldCount,
+      gs.edgeguard_attempts as edgeguardAttempts,
+      gs.edgeguard_success_rate as edgeguardSuccessRate,
+      gs.recovery_success_rate as recoverySuccessRate,
+      gs.wavedash_count as wavedashCount,
+      gs.dash_dance_frames as dashDanceFrames,
+      gs.ledge_entropy as ledgeEntropy,
+      gs.knockdown_entropy as knockdownEntropy,
+      gs.shield_pressure_entropy as shieldPressureEntropy
     FROM games g
     JOIN game_stats gs ON gs.game_id = g.id
     ORDER BY g.played_at DESC
@@ -635,6 +679,10 @@ export function detectSets(gapMinutes: number = 15): DetectedSet[] {
       currentSet.gameIds.push(game.id);
       if (game.result === "win") currentSet.wins++;
       if (game.result === "loss") currentSet.losses++;
+      // Track all opponent characters used in the set
+      if (game.opponent_character !== currentSet.opponentCharacter && !currentSet.opponentCharacter.includes(game.opponent_character)) {
+        currentSet.opponentCharacter += `, ${game.opponent_character}`;
+      }
     } else {
       sets.push(currentSet);
       currentSet = {
@@ -789,6 +837,10 @@ export interface CharacterGameStat {
   avgDamagePerOpening: number;
   conversionRate: number;
   avgDeathPercent: number;
+  recoverySuccessRate: number;
+  edgeguardSuccessRate: number;
+  wavedashCount: number;
+  dashDanceFrames: number;
 }
 
 export function getCharacterGameStats(character: string): CharacterGameStat[] {
@@ -799,7 +851,11 @@ export function getCharacterGameStats(character: string): CharacterGameStat[] {
       gs.openings_per_kill as openingsPerKill,
       gs.avg_damage_per_opening as avgDamagePerOpening,
       gs.conversion_rate as conversionRate,
-      gs.avg_death_percent as avgDeathPercent
+      gs.avg_death_percent as avgDeathPercent,
+      gs.recovery_success_rate as recoverySuccessRate,
+      gs.edgeguard_success_rate as edgeguardSuccessRate,
+      gs.wavedash_count as wavedashCount,
+      gs.dash_dance_frames as dashDanceFrames
     FROM games g
     JOIN game_stats gs ON gs.game_id = g.id
     WHERE g.player_character = ?

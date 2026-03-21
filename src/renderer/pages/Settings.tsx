@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
+import { useGlitchText } from "../hooks";
 // Themes are now controlled by the sidebar dark/light toggle
 
 interface Config {
   targetPlayer: string | null;
   connectCode: string | null;
   replayFolder: string | null;
+  dolphinPath: string | null;
   llmModelId: string | null;
   openrouterApiKey: string | null;
   geminiApiKey: string | null;
@@ -31,15 +33,14 @@ const DEFAULT_MODEL_ID = "deepseek/deepseek-chat";
 
 interface SettingsProps {
   onImport: () => void;
-  themeId: string;
-  onThemeChange: (id: string) => void;
 }
 
-export function Settings({ onImport, themeId, onThemeChange }: SettingsProps) {
+export function Settings({ onImport }: SettingsProps) {
   const [config, setConfig] = useState<Config>({
     targetPlayer: null,
     connectCode: null,
     replayFolder: null,
+    dolphinPath: null,
     llmModelId: null,
     openrouterApiKey: null,
     geminiApiKey: null,
@@ -48,6 +49,7 @@ export function Settings({ onImport, themeId, onThemeChange }: SettingsProps) {
     localEndpoint: null,
   });
   const [saved, setSaved] = useState(false);
+  const [showKeys, setShowKeys] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [watching, setWatching] = useState(false);
@@ -78,6 +80,7 @@ export function Settings({ onImport, themeId, onThemeChange }: SettingsProps) {
     return unsub;
   }, [watching, onImport]);
 
+  const title = useGlitchText("SETTINGS", 500);
   const selectedModel = config.llmModelId || DEFAULT_MODEL_ID;
 
   const handleSave = useCallback(async () => {
@@ -158,7 +161,7 @@ export function Settings({ onImport, themeId, onThemeChange }: SettingsProps) {
   return (
     <div>
       <div className="page-header">
-        <h1>Settings</h1>
+        <h1>{title}</h1>
       </div>
 
 
@@ -215,6 +218,28 @@ export function Settings({ onImport, themeId, onThemeChange }: SettingsProps) {
         )}
       </div>
 
+      {/* Dolphin Path */}
+      <div className="card">
+        <div className="card-title">Slippi Dolphin</div>
+        <div className="settings-field">
+          <label>Dolphin Executable Path (optional — auto-detected if left blank)</label>
+          <div className="settings-row">
+            <input
+              value={config.dolphinPath ?? ""}
+              onChange={(e) => setConfig({ ...config, dolphinPath: e.target.value || null })}
+              placeholder="Auto-detect"
+            />
+            <button className="btn" onClick={async () => {
+              const filePath = await window.clippi.openFileDialog(
+                "Select Slippi Dolphin",
+                [{ name: "All Files", extensions: ["*"] }],
+              );
+              if (filePath) setConfig({ ...config, dolphinPath: filePath });
+            }}>Browse</button>
+          </div>
+        </div>
+      </div>
+
       {/* AI Model */}
       <div className="card">
         <div className="card-title">AI Model</div>
@@ -235,6 +260,65 @@ export function Settings({ onImport, themeId, onThemeChange }: SettingsProps) {
         <p style={{ color: "var(--text-dim)", fontSize: 12, margin: "4px 0 0" }}>
           {MODELS.find((m) => m.id === selectedModel)?.description ?? ""}
         </p>
+      </div>
+
+      {/* API Keys */}
+      <div className="card">
+        <div className="card-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          API Keys
+          <button
+            className="btn"
+            style={{ fontSize: 11, padding: "2px 8px" }}
+            onClick={() => setShowKeys((v) => !v)}
+          >
+            {showKeys ? "Hide" : "Show"}
+          </button>
+        </div>
+        <div className="settings-field">
+          <label>OpenRouter API Key</label>
+          <input
+            type={showKeys ? "text" : "password"}
+            value={config.openrouterApiKey ?? ""}
+            onChange={(e) => setConfig({ ...config, openrouterApiKey: e.target.value || null })}
+            placeholder="sk-or-..."
+          />
+        </div>
+        <div className="settings-field">
+          <label>Gemini API Key</label>
+          <input
+            type={showKeys ? "text" : "password"}
+            value={config.geminiApiKey ?? ""}
+            onChange={(e) => setConfig({ ...config, geminiApiKey: e.target.value || null })}
+            placeholder="AI..."
+          />
+        </div>
+        <div className="settings-field">
+          <label>Anthropic API Key</label>
+          <input
+            type={showKeys ? "text" : "password"}
+            value={config.anthropicApiKey ?? ""}
+            onChange={(e) => setConfig({ ...config, anthropicApiKey: e.target.value || null })}
+            placeholder="sk-ant-..."
+          />
+        </div>
+        <div className="settings-field">
+          <label>OpenAI API Key</label>
+          <input
+            type={showKeys ? "text" : "password"}
+            value={config.openaiApiKey ?? ""}
+            onChange={(e) => setConfig({ ...config, openaiApiKey: e.target.value || null })}
+            placeholder="sk-..."
+          />
+        </div>
+        <div className="settings-field">
+          <label>Local Endpoint URL</label>
+          <input
+            type="text"
+            value={config.localEndpoint ?? ""}
+            onChange={(e) => setConfig({ ...config, localEndpoint: e.target.value || null })}
+            placeholder="http://localhost:1234/v1"
+          />
+        </div>
       </div>
 
       <button className="btn btn-primary" onClick={handleSave}>

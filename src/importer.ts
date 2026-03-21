@@ -17,6 +17,7 @@ import { callLLM, LLM_DEFAULTS, type LLMConfig } from "./llm";
 import { loadConfig } from "./config";
 
 import {
+  getDb,
   replayExists,
   insertGame,
   insertGameStats,
@@ -43,6 +44,8 @@ export interface ImportResult {
   skipped: boolean;
   gameId?: number;
   gameSummary?: GameSummary;
+  /** Cached full game result to avoid re-parsing for LLM prompt assembly */
+  gameResult?: GameResult;
 }
 
 // ── Single game import ───────────────────────────────────────────────
@@ -90,65 +93,73 @@ export function importReplay(
   // Compute total damage dealt from stock data
   const totalDamageDealt = player.stocks.reduce((sum, s) => sum + s.damageDealt, 0);
 
-  // Insert game record
-  const gameId = insertGame({
-    sessionId,
-    replayPath: absolutePath,
-    replayHash: hash,
-    playedAt: startAt,
-    stage: gameSummary.stage,
-    durationSeconds: gameSummary.duration,
-    playerCharacter: player.character,
-    opponentCharacter: opponent.character,
-    playerTag: player.tag,
-    opponentTag: opponent.tag,
-    playerConnectCode: player.connectCode || null,
-    opponentConnectCode: opponent.connectCode || null,
-    result,
-    endMethod: gameSummary.result.endMethod,
-    playerFinalStocks: gameSummary.result.finalStocks[playerIdx],
-    playerFinalPercent: gameSummary.result.finalPercents[playerIdx],
-    opponentFinalStocks: gameSummary.result.finalStocks[opponentIdx],
-    opponentFinalPercent: gameSummary.result.finalPercents[opponentIdx],
-    gameNumber,
+  // Insert game + stats + signature stats atomically.
+  // If any insert fails, all roll back — no orphaned game rows without stats.
+  const importTransaction = getDb().transaction(() => {
+    const gameId = insertGame({
+      sessionId,
+      replayPath: absolutePath,
+      replayHash: hash,
+      playedAt: startAt,
+      stage: gameSummary.stage,
+      durationSeconds: gameSummary.duration,
+      playerCharacter: player.character,
+      opponentCharacter: opponent.character,
+      playerTag: player.tag,
+      opponentTag: opponent.tag,
+      playerConnectCode: player.connectCode || null,
+      opponentConnectCode: opponent.connectCode || null,
+      result,
+      endMethod: gameSummary.result.endMethod,
+      playerFinalStocks: gameSummary.result.finalStocks[playerIdx],
+      playerFinalPercent: gameSummary.result.finalPercents[playerIdx],
+      opponentFinalStocks: gameSummary.result.finalStocks[opponentIdx],
+      opponentFinalPercent: gameSummary.result.finalPercents[opponentIdx],
+      gameNumber,
+    });
+
+    insertGameStats({
+      gameId,
+      neutralWins: player.neutralWins,
+      neutralLosses: player.neutralLosses,
+      neutralWinRate: player.neutralWinRate,
+      counterHits: player.counterHits,
+      openingsPerKill: player.openingsPerKill,
+      totalOpenings: player.totalOpenings,
+      totalConversions: player.totalConversions,
+      conversionRate: player.conversionRate,
+      avgDamagePerOpening: player.averageDamagePerOpening,
+      killConversions: player.killConversions,
+      lCancelRate: player.lCancelRate,
+      wavedashCount: player.wavedashCount,
+      dashDanceFrames: player.dashDanceFrames,
+      avgStagePositionX: player.avgStagePosition.x,
+      timeOnPlatform: player.timeOnPlatform,
+      timeInAir: player.timeInAir,
+      timeAtLedge: player.timeAtLedge,
+      totalDamageTaken: player.totalDamageTaken,
+      totalDamageDealt: totalDamageDealt,
+      avgDeathPercent: player.avgDeathPercent,
+      recoveryAttempts: player.recoveryAttempts,
+      recoverySuccessRate: player.recoverySuccessRate,
+      ledgeEntropy: playerInsights.afterLedgeGrab.entropy,
+      knockdownEntropy: playerInsights.afterKnockdown.entropy,
+      shieldPressureEntropy: playerInsights.afterShieldPressure.entropy,
+      powerShieldCount: player.powerShieldCount,
+      edgeguardAttempts: player.edgeguardAttempts,
+      edgeguardSuccessRate: player.edgeguardSuccessRate,
+    });
+
+    if (player.signatureStats) {
+      insertSignatureStats(gameId, JSON.stringify(player.signatureStats));
+    }
+
+    return gameId;
   });
 
-  // Insert stats
-  insertGameStats({
-    gameId,
-    neutralWins: player.neutralWins,
-    neutralLosses: player.neutralLosses,
-    neutralWinRate: player.neutralWinRate,
-    counterHits: player.counterHits,
-    openingsPerKill: player.openingsPerKill,
-    totalOpenings: player.totalOpenings,
-    totalConversions: player.totalConversions,
-    conversionRate: player.conversionRate,
-    avgDamagePerOpening: player.averageDamagePerOpening,
-    killConversions: player.killConversions,
-    lCancelRate: player.lCancelRate,
-    wavedashCount: player.wavedashCount,
-    dashDanceFrames: player.dashDanceFrames,
-    avgStagePositionX: player.avgStagePosition.x,
-    timeOnPlatform: player.timeOnPlatform,
-    timeInAir: player.timeInAir,
-    timeAtLedge: player.timeAtLedge,
-    totalDamageTaken: player.totalDamageTaken,
-    totalDamageDealt: totalDamageDealt,
-    avgDeathPercent: player.avgDeathPercent,
-    recoveryAttempts: player.recoveryAttempts,
-    recoverySuccessRate: player.recoverySuccessRate,
-    ledgeEntropy: playerInsights.afterLedgeGrab.entropy,
-    knockdownEntropy: playerInsights.afterKnockdown.entropy,
-    shieldPressureEntropy: playerInsights.afterShieldPressure.entropy,
-  });
+  const gameId = importTransaction();
 
-  // Store character-specific signature stats
-  if (player.signatureStats) {
-    insertSignatureStats(gameId, JSON.stringify(player.signatureStats));
-  }
-
-  return { filePath: absolutePath, hash, skipped: false, gameId, gameSummary };
+  return { filePath: absolutePath, hash, skipped: false, gameId, gameSummary, gameResult: { gameSummary, derivedInsights, startAt } };
 }
 
 // ── Batch import (a set of replays) ──────────────────────────────────
@@ -219,12 +230,11 @@ export async function importAndAnalyze(
     return { batchResult, analysis: null };
   }
 
-  // Re-process for LLM prompt (we need the full GameResult objects)
+  // Reuse cached GameResult objects from the import pass (no re-parsing needed)
   const gameResults: GameResult[] = [];
-  for (let i = 0; i < filePaths.length; i++) {
-    const result = batchResult.imported[i]!;
-    if (!result.skipped) {
-      gameResults.push(processGame(result.filePath, i + 1));
+  for (const result of batchResult.imported) {
+    if (!result.skipped && result.gameResult) {
+      gameResults.push(result.gameResult);
     }
   }
 

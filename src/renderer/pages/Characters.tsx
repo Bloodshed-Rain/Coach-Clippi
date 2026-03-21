@@ -1,5 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
+import { motion } from "framer-motion";
 import { PlayerRadar } from "../components/RadarChart";
+import { useGlitchText } from "../hooks";
+import { computeRadarStats, type RadarStats } from "../radarStats";
 
 // Character card art imports (MAGI-branded cards)
 import foxCard from "../assets/characters/fox.jpg";
@@ -61,15 +64,15 @@ interface CharacterStageStats {
   winRate: number;
 }
 
-// Signature stat entry for display
 interface SignatureStat {
   label: string;
   value: number;
+  perGame?: number;
   suffix?: string;
   highlight?: boolean;
 }
 
-// ── Character metadata (icons, colors, signature stat labels) ────────
+// ── Character metadata ────────────────────────────────────────────────
 
 const CHARACTER_META: Record<string, {
   emoji: string;
@@ -112,13 +115,12 @@ function getMeta(character: string) {
 
 // ── Aggregate signature stats across games ──────────────────────────
 
-function aggregateSignatureStats(rawStats: any[]): SignatureStat[] {
+function aggregateSignatureStats(rawStats: any[], characterName?: string): SignatureStat[] {
   if (rawStats.length === 0) return [];
 
-  const character = rawStats[0]?.character;
+  const character = characterName ?? rawStats[0]?.character;
   if (!character) return [];
 
-  // Sum all numeric fields across games
   const totals: Record<string, number> = {};
   for (const game of rawStats) {
     for (const [key, val] of Object.entries(game)) {
@@ -131,7 +133,7 @@ function aggregateSignatureStats(rawStats: any[]): SignatureStat[] {
 
   const LABELS: Record<string, Record<string, { label: string; suffix?: string; highlight?: boolean }>> = {
     Fox: {
-      waveshines: { label: "Multi-Shine Combos", highlight: true },
+      multiShineCombos: { label: "Multi-Shine Combos", highlight: true },
       waveshineToUpsmash: { label: "Waveshine → Upsmash" },
       upthrowUpairs: { label: "Uthrow → Uair" },
       upthrowUpairKills: { label: "Uthrow → Uair Kills", highlight: true },
@@ -223,7 +225,7 @@ function aggregateSignatureStats(rawStats: any[]): SignatureStat[] {
     },
     Ganon: {
       stompKills: { label: "Stomp Kills", highlight: true },
-      warlocKickKills: { label: "Warlock Kick Kills", highlight: true },
+      sideBKills: { label: "Side-B Kills", highlight: true },
       upTiltKills: { label: "Utilt Kills", highlight: true },
       fairKills: { label: "Fair Kills" },
     },
@@ -300,72 +302,29 @@ function aggregateSignatureStats(rawStats: any[]): SignatureStat[] {
   const charLabels = LABELS[character];
   if (!charLabels) return [];
 
-  // For longestBairString, use max instead of sum
-  if (character === "Puff" && totals["longestBairString"] !== undefined) {
-    totals["longestBairString"] = Math.max(...rawStats.map((g: any) => g.longestBairString ?? 0));
+  // For max-type stats, take the max instead of sum
+  const MAX_STATS = new Set(["longestBairString"]);
+  for (const key of MAX_STATS) {
+    if (totals[key] !== undefined) {
+      totals[key] = Math.max(...rawStats.map((g: any) => g[key] ?? 0));
+    }
   }
 
+  const gameCount = rawStats.length;
   return Object.entries(charLabels)
     .filter(([key]) => totals[key] !== undefined)
-    .map(([key, meta]) => ({
-      label: meta.label,
-      value: totals[key]!,
-      suffix: meta.suffix,
-      highlight: meta.highlight,
-    }));
-}
-
-// ── Radar stats computation ──────────────────────────────────────────
-
-interface GameStat {
-  neutralWinRate: number;
-  lCancelRate: number;
-  openingsPerKill: number;
-  avgDamagePerOpening: number;
-  conversionRate: number;
-  avgDeathPercent: number;
-}
-
-type RadarStats = {
-  neutral: number;
-  punish: number;
-  techSkill: number;
-  defense: number;
-  aggression: number;
-  consistency: number;
-};
-
-function computeCharacterRadar(games: GameStat[]): RadarStats {
-  if (games.length === 0) {
-    return { neutral: 0, punish: 0, techSkill: 0, defense: 0, aggression: 0, consistency: 0 };
-  }
-
-  const avg = (fn: (g: GameStat) => number) =>
-    games.reduce((s, g) => s + fn(g), 0) / games.length;
-
-  const neutralWR = avg((g) => g.neutralWinRate);
-  const neutral = Math.min(100, Math.max(0, neutralWR * 100));
-
-  const dpo = avg((g) => g.avgDamagePerOpening);
-  const convRate = avg((g) => g.conversionRate);
-  const punish = Math.min(100, (dpo / 60) * 50 + convRate * 50);
-
-  const lcancel = avg((g) => g.lCancelRate);
-  const techSkill = Math.min(100, lcancel * 100);
-
-  const deathPct = avg((g) => g.avgDeathPercent);
-  const defense = Math.min(100, Math.max(0, (deathPct / 150) * 100));
-
-  const opk = avg((g) => g.openingsPerKill);
-  const aggression = Math.min(100, Math.max(0, (1 - (opk - 1) / 10) * 100));
-
-  const nwRates = games.map((g) => g.neutralWinRate);
-  const nwMean = nwRates.reduce((a, b) => a + b, 0) / nwRates.length;
-  const variance = nwRates.reduce((s, v) => s + (v - nwMean) ** 2, 0) / nwRates.length;
-  const stdDev = Math.sqrt(variance);
-  const consistency = Math.min(100, Math.max(0, (1 - stdDev * 3) * 100));
-
-  return { neutral, punish, techSkill, defense, aggression, consistency };
+    .map(([key, meta]) => {
+      const total = totals[key]!;
+      const isMaxStat = MAX_STATS.has(key);
+      const perGame = gameCount > 0 && !isMaxStat ? total / gameCount : 0;
+      return {
+        label: meta.label,
+        value: total,
+        perGame: isMaxStat ? undefined : perGame,
+        suffix: meta.suffix,
+        highlight: meta.highlight,
+      };
+    });
 }
 
 // ── Component ────────────────────────────────────────────────────────
@@ -379,13 +338,13 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
   const [radarStats, setRadarStats] = useState<RadarStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
+  const title = useGlitchText("CHARACTERS", 500);
 
   useEffect(() => {
     async function load() {
       try {
         const chars = await window.clippi.getCharacterList();
         setCharacters(chars);
-        // Don't auto-select; start with grid view
         if (selected && !chars.some((c) => c.character === selected)) {
           setSelected(null);
         }
@@ -397,7 +356,6 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
     load();
   }, [refreshKey]);
 
-  // Load detail data when selection changes
   const loadDetail = useCallback(async (char: string) => {
     setDetailLoading(true);
     try {
@@ -409,8 +367,8 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
       ]);
       setMatchups(mu);
       setStages(st);
-      setSignatureStats(aggregateSignatureStats(sig));
-      setRadarStats(computeCharacterRadar(gameStats));
+      setSignatureStats(aggregateSignatureStats(sig, char));
+      setRadarStats(computeRadarStats(gameStats));
     } catch (err) {
       console.error("Failed to load character details:", err);
     }
@@ -421,13 +379,18 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
     if (selected) loadDetail(selected);
   }, [selected, refreshKey, loadDetail]);
 
-  if (loading) return <div className="loading">Loading characters...</div>;
+  if (loading) return <div className="loading"><div className="spinner" style={{ margin: "0 auto 12px" }} />LOADING ARSENAL DATA...</div>;
   if (characters.length === 0) {
     return (
       <div className="empty-state">
-        <div className="empty-state-icon">🎮</div>
-        <h2>No Character Data Yet</h2>
-        <p>Import some replays to see your character stats.</p>
+        <div className="empty-state-icon">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4, color: "var(--accent)" }}>
+            <circle cx="12" cy="7" r="4" />
+            <path d="M5.5 21v-2a5.5 5.5 0 0 1 13 0v2" />
+          </svg>
+        </div>
+        <h2>NO ARSENAL DATA</h2>
+        <p>Import replays to populate your character arsenal.</p>
       </div>
     );
   }
@@ -436,76 +399,113 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
   const meta = selected ? getMeta(selected) : DEFAULT_META;
   const pct = (v: number) => (v * 100).toFixed(1) + "%";
 
+  function handleCardMouseMove(e: React.MouseEvent<HTMLButtonElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+    e.currentTarget.style.setProperty("--mx", `${x}`);
+    e.currentTarget.style.setProperty("--my", `${y}`);
+  }
+
+  function handleCardMouseLeave(e: React.MouseEvent<HTMLButtonElement>) {
+    e.currentTarget.style.setProperty("--mx", "0");
+    e.currentTarget.style.setProperty("--my", "0");
+  }
+
   return (
     <div>
-      <div className="page-header">
-        <h1>Characters</h1>
-        <p>Your signature stats, per character</p>
-      </div>
+      <motion.div
+        initial={{ opacity: 0, x: -16 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div className="page-header">
+          <h1>{title}</h1>
+          <p>
+            // <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--accent)" }}>{characters.length}</span> WEAPONS IN ARSENAL
+          </p>
+        </div>
+      </motion.div>
 
-      {/* Grid mode — no character selected */}
+      {/* Grid mode */}
       {!selected && (
         <div className="char-grid">
-          {characters.map((c) => {
+          {characters.map((c, index) => {
             const cm = getMeta(c.character);
             const wr = (c.winRate * 100).toFixed(0);
             const cardImg = CHARACTER_CARDS[c.character];
 
-            if (cardImg) {
-              return (
-                <button
-                  key={c.character}
-                  className="char-card char-card-art"
-                  onClick={() => setSelected(c.character)}
-                  style={{
-                    "--char-color": cm.color,
-                    "--char-glow": cm.glowColor,
-                  } as React.CSSProperties}
-                >
-                  <img src={cardImg} alt={c.character} className="char-card-art-img" />
-                </button>
-              );
-            }
-
             return (
-              <button
+              <motion.div
                 key={c.character}
-                className="char-card"
-                onClick={() => setSelected(c.character)}
-                style={{
-                  "--char-color": cm.color,
-                  "--char-glow": cm.glowColor,
-                } as React.CSSProperties}
+                initial={{ opacity: 0, y: 24, scale: 0.93 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ delay: index * 0.04, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
               >
-                <div className="char-card-emoji">{cm.emoji}</div>
-                <div className="char-card-name">{c.character}</div>
-                <div className="char-card-record">
-                  <span className="record-win">{c.wins}W</span>
-                  {" - "}
-                  <span className="record-loss">{c.losses}L</span>
-                </div>
-                <div className="char-card-games">{c.gamesPlayed} games · {wr}%</div>
-                <div className="char-card-baseline">
-                  <span className="char-card-baseline-stat">{pct(c.avgNeutralWinRate)} NW</span>
-                  <span className="char-card-baseline-stat">{pct(c.avgConversionRate)} CV</span>
-                  <span className="char-card-baseline-stat">{pct(c.avgLCancelRate)} LC</span>
-                </div>
-              </button>
+                {cardImg ? (
+                  <button
+                    className="char-card char-card-art"
+                    onClick={() => setSelected(c.character)}
+                    onMouseMove={handleCardMouseMove}
+                    onMouseLeave={handleCardMouseLeave}
+                    style={{
+                      "--char-color": cm.color,
+                      "--char-glow": cm.glowColor,
+                      transform: `perspective(800px) rotateY(calc(var(--mx, 0) * 8deg)) rotateX(calc(var(--my, 0) * -8deg))`,
+                    } as React.CSSProperties}
+                  >
+                    <img src={cardImg} alt={c.character} className="char-card-art-img" />
+                  </button>
+                ) : (
+                  <button
+                    className="char-card"
+                    onClick={() => setSelected(c.character)}
+                    style={{
+                      "--char-color": cm.color,
+                      "--char-glow": cm.glowColor,
+                    } as React.CSSProperties}
+                  >
+                    <div className="char-card-emoji">{cm.emoji}</div>
+                    <div className="char-card-name">{c.character}</div>
+                    <div className="char-card-record">
+                      <span className="record-win">{c.wins}W</span>
+                      {" - "}
+                      <span className="record-loss">{c.losses}L</span>
+                    </div>
+                    <div className="char-card-games">{c.gamesPlayed} games · {wr}%</div>
+                    <div className="char-card-baseline">
+                      <span className="char-card-baseline-stat">{pct(c.avgNeutralWinRate)} NW</span>
+                      <span className="char-card-baseline-stat">{pct(c.avgConversionRate)} CV</span>
+                      <span className="char-card-baseline-stat">{pct(c.avgLCancelRate)} LC</span>
+                    </div>
+                  </button>
+                )}
+              </motion.div>
             );
           })}
         </div>
       )}
 
-      {/* Detail mode — character selected */}
+      {/* Detail mode */}
       {selected && selectedChar && (
         <div className="char-detail" style={{ "--char-color": meta.color, "--char-glow": meta.glowColor } as React.CSSProperties}>
-          <button className="char-back-btn" onClick={() => setSelected(null)}>
-            ← All Characters
-          </button>
+          <motion.button
+            className="char-back-btn"
+            onClick={() => setSelected(null)}
+            whileHover={{ x: -4 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            &lt; ALL CHARACTERS
+          </motion.button>
 
           <div className="char-detail-layout">
             {/* Left column — hero card */}
-            <div className="char-detail-left">
+            <motion.div
+              className="char-detail-left"
+              initial={{ opacity: 0, x: -24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            >
               <div
                 className="char-hero-card"
                 style={{ "--char-color": meta.color, "--char-glow": meta.glowColor } as React.CSSProperties}
@@ -551,47 +551,56 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            {/* Right column — scrollable stats */}
-            <div className="char-detail-right">
+            {/* Right column */}
+            <motion.div
+              className="char-detail-right"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            >
               {detailLoading ? (
-                <div className="loading">Loading stats...</div>
+                <div className="loading">LOADING INTEL...</div>
               ) : (
                 <>
-                  {/* Radar chart */}
                   {radarStats && (
                     <div className="card">
-                      <div className="card-title">Skill Profile</div>
+                      <div className="card-title">SKILL PROFILE</div>
                       <PlayerRadar stats={radarStats} />
                     </div>
                   )}
 
-                  {/* Signature stats */}
                   {signatureStats.length > 0 && (
                     <div className="card">
-                      <div className="card-title">Signature Stats</div>
+                      <div className="card-title">SIGNATURE STATS</div>
                       <div className="sig-grid">
-                        {signatureStats.map((s) => (
-                          <div
+                        {signatureStats.map((s, i) => (
+                          <motion.div
                             key={s.label}
                             className={`sig-stat ${s.highlight ? "sig-stat-highlight" : ""}`}
                             style={s.highlight ? { borderColor: meta.color } : undefined}
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: i * 0.04, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                            whileHover={{ scale: 1.05, y: -2 }}
                           >
-                            <div className="sig-stat-value" style={s.highlight ? { color: meta.color } : undefined}>
+                            <div className="sig-stat-value" style={s.highlight ? { color: meta.color, textShadow: `0 0 20px ${meta.glowColor}` } : undefined}>
                               {s.value}{s.suffix ?? ""}
                             </div>
                             <div className="sig-stat-label">{s.label}</div>
-                          </div>
+                            {s.perGame !== undefined && (
+                              <div className="sig-stat-avg">{s.perGame.toFixed(1)}/game</div>
+                            )}
+                          </motion.div>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {/* Matchups */}
                   {matchups.length > 0 && (
                     <div className="card">
-                      <div className="card-title">Matchup Records</div>
+                      <div className="card-title">MATCHUP RECORDS</div>
                       <table className="data-table">
                         <thead>
                           <tr>
@@ -605,29 +614,41 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
                           </tr>
                         </thead>
                         <tbody>
-                          {matchups.map((m) => {
+                          {matchups.map((m, i) => {
                             const oppMeta = getMeta(m.opponentCharacter);
+                            const wrPct = m.winRate * 100;
+                            const wrColor = wrPct >= 60 ? "var(--green)" : wrPct >= 45 ? "var(--yellow)" : "var(--red)";
                             return (
-                              <tr key={m.opponentCharacter}>
-                                <td>
+                              <motion.tr
+                                key={m.opponentCharacter}
+                                initial={{ opacity: 0, x: -8 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: i * 0.025, duration: 0.35 }}
+                              >
+                                <td style={{ fontWeight: 700 }}>
                                   <span style={{ marginRight: 6 }}>{oppMeta.emoji}</span>
                                   {m.opponentCharacter}
                                 </td>
-                                <td>{m.gamesPlayed}</td>
+                                <td style={{ fontFamily: "var(--font-mono)" }}>{m.gamesPlayed}</td>
                                 <td>
                                   <span className="record-win">{m.wins}W</span>
                                   {" - "}
                                   <span className="record-loss">{m.losses}L</span>
                                 </td>
                                 <td>
-                                  <span className="matchup-wr-bar" style={{ "--wr": m.winRate } as React.CSSProperties}>
-                                    {pct(m.winRate)}
-                                  </span>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <span style={{ fontFamily: "var(--font-mono)", fontWeight: 800, color: wrColor, fontSize: 13 }}>
+                                      {pct(m.winRate)}
+                                    </span>
+                                    <div className="winrate-bar">
+                                      <div className="winrate-bar-fill" style={{ width: `${wrPct}%` }} />
+                                    </div>
+                                  </div>
                                 </td>
-                                <td>{pct(m.avgNeutralWinRate)}</td>
-                                <td>{pct(m.avgConversionRate)}</td>
-                                <td>{m.avgOpeningsPerKill}</td>
-                              </tr>
+                                <td style={{ fontFamily: "var(--font-mono)" }}>{pct(m.avgNeutralWinRate)}</td>
+                                <td style={{ fontFamily: "var(--font-mono)" }}>{pct(m.avgConversionRate)}</td>
+                                <td style={{ fontFamily: "var(--font-mono)" }}>{m.avgOpeningsPerKill}</td>
+                              </motion.tr>
                             );
                           })}
                         </tbody>
@@ -635,10 +656,9 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
                     </div>
                   )}
 
-                  {/* Stage records */}
                   {stages.length > 0 && (
                     <div className="card">
-                      <div className="card-title">Stage Records</div>
+                      <div className="card-title">STAGE RECORDS</div>
                       <table className="data-table">
                         <thead>
                           <tr>
@@ -651,14 +671,14 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
                         <tbody>
                           {stages.map((s) => (
                             <tr key={s.stage}>
-                              <td>{s.stage}</td>
-                              <td>{s.gamesPlayed}</td>
+                              <td style={{ fontWeight: 700 }}>{s.stage}</td>
+                              <td style={{ fontFamily: "var(--font-mono)" }}>{s.gamesPlayed}</td>
                               <td>
                                 <span className="record-win">{s.wins}W</span>
                                 {" - "}
                                 <span className="record-loss">{s.losses}L</span>
                               </td>
-                              <td>{pct(s.winRate)}</td>
+                              <td style={{ fontFamily: "var(--font-mono)", fontWeight: 800 }}>{pct(s.winRate)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -667,7 +687,7 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
                   )}
                 </>
               )}
-            </div>
+            </motion.div>
           </div>
         </div>
       )}

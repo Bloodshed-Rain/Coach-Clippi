@@ -67,6 +67,19 @@ function printTrend(stat: string, label: string, limit: number = 20): void {
   console.log(`  ${label}: ${pct(last)} ${arrow} (was ${pct(first)}, ${points.length} games)`);
 }
 
+function printCountTrend(stat: string, label: string, limit: number = 20): void {
+  const points = getStatTrend(stat, { limit });
+  if (points.length < 2) return;
+
+  const first = points[0]!.value;
+  const last = points[points.length - 1]!.value;
+  const delta = last - first;
+  const arrow = delta > 0.5 ? "↑" : delta < -0.5 ? "↓" : "→";
+  const fmt = (v: number) => v.toFixed(1);
+
+  console.log(`  ${label}: ${fmt(last)} ${arrow} (was ${fmt(first)}, ${points.length} games)`);
+}
+
 function printTrends(): void {
   const total = getTotalGames();
   if (total < 2) return;
@@ -78,6 +91,7 @@ function printTrends(): void {
   printTrend("recovery_success_rate", "Recovery rate");
   printTrend("ledge_entropy", "Ledge mixup");
   printTrend("knockdown_entropy", "Getup mixup");
+  printCountTrend("power_shield_count", "Power shields");
   console.log();
 }
 

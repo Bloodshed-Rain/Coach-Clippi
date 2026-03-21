@@ -42,6 +42,10 @@ export interface PlayerSummary {
   avgDeathPercent: number;
   recoveryAttempts: number;
   recoverySuccessRate: number;
+  /** Times opponent was in a recovery situation (offstage/below stage) */
+  edgeguardAttempts: number;
+  /** Rate at which edgeguard situations ended in opponent death */
+  edgeguardSuccessRate: number;
   lCancelRate: number;
   wavedashCount: number;
   dashDanceFrames: number;
@@ -53,11 +57,17 @@ export interface PlayerSummary {
     duration: number;
     openingsGiven: number;
     damageDealt: number;
+    /** Timestamp when this stock started */
+    startTime: string;
+    /** Timestamp when this stock ended (death or game end) */
+    endTime: string;
   }[];
   /** Peach only — turnip/item pull breakdown. Null for non-Peach characters. */
   turnipPulls: TurnipPullStats | null;
   /** Marth only — Ken combo detection. Null for non-Marth characters. */
   kenCombos: KenComboStats | null;
+  /** Power shield count (projectile reflects + physical attack powershields). */
+  powerShieldCount: number;
   /** Character-specific signature stats. Null for unsupported characters. */
   signatureStats: CharacterSignatureStats | null;
 }
@@ -121,7 +131,7 @@ export type CharacterSignatureStats =
 export interface FoxSignatureStats {
   character: "Fox";
   /** Conversions where shine (down b) appears 2+ times, indicating multi-shine combos */
-  waveshines: number;
+  multiShineCombos: number;
   /** Conversions with shine → usmash (21 → 11) */
   waveshineToUpsmash: number;
   /** Conversions starting with uthrow (54) and containing uair (16) */
@@ -279,7 +289,7 @@ export interface YoshiSignatureStats {
 export interface GanonSignatureStats {
   character: "Ganon";
   stompKills: number;
-  warlocKickKills: number;
+  sideBKills: number;
   upTiltKills: number;
   fairKills: number;
 }
@@ -406,17 +416,29 @@ export interface DerivedInsights {
     totalDamage: number;
     startPercent: number;
     endedInKill: boolean;
+    /** Game timestamp like "1:23" for cross-referencing with replay */
+    timestamp: string;
   };
   worstMissedPunish: {
     opener: string;
     damageDealt: number;
     opponentPercent: number;
+    timestamp: string;
   } | null;
+  /** Chronological timeline of key moments for timestamp-backed coaching */
+  keyMoments: {
+    timestamp: string;
+    frame: number;
+    type: "kill" | "death" | "big_punish" | "missed_punish" | "edgeguard_kill" | "recovery";
+    description: string;
+  }[];
   adaptationSignals: {
     metric: string;
     game1Value: number;
     lastGameValue: number;
     direction: "improving" | "declining" | "stable";
+    /** Per-game values across the set for full trajectory analysis */
+    trajectory?: number[];
   }[];
 }
 
@@ -426,6 +448,15 @@ const FPS = 60;
 
 function framesToSeconds(frames: number): number {
   return Math.round((frames / FPS) * 100) / 100;
+}
+
+/** Convert a game frame number to a human-readable timestamp like "1:23" */
+function frameToTimestamp(frame: number): string {
+  const gameFrame = frame - Frames.FIRST_PLAYABLE;
+  const totalSeconds = Math.max(0, Math.floor(gameFrame / FPS));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function getPlayerTag(player: PlayerType): string {
@@ -503,9 +534,21 @@ function isOnLedge(actionState: number): boolean {
   return actionState === State.CLIFF_CATCH || actionState === 253; // CLIFF_WAIT
 }
 
-function isOnPlatform(posY: number): boolean {
-  // Platforms are above stage level (y=0). Anything significantly above ground.
-  return posY > 5;
+// Lowest platform height per legal stage. If posY is above this threshold,
+// the player is standing on a platform rather than the main stage.
+const PLATFORM_MIN_HEIGHT: Record<number, number> = {
+  2: 15,    // Fountain of Dreams — side platforms ~15-27, top ~42
+  3: 25,    // Pokemon Stadium — platforms ~25
+  8: 23,    // Yoshi's Story — side platforms ~23, top ~42
+  28: 27,   // Dreamland — side platforms ~27, top ~51
+  31: 27,   // Battlefield — side platforms ~27, top ~54
+  // FD (32) has no platforms
+};
+
+function isOnPlatform(posY: number, stageId: number): boolean {
+  const threshold = PLATFORM_MIN_HEIGHT[stageId];
+  if (threshold === undefined) return false; // FD or unknown — no platforms
+  return posY > threshold;
 }
 
 function isOffstage(
@@ -558,6 +601,14 @@ function isShielding(actionState: number): boolean {
 function isDashDancing(actionState: number): boolean {
   return actionState === State.DASH || actionState === State.TURN;
 }
+
+// ── Power shield action state constants ────────────────────────────────
+// 178 = GuardOn (shield activation, 1 frame), 179 = Guard (holding shield)
+// 181 = GuardSetOff (shield stun from hit), 182 = GuardReflect (projectile reflect)
+const GUARD_ON = 178;
+const GUARD = 179;
+const GUARD_SET_OFF = 181;
+const GUARD_REFLECT = 182;
 
 // Move ID → human name mapping (slippi-js uses numeric move IDs in conversions)
 const moveIdToName: Record<number, string> = {
@@ -639,6 +690,11 @@ function buildPlayerSummary(
   let dashDanceFrameCount = 0;
   let playableFrames = 0;
 
+  // Power shield tracking
+  let powerShieldCount = 0;
+  let shieldFrameCount = 0; // how many frames since shield was first activated
+  let prevActionState = 0;
+
   for (let f = Frames.FIRST_PLAYABLE; f <= lastFrame; f++) {
     const frame = frames[f];
     if (!frame) continue;
@@ -651,11 +707,29 @@ function buildPlayerSummary(
     const posY = pd.positionY ?? 0;
     const actionState = pd.actionStateId ?? 0;
 
+    // Power shield detection:
+    // Projectile reflect: transition into GuardReflect (182)
+    if (actionState === GUARD_REFLECT && prevActionState !== GUARD_REFLECT) {
+      powerShieldCount++;
+    }
+    // Physical powershield: transition into GuardSetOff (181) within the 2-frame window
+    // Melee's physical powershield window is frames 1-2 of shield activation
+    if (actionState === GUARD_SET_OFF && prevActionState !== GUARD_SET_OFF && shieldFrameCount > 0 && shieldFrameCount <= 2) {
+      powerShieldCount++;
+    }
+    // Track total frames in shield (GuardOn or Guard)
+    if (actionState === GUARD_ON || actionState === GUARD) {
+      shieldFrameCount++;
+    } else {
+      shieldFrameCount = 0;
+    }
+    prevActionState = actionState;
+
     totalX += posX;
     const airborne = pd.isAirborne === true || isAirborne(actionState);
     const onLedge = isOnLedge(actionState);
     // Platform = elevated position but NOT airborne (standing on platform, not jumping above it)
-    if (isOnPlatform(posY) && !airborne && !onLedge) platformFrames++;
+    if (isOnPlatform(posY, stageId) && !airborne && !onLedge) platformFrames++;
     if (airborne) airFrames++;
     if (onLedge) ledgeFrames++;
     if (isDashDancing(actionState)) dashDanceFrameCount++;
@@ -701,6 +775,7 @@ function buildPlayerSummary(
   let recoveryAttempts = 0;
   let recoverySuccesses = 0;
   let inRecovery = false;
+  const recoveryBounds = stageBounds(stageId);
 
   for (let f = Frames.FIRST_PLAYABLE; f <= lastFrame; f++) {
     const frame = frames[f];
@@ -712,12 +787,11 @@ function buildPlayerSummary(
     const posX = pd.positionX ?? 0;
     const posY = pd.positionY ?? 0;
     const actionState = pd.actionStateId ?? 0;
-    const bounds = stageBounds(stageId);
 
     // Below stage level = clearly needs to recover
-    const belowStage = posY < bounds.yMin;
+    const belowStage = posY < recoveryBounds.yMin;
     // Far past edge in a vulnerable state (tumble, damage, freefall)
-    const farOffstage = Math.abs(posX) > bounds.x + 20;
+    const farOffstage = Math.abs(posX) > recoveryBounds.x + 20;
     const inVulnerableState =
       actionState === State.DAMAGE_FALL ||
       (actionState >= State.DAMAGE_START && actionState <= State.DAMAGE_END) ||
@@ -737,17 +811,63 @@ function buildPlayerSummary(
 
   const recoverySuccessRate = ratio(recoverySuccesses, recoveryAttempts);
 
+  // Edgeguard tracking: count times opponent entered a recovery situation
+  // and whether they died or returned to stage.
+  const opponentIndex = playerIndex === 0 ? 1 : playerIndex === 1 ? 0 : 1;
+  let edgeguardAttempts = 0;
+  let edgeguardKills = 0;
+  let opponentInRecovery = false;
+  let prevOppStocks = -1; // track stock transitions to detect mid-game deaths
+
+  for (let f = Frames.FIRST_PLAYABLE; f <= lastFrame; f++) {
+    const frame = frames[f];
+    if (!frame) continue;
+    const oppPost = frame.players[opponentIndex]?.post;
+    if (!oppPost) continue;
+
+    const currentStocks = oppPost.stocksRemaining ?? 0;
+
+    // Detect stock loss (opponent died) — works for all deaths, not just last stock
+    if (prevOppStocks > 0 && currentStocks < prevOppStocks) {
+      if (opponentInRecovery) {
+        edgeguardKills++;
+        opponentInRecovery = false;
+      }
+    }
+    prevOppStocks = currentStocks;
+
+    if (currentStocks <= 0) continue;
+
+    const oppX = oppPost.positionX ?? 0;
+    const oppY = oppPost.positionY ?? 0;
+    const oppAction = oppPost.actionStateId ?? 0;
+
+    const oppBelowStage = oppY < recoveryBounds.yMin;
+    const oppFarOffstage = Math.abs(oppX) > recoveryBounds.x + 20;
+    const oppVulnerable =
+      oppAction === State.DAMAGE_FALL ||
+      (oppAction >= State.DAMAGE_START && oppAction <= State.DAMAGE_END) ||
+      oppAction === State.LANDING_FALL_SPECIAL;
+
+    const oppNeedsRecovery = oppBelowStage || (oppFarOffstage && oppVulnerable);
+    const oppOnStage = !isOffstage(oppX, oppY, stageId);
+
+    if (oppNeedsRecovery && !opponentInRecovery) {
+      edgeguardAttempts++;
+      opponentInRecovery = true;
+    } else if (oppOnStage && opponentInRecovery) {
+      opponentInRecovery = false;
+    }
+  }
+
+  const edgeguardSuccessRate = ratio(edgeguardKills, edgeguardAttempts);
+
   // L-cancel rate
   const lTotal =
     actionCounts.lCancelCount.success + actionCounts.lCancelCount.fail;
   const lCancelRate = ratio(actionCounts.lCancelCount.success, lTotal);
 
   // Move usage — build from attack counts + conversion move data
-  const moveMap = new Map<
-    number,
-    { count: number; hits: number }
-  >();
-
   // Count from action counts (attacks thrown out)
   // Names must match moveIdToName so hit counting from conversions lines up
   const atk = actionCounts.attackCount;
@@ -880,6 +1000,8 @@ function buildPlayerSummary(
       duration,
       openingsGiven,
       damageDealt: Math.round(damageDealt),
+      startTime: frameToTimestamp(startF),
+      endTime: frameToTimestamp(endF),
     };
   });
 
@@ -975,6 +1097,8 @@ function buildPlayerSummary(
     }
   }
 
+  const kenCombos = detectKenCombos(player.characterId, myConversions);
+
   return {
     tag,
     connectCode,
@@ -997,20 +1121,23 @@ function buildPlayerSummary(
     avgDeathPercent,
     recoveryAttempts,
     recoverySuccessRate,
+    edgeguardAttempts,
+    edgeguardSuccessRate,
     lCancelRate,
     wavedashCount: actionCounts.wavedashCount,
     dashDanceFrames: dashDanceFrameCount,
+    powerShieldCount,
     moveUsage,
     stocks: stockBreakdown,
     turnipPulls,
-    kenCombos: detectKenCombos(player.characterId, myConversions),
+    kenCombos,
     signatureStats: detectSignatureStats(
       character,
       playerIndex,
       myConversions,
       moveUsageMap,
       turnipPulls,
-      detectKenCombos(player.characterId, myConversions),
+      kenCombos,
       frames,
       lastFrame,
       stageId,
@@ -1152,7 +1279,7 @@ function detectSignatureStats(
 ): CharacterSignatureStats | null {
   switch (character) {
     case "Fox": {
-      let waveshines = 0;
+      let multiShineCombos = 0;
       let waveshineToUpsmash = 0;
       let upthrowUpairs = 0;
       let upthrowUpairKills = 0;
@@ -1162,7 +1289,7 @@ function detectSignatureStats(
       for (const conv of myConversions) {
         const { moves } = conv;
         // Multi-shine combos: shine appears 2+ times in a conversion
-        if (countMoveId(moves, MOVE_SHINE) >= 2) waveshines++;
+        if (countMoveId(moves, MOVE_SHINE) >= 2) multiShineCombos++;
         // Waveshine to upsmash: shine → usmash sequence
         if (hasSequence(moves, MOVE_SHINE, MOVE_USMASH)) waveshineToUpsmash++;
         // Upthrow → uair
@@ -1196,7 +1323,7 @@ function detectSignatureStats(
         }
       }
 
-      return { character: "Fox", waveshines, waveshineToUpsmash, upthrowUpairs, upthrowUpairKills, drillShines, shineSpikeKills };
+      return { character: "Fox", multiShineCombos, waveshineToUpsmash, upthrowUpairs, upthrowUpairKills, drillShines, shineSpikeKills };
     }
 
     case "Falco": {
@@ -1472,7 +1599,7 @@ function detectSignatureStats(
         if (moves.length === 0) continue;
 
         // Chain grabs: 2+ throws in one conversion
-        const throwIds = [MOVE_FTHROW, MOVE_UTHROW, MOVE_DTHROW];
+        const throwIds = [MOVE_FTHROW, MOVE_UTHROW, MOVE_DTHROW, MOVE_BTHROW];
         const throwCount = moves.filter((m) => throwIds.includes(m.moveId)).length;
         if (throwCount >= 2) chainGrabs++;
 
@@ -1700,7 +1827,7 @@ function detectSignatureStats(
         }
       }
 
-      const eggThrowEntry = moveUsageMap.get("neutral b");
+      const eggThrowEntry = moveUsageMap.get("up b");
       const eggThrowCount = eggThrowEntry?.count ?? 0;
 
       return { character: "Yoshi", eggThrowCount, dairKills, upSmashKills, fairSpikeKills };
@@ -1708,7 +1835,7 @@ function detectSignatureStats(
 
     case "Ganon": {
       let stompKills = 0;
-      let warlocKickKills = 0;
+      let sideBKills = 0;
       let upTiltKills = 0;
       let fairKills = 0;
 
@@ -1717,12 +1844,12 @@ function detectSignatureStats(
         if (moves.length === 0) continue;
         const lastMove = moves[moves.length - 1]!;
         if (lastMove.moveId === MOVE_DAIR && conv.didKill) stompKills++;
-        if (lastMove.moveId === MOVE_SIDE_B && conv.didKill) warlocKickKills++;
+        if (lastMove.moveId === MOVE_SIDE_B && conv.didKill) sideBKills++;
         if (lastMove.moveId === MOVE_UTILT && conv.didKill) upTiltKills++;
         if (lastMove.moveId === MOVE_FAIR && conv.didKill) fairKills++;
       }
 
-      return { character: "Ganon", stompKills, warlocKickKills, upTiltKills, fairKills };
+      return { character: "Ganon", stompKills, sideBKills, upTiltKills, fairKills };
     }
 
     case "Link": {
@@ -2177,6 +2304,7 @@ function findBestConversion(
       totalDamage: 0,
       startPercent: 0,
       endedInKill: false,
+      timestamp: "0:00",
     };
   }
 
@@ -2187,9 +2315,9 @@ function findBestConversion(
     totalDamage: Math.round(bestDmg),
     startPercent: Math.round(best.startPercent),
     endedInKill: best.didKill,
+    timestamp: frameToTimestamp(best.startFrame),
   };
 }
-
 
 function findWorstMissedPunish(
   conversions: ConversionType[],
@@ -2227,6 +2355,7 @@ function findWorstMissedPunish(
       (worst.endPercent ?? worst.currentPercent) - worst.startPercent,
     ),
     opponentPercent: Math.round(worst.startPercent),
+    timestamp: frameToTimestamp(worst.startFrame),
   };
 }
 
@@ -2236,6 +2365,7 @@ function buildDerivedInsights(
   stats: StatsType,
   frames: FramesType,
   lastFrame: number,
+  stageId: number,
 ): DerivedInsights {
   const playerStocks = stats.stocks.filter(
     (s) => s.playerIndex === playerIndex,
@@ -2280,6 +2410,90 @@ function buildDerivedInsights(
     opponentIndex,
   );
 
+  // Build chronological timeline of key moments for timestamp-backed analysis
+  const keyMoments: DerivedInsights["keyMoments"] = [];
+
+  // Kills the player landed (opponent is victim + didKill)
+  for (const c of stats.conversions) {
+    if (c.playerIndex === opponentIndex && c.didKill && c.moves.length > 0) {
+      const lastMove = c.moves[c.moves.length - 1]!;
+      const moveName = moveIdToName[lastMove.moveId] ?? getMoveName(lastMove.moveId);
+      const dmg = Math.round((c.endPercent ?? c.currentPercent) - c.startPercent);
+      const isOffstageKill =
+        c.endFrame != null &&
+        frames[c.endFrame]?.players[opponentIndex]?.post != null &&
+        isOffstage(
+          frames[c.endFrame]!.players[opponentIndex]!.post!.positionX ?? 0,
+          frames[c.endFrame]!.players[opponentIndex]!.post!.positionY ?? 0,
+          stageId,
+        );
+
+      keyMoments.push({
+        timestamp: frameToTimestamp(c.startFrame),
+        frame: c.startFrame,
+        type: isOffstageKill ? "edgeguard_kill" : "kill",
+        description: `Killed opponent with ${moveName} at ${Math.round(c.startPercent)}% (${dmg}% combo)`,
+      });
+    }
+  }
+
+  // Deaths the player suffered (player is victim + didKill)
+  for (const c of stats.conversions) {
+    if (c.playerIndex === playerIndex && c.didKill && c.moves.length > 0) {
+      const lastMove = c.moves[c.moves.length - 1]!;
+      const moveName = moveIdToName[lastMove.moveId] ?? getMoveName(lastMove.moveId);
+      keyMoments.push({
+        timestamp: frameToTimestamp(c.startFrame),
+        frame: c.startFrame,
+        type: "death",
+        description: `Died to ${moveName} at ${Math.round(c.startPercent)}%`,
+      });
+    }
+  }
+
+  // Big punishes the player landed (≥40% damage in one conversion)
+  for (const c of stats.conversions) {
+    if (c.playerIndex === opponentIndex && c.moves.length > 0) {
+      const dmg = (c.endPercent ?? c.currentPercent) - c.startPercent;
+      if (dmg >= 40 && !c.didKill) {
+        const moves = c.moves.map(
+          (m) => moveIdToName[m.moveId] ?? getMoveName(m.moveId),
+        );
+        const opener = moves[0] ?? "unknown";
+        keyMoments.push({
+          timestamp: frameToTimestamp(c.startFrame),
+          frame: c.startFrame,
+          type: "big_punish",
+          description: `${Math.round(dmg)}% punish starting with ${opener} (${moves.length} hits, opponent at ${Math.round(c.startPercent)}%)`,
+        });
+      }
+    }
+  }
+
+  // Missed punishes (opening at high % that did <15% and didn't kill)
+  for (const c of stats.conversions) {
+    if (
+      c.playerIndex === opponentIndex &&
+      c.moves.length > 0 &&
+      c.startPercent >= 80 &&
+      !c.didKill
+    ) {
+      const dmg = (c.endPercent ?? c.currentPercent) - c.startPercent;
+      if (dmg < 15) {
+        const opener = moveIdToName[c.moves[0]!.moveId] ?? getMoveName(c.moves[0]!.moveId);
+        keyMoments.push({
+          timestamp: frameToTimestamp(c.startFrame),
+          frame: c.startFrame,
+          type: "missed_punish",
+          description: `Missed punish: ${opener} at ${Math.round(c.startPercent)}%, only dealt ${Math.round(dmg)}%`,
+        });
+      }
+    }
+  }
+
+  // Sort chronologically
+  keyMoments.sort((a, b) => a.frame - b.frame);
+
   return {
     afterKnockdown,
     afterLedgeGrab,
@@ -2287,6 +2501,7 @@ function buildDerivedInsights(
     performanceByStock,
     bestConversion,
     worstMissedPunish,
+    keyMoments,
     adaptationSignals: [], // Only for multi-game sets
   };
 }
@@ -2434,6 +2649,7 @@ export function processGame(filePath: string, gameNumber: number): {
     stats,
     frames,
     lastFrame,
+    stageId,
   );
   const p1Insights = buildDerivedInsights(
     p1Index,
@@ -2441,6 +2657,7 @@ export function processGame(filePath: string, gameNumber: number): {
     stats,
     frames,
     lastFrame,
+    stageId,
   );
 
   return {
@@ -2475,6 +2692,20 @@ CORE RULES:
 - Calibrate to the player's level. If their L-cancel rate is 95%+ and
   conversion rate is high, address them as an advanced player and focus on
   subtle optimizations. If they're at 70% L-cancels, focus on fundamentals.
+
+TIMESTAMP CITATIONS:
+- The data includes a "keyMoments" timeline with timestamps (e.g., "1:23") for
+  kills, deaths, big punishes, missed punishes, and edgeguard kills.
+- The bestConversion and worstMissedPunish also include timestamps.
+- When making a claim about a specific event, ALWAYS cite the timestamp in
+  square brackets, like: "At [1:23], you landed a clean 68% punish off a grab"
+  or "The kill at [2:45] came from a well-spaced tipper fsmash."
+- This lets the player jump to that exact moment in their replay viewer to
+  review it. Timestamp citations make your analysis verifiable and actionable.
+- Don't timestamp every sentence — use them for specific notable moments:
+  kills, deaths, big combos, missed opportunities, turning points.
+- If referencing the keyMoments data, use the timestamps provided. Do not
+  invent timestamps that aren't in the data.
 
 ANALYSIS STRUCTURE:
 
@@ -2591,6 +2822,9 @@ WHAT NOT TO DO:
   will give them the most improvement.
 - Don't hallucinate events. If the data doesn't show something, don't claim
   it happened. Stick to what the numbers support.
+- Don't fabricate timestamps. Only use timestamps from the keyMoments timeline,
+  bestConversion, or worstMissedPunish data. The player can verify every
+  timestamp by watching the replay — made-up timestamps destroy trust.
 
 MATCHUP AWARENESS:
 
@@ -2684,21 +2918,45 @@ blunt — players want to hear what they need to fix.`;
 export type GameResult = {
   gameSummary: GameSummary;
   derivedInsights: [DerivedInsights, DerivedInsights];
+  startAt: string | null;
 };
 
 export function findPlayerIdx(
   gameSummary: GameSummary,
   playerIdentifier: string,
 ): 0 | 1 {
-  // Exact tag match
-  if (gameSummary.players[0].tag === playerIdentifier) return 0;
-  if (gameSummary.players[1].tag === playerIdentifier) return 1;
-  // Connect code match
-  if (gameSummary.players[0].connectCode === playerIdentifier) return 0;
-  if (gameSummary.players[1].connectCode === playerIdentifier) return 1;
-  // Fallback: partial tag match
-  if (gameSummary.players[0].tag.toLowerCase().includes(playerIdentifier.toLowerCase())) return 0;
-  return 1;
+  const id = playerIdentifier.trim();
+  const idLower = id.toLowerCase();
+  const p0 = gameSummary.players[0];
+  const p1 = gameSummary.players[1];
+
+  // 1. Exact tag match
+  if (p0.tag === id) return 0;
+  if (p1.tag === id) return 1;
+
+  // 2. Exact connect code match (case-insensitive — codes like "FOX#123")
+  if (p0.connectCode.toLowerCase() === idLower) return 0;
+  if (p1.connectCode.toLowerCase() === idLower) return 1;
+
+  // 3. Connect code in tag (user entered connect code, tag contains it)
+  if (p0.tag.toLowerCase().includes(idLower)) return 0;
+  if (p1.tag.toLowerCase().includes(idLower)) return 1;
+
+  // 4. Tag in identifier (user entered a longer tag that contains the replay tag)
+  if (idLower.includes(p0.tag.toLowerCase()) && p0.tag.toLowerCase() !== "unknown") return 0;
+  if (idLower.includes(p1.tag.toLowerCase()) && p1.tag.toLowerCase() !== "unknown") return 1;
+
+  // 5. Connect code contains the identifier as a prefix (e.g., "FOX" matches "FOX#123")
+  if (p0.connectCode.toLowerCase().startsWith(idLower)) return 0;
+  if (p1.connectCode.toLowerCase().startsWith(idLower)) return 1;
+
+  // 6. Final fallback: prefer the player with a non-generic tag
+  // This is better than blindly returning 1
+  if (p0.tag.toLowerCase() !== "unknown" && p1.tag.toLowerCase() === "unknown") return 0;
+  if (p1.tag.toLowerCase() !== "unknown" && p0.tag.toLowerCase() === "unknown") return 1;
+
+  // Default to player 0 (port 1) if no match — more likely to be the local player
+  return 0;
 }
 
 function getGrabFrequency(player: PlayerSummary): number {
@@ -2725,65 +2983,44 @@ export function computeAdaptationSignals(
   const firstInsights = first.derivedInsights[firstIdx];
   const lastInsights = last.derivedInsights[lastIdx];
 
-  const metrics: {
+  // Extract per-game values for each metric across the full set
+  type MetricExtractor = (player: PlayerSummary, insights: DerivedInsights) => number;
+
+  const metricDefs: {
     metric: string;
-    game1Value: number;
-    lastGameValue: number;
+    extract: MetricExtractor;
     higherIsBetter: boolean;
   }[] = [
-    {
-      metric: "neutral win rate",
-      game1Value: firstPlayer.neutralWinRate,
-      lastGameValue: lastPlayer.neutralWinRate,
-      higherIsBetter: true,
-    },
-    {
-      metric: "ledge option entropy",
-      game1Value: firstInsights.afterLedgeGrab.entropy,
-      lastGameValue: lastInsights.afterLedgeGrab.entropy,
-      higherIsBetter: true,
-    },
-    {
-      metric: "knockdown option entropy",
-      game1Value: firstInsights.afterKnockdown.entropy,
-      lastGameValue: lastInsights.afterKnockdown.entropy,
-      higherIsBetter: true,
-    },
-    {
-      metric: "shield option entropy",
-      game1Value: firstInsights.afterShieldPressure.entropy,
-      lastGameValue: lastInsights.afterShieldPressure.entropy,
-      higherIsBetter: true,
-    },
-    {
-      metric: "L-cancel rate",
-      game1Value: firstPlayer.lCancelRate,
-      lastGameValue: lastPlayer.lCancelRate,
-      higherIsBetter: true,
-    },
-    {
-      metric: "openings per kill",
-      game1Value: firstPlayer.openingsPerKill,
-      lastGameValue: lastPlayer.openingsPerKill,
-      higherIsBetter: false,
-    },
-    {
-      metric: "avg damage per opening",
-      game1Value: firstPlayer.averageDamagePerOpening,
-      lastGameValue: lastPlayer.averageDamagePerOpening,
-      higherIsBetter: true,
-    },
-    {
-      metric: "grab frequency",
-      game1Value: getGrabFrequency(firstPlayer),
-      lastGameValue: getGrabFrequency(lastPlayer),
-      higherIsBetter: true, // generally, more grabs = better punish game
-    },
+    { metric: "neutral win rate", extract: (p) => p.neutralWinRate, higherIsBetter: true },
+    { metric: "ledge option entropy", extract: (_, i) => i.afterLedgeGrab.entropy, higherIsBetter: true },
+    { metric: "knockdown option entropy", extract: (_, i) => i.afterKnockdown.entropy, higherIsBetter: true },
+    { metric: "shield option entropy", extract: (_, i) => i.afterShieldPressure.entropy, higherIsBetter: true },
+    { metric: "L-cancel rate", extract: (p) => p.lCancelRate, higherIsBetter: true },
+    { metric: "openings per kill", extract: (p) => p.openingsPerKill, higherIsBetter: false },
+    { metric: "avg damage per opening", extract: (p) => p.averageDamagePerOpening, higherIsBetter: true },
+    { metric: "grab frequency", extract: (p) => getGrabFrequency(p), higherIsBetter: true },
+    { metric: "power shields", extract: (p) => p.powerShieldCount, higherIsBetter: true },
+    { metric: "edgeguard success", extract: (p) => p.edgeguardSuccessRate, higherIsBetter: true },
   ];
+
+  // Build trajectory (per-game values) for each metric
+  const metrics = metricDefs.map(({ metric, extract, higherIsBetter }) => {
+    const trajectory = gameResults.map((gr) => {
+      const idx = findPlayerIdx(gr.gameSummary, playerTag);
+      return extract(gr.gameSummary.players[idx], gr.derivedInsights[idx]);
+    });
+    return {
+      metric,
+      game1Value: trajectory[0]!,
+      lastGameValue: trajectory[trajectory.length - 1]!,
+      higherIsBetter,
+      trajectory,
+    };
+  });
 
   const THRESHOLD = 0.03; // 3% change threshold for "stable"
 
-  return metrics.map(({ metric, game1Value, lastGameValue, higherIsBetter }) => {
+  return metrics.map(({ metric, game1Value, lastGameValue, higherIsBetter, trajectory }) => {
     const delta = lastGameValue - game1Value;
     const relativeDelta =
       game1Value !== 0 ? Math.abs(delta / game1Value) : Math.abs(delta);
@@ -2802,6 +3039,7 @@ export function computeAdaptationSignals(
       game1Value: Math.round(game1Value * 10000) / 10000,
       lastGameValue: Math.round(lastGameValue * 10000) / 10000,
       direction,
+      trajectory: trajectory.map((v) => Math.round(v * 10000) / 10000),
     };
   });
 }
@@ -2851,6 +3089,15 @@ export function assembleUserPrompt(
       [gp2.tag]: result.derivedInsights[1],
     };
 
+    // Build key moments timeline for both players
+    const p1Moments = result.derivedInsights[0].keyMoments;
+    const p2Moments = result.derivedInsights[1].keyMoments;
+    // Merge and sort chronologically, tagging with player name
+    const allMoments = [
+      ...p1Moments.map((m) => ({ ...m, player: gp1.tag })),
+      ...p2Moments.map((m) => ({ ...m, player: gp2.tag })),
+    ].sort((a, b) => a.frame - b.frame);
+
     lines.push(
       "",
       `=== GAME ${g.gameNumber} — ${g.stage} ===`,
@@ -2866,6 +3113,17 @@ export function assembleUserPrompt(
       `--- Derived Insights ---`,
       JSON.stringify(stripNulls(insightsObj), null, 2),
     );
+
+    // Append timestamped key moments timeline
+    if (allMoments.length > 0) {
+      lines.push(
+        "",
+        `--- Key Moments Timeline (use these timestamps in your analysis) ---`,
+      );
+      for (const m of allMoments) {
+        lines.push(`  [${m.timestamp}] ${m.player}: ${m.description}`);
+      }
+    }
   }
 
   lines.push(

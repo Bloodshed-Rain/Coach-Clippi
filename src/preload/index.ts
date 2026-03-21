@@ -42,6 +42,12 @@ const api = {
   getCharacterSignatureStats: (character: string) => ipcRenderer.invoke("stats:characterSignature", character),
   getCharacterGameStats: (character: string) => ipcRenderer.invoke("stats:characterGameStats", character),
 
+  // Dolphin playback
+  openInDolphin: (replayPath: string) =>
+    ipcRenderer.invoke("replay:openInDolphin", replayPath),
+  openFileDialog: (title: string, filters: { name: string; extensions: string[] }[]) =>
+    ipcRenderer.invoke("dialog:openFile", title, filters),
+
   // File watcher
   startWatcher: (replayFolder: string, targetPlayer: string) =>
     ipcRenderer.invoke("watcher:start", replayFolder, targetPlayer),

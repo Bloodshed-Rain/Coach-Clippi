@@ -4,6 +4,8 @@
  * Uses a pool of worker_threads to parse replays concurrently without
  * blocking the Electron main process. Pool size defaults to
  * Math.max(1, cpuCount - 2) to leave headroom for the UI and Dolphin.
+ *
+ * Workers are spawned lazily and reused across jobs via message passing.
  */
 
 import { Worker } from "worker_threads";
@@ -14,14 +16,14 @@ import type { GameResult } from "./pipeline";
 interface ParseJob {
   filePath: string;
   gameNumber: number;
-  resolve: (result: GameResult & { startAt: string | null }) => void;
+  resolve: (result: GameResult) => void;
   reject: (error: Error) => void;
 }
 
 interface WorkerOutput {
   success: boolean;
   filePath: string;
-  result?: GameResult & { startAt: string | null };
+  result?: GameResult;
   error?: string;
 }
 
@@ -30,7 +32,8 @@ const WORKER_PATH = path.resolve(__dirname, "parseWorker.ts");
 export class ParsePool {
   private poolSize: number;
   private workers: Worker[] = [];
-  private busy: Set<Worker> = new Set();
+  private idle: Set<Worker> = new Set();
+  private activeJobs: Map<Worker, ParseJob> = new Map();
   private queue: ParseJob[] = [];
 
   constructor(poolSize?: number) {
@@ -41,7 +44,7 @@ export class ParsePool {
    * Parse a single .slp file in a worker thread.
    * Returns the same result as processGame() but without blocking main.
    */
-  parse(filePath: string, gameNumber: number = 1): Promise<GameResult & { startAt: string | null }> {
+  parse(filePath: string, gameNumber: number = 1): Promise<GameResult> {
     return new Promise((resolve, reject) => {
       this.queue.push({ filePath, gameNumber, resolve, reject });
       this.dispatch();
@@ -55,8 +58,8 @@ export class ParsePool {
   async parseMany(
     filePaths: string[],
     onProgress?: (completed: number, total: number, filePath: string) => void,
-  ): Promise<(GameResult & { startAt: string | null })[]> {
-    const results: (GameResult & { startAt: string | null })[] = new Array(filePaths.length);
+  ): Promise<GameResult[]> {
+    const results: GameResult[] = new Array(filePaths.length);
     let completed = 0;
 
     await Promise.all(
@@ -77,73 +80,94 @@ export class ParsePool {
       w.terminate();
     }
     this.workers = [];
-    this.busy.clear();
-    // Reject remaining jobs
+    this.idle.clear();
+    this.activeJobs.clear();
     for (const job of this.queue) {
       job.reject(new Error("Pool terminated"));
     }
     this.queue = [];
   }
 
-  private dispatch(): void {
-    if (this.queue.length === 0) return;
-
-    // Find or create an available worker
-    let worker = this.workers.find((w) => !this.busy.has(w));
-
-    if (!worker && this.workers.length < this.poolSize) {
-      // Spawn a new worker — use tsx to handle TypeScript
-      worker = new Worker(WORKER_PATH, {
-        // Dummy workerData; overridden per-job via a fresh worker
-        workerData: {},
-        execArgv: ["--require", "tsx/cjs"],
-      });
-      this.workers.push(worker);
-    }
-
-    if (!worker) return; // All workers busy, job stays queued
-
-    const job = this.queue.shift()!;
-    this.busy.add(worker);
-
-    // For worker_threads, we need to create a fresh worker per job
-    // since workerData is set at construction time.
-    // Remove the reusable approach — spawn per job, terminate on done.
-    this.busy.delete(worker);
-    const idx = this.workers.indexOf(worker);
-    if (idx >= 0) this.workers.splice(idx, 1);
-    worker.terminate();
-
-    const jobWorker = new Worker(WORKER_PATH, {
-      workerData: { filePath: job.filePath, gameNumber: job.gameNumber },
+  private spawnWorker(): Worker {
+    const worker = new Worker(WORKER_PATH, {
       execArgv: ["--require", "tsx/cjs"],
     });
 
-    this.workers.push(jobWorker);
-    this.busy.add(jobWorker);
+    worker.on("message", (output: WorkerOutput) => {
+      const job = this.activeJobs.get(worker);
+      this.activeJobs.delete(worker);
+      this.idle.add(worker);
 
-    jobWorker.on("message", (output: WorkerOutput) => {
-      this.busy.delete(jobWorker);
-      const wIdx = this.workers.indexOf(jobWorker);
-      if (wIdx >= 0) this.workers.splice(wIdx, 1);
-      jobWorker.terminate();
-
-      if (output.success && output.result) {
-        job.resolve(output.result);
-      } else {
-        job.reject(new Error(output.error ?? "Unknown worker error"));
+      if (job) {
+        if (output.success && output.result) {
+          job.resolve(output.result);
+        } else {
+          job.reject(new Error(output.error ?? "Unknown worker error"));
+        }
       }
 
-      this.dispatch(); // Process next job
-    });
-
-    jobWorker.on("error", (err: unknown) => {
-      this.busy.delete(jobWorker);
-      const wIdx = this.workers.indexOf(jobWorker);
-      if (wIdx >= 0) this.workers.splice(wIdx, 1);
-      job.reject(err instanceof Error ? err : new Error(String(err)));
       this.dispatch();
     });
+
+    worker.on("error", (err: unknown) => {
+      const job = this.activeJobs.get(worker);
+      this.activeJobs.delete(worker);
+
+      // Remove dead worker from pool and spawn a replacement on next dispatch
+      const idx = this.workers.indexOf(worker);
+      if (idx >= 0) this.workers.splice(idx, 1);
+      this.idle.delete(worker);
+
+      if (job) {
+        job.reject(err instanceof Error ? err : new Error(String(err)));
+      }
+
+      this.dispatch();
+    });
+
+    worker.on("exit", (code: number) => {
+      const job = this.activeJobs.get(worker);
+      this.activeJobs.delete(worker);
+
+      // Remove exited worker from pool
+      const idx = this.workers.indexOf(worker);
+      if (idx >= 0) this.workers.splice(idx, 1);
+      this.idle.delete(worker);
+
+      if (job) {
+        job.reject(new Error(`Worker exited unexpectedly with code ${code}`));
+      }
+
+      this.dispatch();
+    });
+
+    this.workers.push(worker);
+    this.idle.add(worker);
+    return worker;
+  }
+
+  private dispatch(): void {
+    while (this.queue.length > 0) {
+      // Find an idle worker or spawn one if under limit
+      let worker: Worker | undefined;
+
+      for (const w of this.idle) {
+        worker = w;
+        break;
+      }
+
+      if (!worker && this.workers.length < this.poolSize) {
+        worker = this.spawnWorker();
+      }
+
+      if (!worker) return; // All workers busy, jobs stay queued
+
+      const job = this.queue.shift()!;
+      this.idle.delete(worker);
+      this.activeJobs.set(worker, job);
+
+      worker.postMessage({ filePath: job.filePath, gameNumber: job.gameNumber });
+    }
   }
 }
 

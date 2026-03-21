@@ -15,6 +15,8 @@ export interface Config {
   anthropicApiKey: string | null;
   openaiApiKey: string | null;
   localEndpoint: string | null;
+  // Dolphin
+  dolphinPath: string | null;
   // UI
   theme: string | null;
   colorMode: string | null;
@@ -30,6 +32,7 @@ const DEFAULTS: Config = {
   anthropicApiKey: null,
   openaiApiKey: null,
   localEndpoint: null,
+  dolphinPath: null,
   theme: null,
   colorMode: null,
 };

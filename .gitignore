@@ -170,3 +170,6 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Extraneous data files
+ct_subdomains.txt

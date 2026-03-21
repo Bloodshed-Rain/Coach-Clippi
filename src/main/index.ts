@@ -348,6 +348,85 @@ Open with a quick vibe check on their overall trajectory, then hit the highlight
     }
     return true;
   });
+
+  // Dolphin replay playback
+  safeHandle("replay:openInDolphin", async (_e, replayPath: string) => {
+    const config = loadConfig();
+    let dolphinPath = config.dolphinPath;
+
+    // Auto-detect common Slippi Dolphin locations if not configured
+    if (!dolphinPath) {
+      const { execSync } = require("child_process") as typeof import("child_process");
+      const candidates = process.platform === "linux"
+        ? [
+            "/usr/bin/slippi-dolphin",
+            "/usr/local/bin/slippi-dolphin",
+            path.join(require("os").homedir(), "Slippi-Dolphin/squashfs-root/usr/bin/dolphin-emu"),
+            path.join(require("os").homedir(), ".local/bin/slippi-dolphin"),
+          ]
+        : process.platform === "darwin"
+          ? [
+              "/Applications/Slippi Dolphin.app/Contents/MacOS/Slippi Dolphin",
+              path.join(require("os").homedir(), "Applications/Slippi Dolphin.app/Contents/MacOS/Slippi Dolphin"),
+            ]
+          : [
+              "C:\\Users\\" + require("os").userInfo().username + "\\AppData\\Roaming\\Slippi Launcher\\playback\\Slippi Dolphin.exe",
+              "C:\\Program Files\\Slippi Dolphin\\Slippi Dolphin.exe",
+            ];
+
+      // Also try `which` on unix
+      if (process.platform !== "win32") {
+        try {
+          const found = execSync("which slippi-dolphin 2>/dev/null || which dolphin-emu 2>/dev/null", { encoding: "utf-8" }).trim();
+          if (found) candidates.unshift(found);
+        } catch { /* not found */ }
+      }
+
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+          dolphinPath = candidate;
+          break;
+        }
+      }
+    }
+
+    if (!dolphinPath) {
+      throw new Error(
+        "Slippi Dolphin not found. Set the Dolphin path in Settings."
+      );
+    }
+
+    if (!fs.existsSync(dolphinPath)) {
+      throw new Error(
+        `Dolphin not found at: ${dolphinPath}. Update the path in Settings.`
+      );
+    }
+
+    if (!fs.existsSync(replayPath)) {
+      throw new Error(`Replay file not found: ${replayPath}`);
+    }
+
+    const { spawn } = require("child_process") as typeof import("child_process");
+    const child = spawn(dolphinPath, ["-i", replayPath], {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.unref();
+
+    return true;
+  });
+
+  // Browse for Dolphin executable
+  safeHandle("dialog:openFile", async (_e, title: string, filters: { name: string; extensions: string[] }[]) => {
+    const win = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    if (!win) return null;
+    const result = await dialog.showOpenDialog(win, {
+      properties: ["openFile"],
+      title,
+      filters,
+    });
+    return result.canceled ? null : result.filePaths[0] ?? null;
+  });
 }
 
 // ── App lifecycle ────────────────────────────────────────────────────
@@ -367,9 +446,18 @@ app.whenReady().then(() => {
       result.gameSummary.players[0].tag;
     const userPrompt = assembleUserPrompt([result], targetTag);
     // Queue the API call — waits its turn, respects rate limits
-    return llmQueue.enqueue(() =>
+    const analysisText = await llmQueue.enqueue(() =>
       callLLM({ systemPrompt: SYSTEM_PROMPT, userPrompt, config: llmConfig }),
     );
+    return {
+      analysisText,
+      gameResult: {
+        gameSummary: result.gameSummary,
+        derivedInsights: result.derivedInsights,
+        startAt: result.startAt,
+      },
+      targetPlayer: targetTag,
+    };
   });
 
   setupIPC();

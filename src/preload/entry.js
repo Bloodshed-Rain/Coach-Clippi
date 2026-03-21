@@ -50,6 +50,12 @@ const api = {
   // Data management
   clearAllGames: () => ipcRenderer.invoke("data:clearAll"),
 
+  // Dolphin playback
+  openInDolphin: (replayPath) =>
+    ipcRenderer.invoke("replay:openInDolphin", replayPath),
+  openFileDialog: (title, filters) =>
+    ipcRenderer.invoke("dialog:openFile", title, filters),
+
   // File watcher
   startWatcher: (replayFolder, targetPlayer) =>
     ipcRenderer.invoke("watcher:start", replayFolder, targetPlayer),
