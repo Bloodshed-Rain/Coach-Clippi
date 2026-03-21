@@ -81,8 +81,8 @@ Import your `.slp` files, get personalized coaching analysis from an LLM, track 
 ### Install
 
 ```bash
-git clone https://github.com/Bloodshed-Rain/MAGI.git
-cd MAGI
+git clone https://github.com/Bloodshed-Rain/TheMAGI.git
+cd TheMAGI
 npm install
 npx electron-rebuild
 ```
@@ -109,7 +109,7 @@ The analysis pipeline also works from the command line:
 
 ```bash
 # Analyze a single replay
-npx tsx src/pipeline.ts path/to/game.slp --target YourTag
+npx tsx src/pipeline-cli.ts path/to/game.slp --target YourTag
 
 # Watch for new replays
 npx tsx src/watcher.ts /path/to/replays --target YourTag
@@ -132,7 +132,7 @@ npx tsx src/watcher.ts /path/to/replays --target YourTag
 ```
 
 Key modules:
-- `src/pipeline.ts` — data pipeline: slippi-js parsing, stat computation, habit detection, character-specific stats, prompt assembly
+- `src/pipeline/` — data pipeline: slippi-js parsing, stat computation, habit detection, character-specific stats, prompt assembly
 - `src/llm.ts` — multi-provider LLM abstraction with retry, rate-limit handling, and fetch timeout
 - `src/db.ts` — SQLite schema, queries, trend/matchup/opponent/set detection
 - `src/replayAnalyzer.ts` — deduplicated analysis flow with caching

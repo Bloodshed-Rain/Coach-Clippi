@@ -30,7 +30,7 @@ async function main() {
 
   // Compile main + preload with tsx, then start Electron
   const electron = spawn(
-    path.resolve(__dirname, "../node_modules/.bin/electron"),
+    require("electron"),
     ["."],
     {
       cwd: path.resolve(__dirname, ".."),
