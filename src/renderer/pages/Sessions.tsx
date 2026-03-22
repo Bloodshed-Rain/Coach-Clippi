@@ -9,6 +9,7 @@ interface DetectedSet {
   startedAt: string;
   wins: number;
   losses: number;
+  draws: number;
 }
 
 type View = "sets" | "opponents";
@@ -131,7 +132,16 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
             {sets.length === 0 ? (
               <p style={{ color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: 12 }}>No sets detected yet.</p>
             ) : (
+              <div className="data-table-wrap">
               <table className="data-table">
+                <colgroup>
+                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "24%" }} />
+                  <col style={{ width: "18%" }} />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "14%" }} />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Date</th>
@@ -144,15 +154,10 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
                 </thead>
                 <tbody>
                   {[...sets].reverse().map((set, i) => {
-                    const total = set.wins + set.losses;
+                    const total = set.gameIds.length;
                     const result = set.wins > set.losses ? "W" : set.losses > set.wins ? "L" : "T";
                     return (
-                      <motion.tr
-                        key={i}
-                        initial={{ opacity: 0, x: -12 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.02, duration: 0.35 }}
-                      >
+                      <tr key={i}>
                         <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
                           {new Date(set.startedAt).toLocaleDateString()}
                         </td>
@@ -163,6 +168,12 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
                           <span className="record-win">{set.wins}</span>
                           {" - "}
                           <span className="record-loss">{set.losses}</span>
+                          {set.draws > 0 && (
+                            <>
+                              {" - "}
+                              <span style={{ color: "var(--text-dim)" }}>{set.draws}</span>
+                            </>
+                          )}
                         </td>
                         <td>
                           <span style={{
@@ -184,11 +195,12 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
                             {result}
                           </span>
                         </td>
-                      </motion.tr>
+                      </tr>
                     );
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </motion.div>
         )}
@@ -227,7 +239,17 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
               {opponents.length === 0 ? (
                 <p style={{ color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: 12 }}>No targets found.</p>
               ) : (
+                <div className="data-table-wrap">
                 <table className="data-table">
+                  <colgroup>
+                    <col style={{ width: "20%" }} />
+                    <col style={{ width: "14%" }} />
+                    <col style={{ width: "16%" }} />
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "14%" }} />
+                    <col style={{ width: "14%" }} />
+                    <col style={{ width: "12%" }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Opponent</th>
@@ -241,12 +263,7 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
                   </thead>
                   <tbody>
                     {opponents.map((o, i) => (
-                      <motion.tr
-                        key={i}
-                        initial={{ opacity: 0, x: -12 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.02, duration: 0.35 }}
-                      >
+                      <tr key={i}>
                         <td style={{ fontWeight: 700 }}>{o.opponentTag}</td>
                         <td style={{ color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
                           {o.opponentConnectCode ?? ""}
@@ -262,10 +279,11 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
                         <td style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>
                           {o.lastPlayed ? new Date(o.lastPlayed).toLocaleDateString() : ""}
                         </td>
-                      </motion.tr>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           </motion.div>

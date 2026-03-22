@@ -832,9 +832,14 @@ body {
    Rows light up on hover like targeting HUD lock-on
    ══════════════════════════════════════════════════════════════════ */
 
+.data-table-wrap {
+  overflow-x: auto;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .data-table th {
@@ -843,43 +848,22 @@ body {
   text-transform: uppercase;
   letter-spacing: 1.5px;
   color: var(--text-dim);
-  padding: 10px 14px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--border);
   font-weight: 700;
   font-family: var(--font-display);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .data-table td {
-  padding: 12px 14px;
+  padding: 10px 10px;
   border-bottom: 1px solid var(--border-subtle);
   font-size: 13px;
-  transition: all 0.2s var(--ease-spring);
-}
-
-.data-table tbody tr {
-  transition: transform 0.2s var(--ease-spring);
-  position: relative;
-}
-
-.data-table tbody tr::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--accent);
-  box-shadow: -4px 0 12px rgba(var(--accent-rgb), 0.15);
-  opacity: 0;
-  transition: opacity 0.2s var(--ease-spring);
-}
-
-.data-table tbody tr:hover {
-  transform: translateX(4px);
-}
-
-.data-table tbody tr:hover::before {
-  opacity: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .data-table tbody tr:hover td {
@@ -1071,6 +1055,36 @@ body {
   font-size: 12px;
   color: var(--secondary);
   border: 1px solid rgba(var(--accent-rgb), 0.15);
+}
+
+/* ── Timestamp links in coaching text ─────────────────────────────── */
+
+.timestamp-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 8px;
+  margin: 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  cursor: pointer;
+  transition: all 0.2s var(--ease-spring);
+  clip-path: var(--clip-corner-sm);
+}
+
+.timestamp-link:hover {
+  background: rgba(var(--accent-rgb), 0.2);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.25);
+  color: var(--text);
+}
+
+.timestamp-link:active {
+  transform: scale(0.95);
 }
 
 /* ── Coaching analysis sections ───────────────────────────────────── */

@@ -45,6 +45,8 @@ const api = {
   // Dolphin playback
   openInDolphin: (replayPath: string) =>
     ipcRenderer.invoke("replay:openInDolphin", replayPath),
+  openInDolphinAtFrame: (replayPath: string, frame: number) =>
+    ipcRenderer.invoke("replay:openInDolphinAtFrame", replayPath, frame),
   openFileDialog: (title: string, filters: { name: string; extensions: string[] }[]) =>
     ipcRenderer.invoke("dialog:openFile", title, filters),
 

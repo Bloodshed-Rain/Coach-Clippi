@@ -1,7 +1,56 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Markdown from "react-markdown";
+import Markdown, { type Components } from "react-markdown";
 import { useStagger, useGlitchText } from "../hooks";
+
+const FPS = 60;
+const FIRST_PLAYABLE = -123; // Frames.FIRST_PLAYABLE from slippi-js
+
+/** Convert a "M:SS" timestamp string back to a game frame number */
+function timestampToFrame(ts: string): number {
+  const parts = ts.split(":");
+  if (parts.length !== 2) return 0;
+  const minutes = parseInt(parts[0]!, 10);
+  const seconds = parseInt(parts[1]!, 10);
+  if (isNaN(minutes) || isNaN(seconds)) return 0;
+  return (minutes * 60 + seconds) * FPS + FIRST_PLAYABLE;
+}
+
+/** Pre-process coaching markdown to convert [M:SS] timestamps into clickable links */
+function injectTimestampLinks(text: string): string {
+  // Convert [M:SS] patterns into markdown links: [▶ M:SS](timestamp:M:SS)
+  return text.replace(/\[(\d{1,2}:\d{2})\]/g, "[▶ $1](timestamp:$1)");
+}
+
+/** Create react-markdown components that render timestamp links as clickable buttons */
+function makeTimestampComponents(replayPath: string): Components {
+  return {
+    a: ({ href, children }) => {
+      if (href?.startsWith("timestamp:")) {
+        const ts = href.slice("timestamp:".length);
+        const frame = timestampToFrame(ts);
+        const handleClick = async (e: React.MouseEvent) => {
+          e.preventDefault();
+          try {
+            await window.clippi.openInDolphinAtFrame(replayPath, frame);
+          } catch (err) {
+            console.error("Failed to open Dolphin at timestamp:", err);
+          }
+        };
+        return (
+          <button
+            onClick={handleClick}
+            className="timestamp-link"
+            title={`Jump to ${ts} in replay`}
+          >
+            {children}
+          </button>
+        );
+      }
+      return <a href={href}>{children}</a>;
+    },
+  };
+}
 
 interface RecentGame {
   id: number;
@@ -285,7 +334,9 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
                       )}
                       {cached && (
                         <div className="analysis-text">
-                          <Markdown>{cached}</Markdown>
+                          <Markdown components={makeTimestampComponents(game.replayPath)}>
+                            {injectTimestampLinks(cached)}
+                          </Markdown>
                         </div>
                       )}
                     </motion.div>

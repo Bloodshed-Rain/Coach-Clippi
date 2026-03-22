@@ -629,6 +629,7 @@ export interface DetectedSet {
   startedAt: string;
   wins: number;
   losses: number;
+  draws: number;
 }
 
 /**
@@ -663,6 +664,7 @@ export function detectSets(gapMinutes: number = 15): DetectedSet[] {
     startedAt: games[0]!.played_at,
     wins: games[0]!.result === "win" ? 1 : 0,
     losses: games[0]!.result === "loss" ? 1 : 0,
+    draws: games[0]!.result === "draw" ? 1 : 0,
   };
 
   for (let i = 1; i < games.length; i++) {
@@ -678,7 +680,8 @@ export function detectSets(gapMinutes: number = 15): DetectedSet[] {
     if (sameOpponent && withinGap) {
       currentSet.gameIds.push(game.id);
       if (game.result === "win") currentSet.wins++;
-      if (game.result === "loss") currentSet.losses++;
+      else if (game.result === "loss") currentSet.losses++;
+      else currentSet.draws++;
       // Track all opponent characters used in the set
       if (game.opponent_character !== currentSet.opponentCharacter && !currentSet.opponentCharacter.includes(game.opponent_character)) {
         currentSet.opponentCharacter += `, ${game.opponent_character}`;
@@ -692,6 +695,7 @@ export function detectSets(gapMinutes: number = 15): DetectedSet[] {
         startedAt: game.played_at,
         wins: game.result === "win" ? 1 : 0,
         losses: game.result === "loss" ? 1 : 0,
+        draws: game.result === "draw" ? 1 : 0,
       };
     }
   }
