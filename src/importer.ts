@@ -67,11 +67,14 @@ export function importReplay(
   // Parse the game
   const { gameSummary, derivedInsights, startAt } = processGame(absolutePath, gameNumber);
 
-  // Resolve target player
-  const targetTag =
-    targetPlayer ??
-    gameSummary.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ??
-    gameSummary.players[0].tag;
+  // Resolve target player — use the explicit target, only guess if nothing provided
+  let targetTag = targetPlayer ?? "";
+  if (!targetTag) {
+    console.warn(`[importReplay] No target player for ${path.basename(absolutePath)} — guessing from replay`);
+    targetTag =
+      gameSummary.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ??
+      gameSummary.players[0].tag;
+  }
 
   const playerIdx = findPlayerIdx(gameSummary, targetTag);
   const opponentIdx = playerIdx === 0 ? 1 : 0;

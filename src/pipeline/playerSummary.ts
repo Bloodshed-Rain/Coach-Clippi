@@ -99,6 +99,7 @@ export function buildPlayerSummary(
   frames: FramesType,
   lastFrame: number,
   stageId: number,
+  opponentIndex: number,
 ): PlayerSummary {
   const tag = getPlayerTag(player);
   const connectCode = player.connectCode || "";
@@ -220,6 +221,7 @@ export function buildPlayerSummary(
   let recoveryAttempts = 0;
   let recoverySuccesses = 0;
   let inRecovery = false;
+  let prevStocks = -1;
   const recoveryBounds = stageBounds(stageId);
 
   for (let f = Frames.FIRST_PLAYABLE; f <= lastFrame; f++) {
@@ -227,7 +229,17 @@ export function buildPlayerSummary(
     if (!frame) continue;
     const pd = frame.players[playerIndex]?.post;
     if (!pd) continue;
-    if (pd.stocksRemaining != null && pd.stocksRemaining <= 0) continue;
+
+    const currentStocks = pd.stocksRemaining ?? 0;
+
+    // Detect stock loss during recovery — death, not a successful recovery
+    if (prevStocks > 0 && currentStocks < prevStocks && inRecovery) {
+      inRecovery = false;
+      // Don't increment recoverySuccesses — player died
+    }
+    prevStocks = currentStocks;
+
+    if (currentStocks <= 0) continue;
 
     const posX = pd.positionX ?? 0;
     const posY = pd.positionY ?? 0;
@@ -258,7 +270,6 @@ export function buildPlayerSummary(
 
   // Edgeguard tracking: count times opponent entered a recovery situation
   // and whether they died or returned to stage.
-  const opponentIndex = playerIndex === 0 ? 1 : playerIndex === 1 ? 0 : 1;
   let edgeguardAttempts = 0;
   let edgeguardKills = 0;
   let opponentInRecovery = false;

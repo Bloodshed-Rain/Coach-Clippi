@@ -53,6 +53,9 @@ const api = {
     ipcRenderer.invoke("watcher:start", replayFolder, targetPlayer),
   stopWatcher: () => ipcRenderer.invoke("watcher:stop"),
 
+  // Queue status
+  getQueueStatus: () => ipcRenderer.invoke("queue:status"),
+
   // Events from main process
   onImported: (callback: (result: unknown) => void) => {
     const listener = (_event: unknown, result: unknown) => callback(result);
@@ -63,6 +66,11 @@ const api = {
     const listener = (_event: unknown, message: string) => callback(message);
     ipcRenderer.on("watcher:error", listener);
     return () => ipcRenderer.removeListener("watcher:error", listener);
+  },
+  onUpdateReady: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on("update:ready", listener);
+    return () => ipcRenderer.removeListener("update:ready", listener);
   },
 };
 

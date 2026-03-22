@@ -107,7 +107,7 @@ export function detectSignatureStats(
         // Waveshine to upsmash: shine → usmash sequence
         if (hasSequence(moves, MOVE_SHINE, MOVE_USMASH)) waveshineToUpsmash++;
         // Upthrow → uair
-        if (moves.length > 0 && moves[0]!.moveId === MOVE_UTHROW && moves.some((m) => m.moveId === MOVE_UAIR)) {
+        if (moves.some((m) => m.moveId === MOVE_UTHROW) && moves.some((m) => m.moveId === MOVE_UAIR)) {
           upthrowUpairs++;
           if (conv.didKill) upthrowUpairKills++;
         }

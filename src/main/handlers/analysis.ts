@@ -8,7 +8,7 @@ import {
 import { callLLM, LLM_DEFAULTS, type LLMConfig } from "../../llm.js";
 import { processReplay } from "../../replayAnalyzer.js";
 import { llmQueue } from "../../llmQueue.js";
-import type { SafeHandleFn } from "../ipc.js";
+import { type SafeHandleFn, validatePath } from "../ipc.js";
 
 /** Build LLMConfig from user config + env vars */
 export function resolveLLMConfig(): LLMConfig {
@@ -52,18 +52,21 @@ function runMultiGameAnalysis(
 export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
   // Analyze — deduplicated. Returns cached analysis if already exists.
   safeHandle("analyze:run", async (_e, replayPaths: string[], targetPlayer: string) => {
+    const safePaths = replayPaths.map(validatePath);
     const llmConfig = resolveLLMConfig();
 
     // Single replay — use processReplay for dedup + caching
-    if (replayPaths.length === 1) {
-      const result = await processReplay(replayPaths[0]!, getDb());
+    // Note: processReplay uses the config's targetPlayer via the analysis generator,
+    // but we still pass through to the multi-game path below if targetPlayer differs
+    if (safePaths.length === 1 && !targetPlayer) {
+      const result = await processReplay(safePaths[0]!, getDb());
       return result.analysisText;
     }
 
     // Multi-replay (set analysis) — run full pipeline
     const gameResults: GameResult[] = [];
-    for (let i = 0; i < replayPaths.length; i++) {
-      gameResults.push(processGame(replayPaths[i]!, i + 1));
+    for (let i = 0; i < safePaths.length; i++) {
+      gameResults.push(processGame(safePaths[i]!, i + 1));
     }
 
     if (gameResults.length === 0) {

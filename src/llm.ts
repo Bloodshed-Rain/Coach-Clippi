@@ -210,6 +210,7 @@ async function callOpenRouter(
   const url = "https://openrouter.ai/api/v1/chat/completions";
   const body = JSON.stringify({
     model: modelId,
+    max_tokens: 8192,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
@@ -228,13 +229,17 @@ async function callOpenRouter(
       body,
     });
 
-    if (response.status === 429) {
+    if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
       if (attempt < MAX_RETRIES) {
         const retryAfter = parseInt(response.headers.get("retry-after") ?? "", 10);
         await sleep((Number.isFinite(retryAfter) ? retryAfter * 1000 : RETRY_DELAY_MS * attempt * 2));
         continue;
       }
-      throw new Error("OpenRouter rate limit exceeded. Please try again in a moment.");
+      if (response.status === 429) {
+        throw new Error("OpenRouter rate limit exceeded. Please try again in a moment.");
+      }
+      const errorBody = await response.text();
+      throw new Error(`OpenRouter API error (${response.status}): ${errorBody}`);
     }
 
     if (!response.ok) {
@@ -279,6 +284,7 @@ async function callGemini(
   const body = JSON.stringify({
     system_instruction: { parts: [{ text: systemPrompt }] },
     contents: [{ parts: [{ text: userPrompt }] }],
+    generationConfig: { maxOutputTokens: 8192 },
   });
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -291,12 +297,16 @@ async function callGemini(
       body,
     });
 
-    if (response.status === 429) {
+    if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
       if (attempt < MAX_RETRIES) {
         await sleep(RETRY_DELAY_MS * attempt * 2);
         continue;
       }
-      throw new Error("Gemini rate limit exceeded. Please try again in a moment.");
+      if (response.status === 429) {
+        throw new Error("Gemini rate limit exceeded. Please try again in a moment.");
+      }
+      const errorBody = await response.text();
+      throw new Error(`Gemini API error (${response.status}): ${errorBody}`);
     }
 
     if (!response.ok) {
@@ -364,13 +374,17 @@ async function callAnthropic(
       body,
     });
 
-    if (response.status === 429) {
+    if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
       if (attempt < MAX_RETRIES) {
         const retryAfter = parseInt(response.headers.get("retry-after") ?? "", 10);
         await sleep((Number.isFinite(retryAfter) ? retryAfter * 1000 : RETRY_DELAY_MS * attempt * 2));
         continue;
       }
-      throw new Error("Anthropic rate limit exceeded. Please try again in a moment.");
+      if (response.status === 429) {
+        throw new Error("Anthropic rate limit exceeded. Please try again in a moment.");
+      }
+      const errorBody = await response.text();
+      throw new Error(`Anthropic API error (${response.status}): ${errorBody}`);
     }
 
     if (!response.ok) {
@@ -414,6 +428,7 @@ async function callOpenAI(
   const url = "https://api.openai.com/v1/chat/completions";
   const body = JSON.stringify({
     model: modelId,
+    max_tokens: 8192,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
@@ -430,13 +445,17 @@ async function callOpenAI(
       body,
     });
 
-    if (response.status === 429) {
+    if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
       if (attempt < MAX_RETRIES) {
         const retryAfter = parseInt(response.headers.get("retry-after") ?? "", 10);
         await sleep((Number.isFinite(retryAfter) ? retryAfter * 1000 : RETRY_DELAY_MS * attempt * 2));
         continue;
       }
-      throw new Error("OpenAI rate limit exceeded. Please try again in a moment.");
+      if (response.status === 429) {
+        throw new Error("OpenAI rate limit exceeded. Please try again in a moment.");
+      }
+      const errorBody = await response.text();
+      throw new Error(`OpenAI API error (${response.status}): ${errorBody}`);
     }
 
     if (!response.ok) {
@@ -475,6 +494,7 @@ async function callLocal(
 
   const body = JSON.stringify({
     model: modelId === "local" ? undefined : modelId,
+    max_tokens: 8192,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },

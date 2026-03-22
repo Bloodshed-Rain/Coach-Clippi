@@ -118,6 +118,7 @@ export function processGame(filePath: string, gameNumber: number): {
     frames,
     lastFrame,
     stageId,
+    p1Index,
   );
 
   const p1Summary = buildPlayerSummary(
@@ -131,6 +132,7 @@ export function processGame(filePath: string, gameNumber: number): {
     frames,
     lastFrame,
     stageId,
+    p0Index,
   );
 
   const gameSummary: GameSummary = {

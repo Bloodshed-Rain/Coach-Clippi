@@ -93,11 +93,17 @@ app.whenReady().then(() => {
   setAnalysisGenerator(async (filePath: string) => {
     const llmConfig = resolveLLMConfig();
     const config = loadConfig();
-    const targetPlayer = config.connectCode ?? config.targetPlayer ?? "";
+    const configTarget = config.connectCode ?? config.targetPlayer ?? "";
     const result = processGame(filePath, 1);
-    const targetTag = targetPlayer ||
-      result.gameSummary.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ||
-      result.gameSummary.players[0].tag;
+    // Use configured target player. Only fall back to guessing if nothing is configured.
+    let targetTag = configTarget;
+    if (!targetTag) {
+      // No target configured — try to pick the first real player, but warn
+      console.warn("[analysisGenerator] No target player configured — guessing from replay data");
+      targetTag =
+        result.gameSummary.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ??
+        result.gameSummary.players[0].tag;
+    }
     const userPrompt = assembleUserPrompt([result], targetTag);
     // Queue the API call — waits its turn, respects rate limits
     const analysisText = await llmQueue.enqueue(() =>

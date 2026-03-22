@@ -1,9 +1,10 @@
 import * as path from "path";
 import { importReplays, importAndAnalyze } from "../../importer.js";
-import type { SafeHandleFn } from "../ipc.js";
+import { type SafeHandleFn, validatePath } from "../ipc.js";
 
 export function registerImportHandlers(safeHandle: SafeHandleFn): void {
   safeHandle("import:folder", async (_e, folderPath: string, targetPlayer: string) => {
+    const safePath = validatePath(folderPath);
     const fs = require("fs") as typeof import("fs");
     const files: string[] = [];
     const walk = (dir: string) => {
@@ -17,10 +18,10 @@ export function registerImportHandlers(safeHandle: SafeHandleFn): void {
         console.error(`[import] Cannot read directory ${dir}: ${err instanceof Error ? err.message : String(err)}`);
       }
     };
-    walk(folderPath);
+    walk(safePath);
 
     if (files.length === 0) {
-      throw new Error(`No .slp replay files found in: ${folderPath}`);
+      throw new Error(`No .slp replay files found in: ${safePath}`);
     }
 
     files.sort();

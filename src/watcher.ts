@@ -118,7 +118,6 @@ export function watchReplays(options: WatcherOptions): { close: () => void } {
   return {
     close: () => {
       watcher.close();
-      closeDb();
     },
   };
 }
@@ -163,11 +162,13 @@ function main() {
   process.on("SIGINT", () => {
     console.log("\nShutting down watcher...");
     close();
+    closeDb();
     process.exit(0);
   });
 
   process.on("SIGTERM", () => {
     close();
+    closeDb();
     process.exit(0);
   });
 

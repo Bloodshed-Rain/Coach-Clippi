@@ -225,7 +225,7 @@ function aggregateSignatureStats(rawStats: any[], characterName?: string): Signa
     },
     Ganon: {
       stompKills: { label: "Stomp Kills", highlight: true },
-      sideBKills: { label: "Side-B Kills", highlight: true },
+      sideBKills: { label: "Gerudo Dragon Kills", highlight: true },
       upTiltKills: { label: "Utilt Kills", highlight: true },
       fairKills: { label: "Fair Kills" },
     },
@@ -534,15 +534,15 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
                     <div className="char-hero-stat-label">L-Cancel</div>
                   </div>
                   <div className="char-hero-stat">
-                    <div className="char-hero-stat-value">{selectedChar.avgOpeningsPerKill}</div>
+                    <div className="char-hero-stat-value">{selectedChar.avgOpeningsPerKill.toFixed(1)}</div>
                     <div className="char-hero-stat-label">Openings/Kill</div>
                   </div>
                   <div className="char-hero-stat">
-                    <div className="char-hero-stat-value">{selectedChar.avgDamagePerOpening}</div>
+                    <div className="char-hero-stat-value">{selectedChar.avgDamagePerOpening.toFixed(1)}</div>
                     <div className="char-hero-stat-label">Dmg/Opening</div>
                   </div>
                   <div className="char-hero-stat">
-                    <div className="char-hero-stat-value">{selectedChar.avgDeathPercent}%</div>
+                    <div className="char-hero-stat-value">{selectedChar.avgDeathPercent.toFixed(0)}%</div>
                     <div className="char-hero-stat-label">Death %</div>
                   </div>
                   <div className="char-hero-stat">
@@ -647,7 +647,7 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
                                 </td>
                                 <td style={{ fontFamily: "var(--font-mono)" }}>{pct(m.avgNeutralWinRate)}</td>
                                 <td style={{ fontFamily: "var(--font-mono)" }}>{pct(m.avgConversionRate)}</td>
-                                <td style={{ fontFamily: "var(--font-mono)" }}>{m.avgOpeningsPerKill}</td>
+                                <td style={{ fontFamily: "var(--font-mono)" }}>{m.avgOpeningsPerKill.toFixed(1)}</td>
                               </motion.tr>
                             );
                           })}

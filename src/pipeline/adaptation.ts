@@ -8,36 +8,73 @@ export function findPlayerIdx(
   playerIdentifier: string,
 ): 0 | 1 {
   const id = playerIdentifier.trim();
+  if (!id) {
+    console.warn("[findPlayerIdx] Empty player identifier — defaulting to player 0");
+    return 0;
+  }
+
   const idLower = id.toLowerCase();
   const p0 = gameSummary.players[0];
   const p1 = gameSummary.players[1];
+  const isConnectCode = id.includes("#");
+
+  // When the identifier is a connect code (contains #), prioritize code matching
+  if (isConnectCode) {
+    // Exact connect code match (case-insensitive)
+    if (p0.connectCode.toLowerCase() === idLower) return 0;
+    if (p1.connectCode.toLowerCase() === idLower) return 1;
+
+    // Connect code prefix before # matches tag (e.g., "SAIT#123" → look for tag "Sait")
+    const codePrefix = idLower.split("#")[0]!;
+    if (codePrefix && p0.tag.toLowerCase() === codePrefix) return 0;
+    if (codePrefix && p1.tag.toLowerCase() === codePrefix) return 1;
+
+    // Tag contains the code prefix (e.g., tag "Saitor" contains "sait")
+    if (codePrefix && codePrefix.length >= 2) {
+      if (p0.tag.toLowerCase().includes(codePrefix)) return 0;
+      if (p1.tag.toLowerCase().includes(codePrefix)) return 1;
+    }
+  }
 
   // 1. Exact tag match
   if (p0.tag === id) return 0;
   if (p1.tag === id) return 1;
 
-  // 2. Exact connect code match (case-insensitive — codes like "FOX#123")
-  if (p0.connectCode.toLowerCase() === idLower) return 0;
-  if (p1.connectCode.toLowerCase() === idLower) return 1;
+  // 2. Case-insensitive tag match
+  if (p0.tag.toLowerCase() === idLower) return 0;
+  if (p1.tag.toLowerCase() === idLower) return 1;
 
-  // 3. Connect code in tag (user entered connect code, tag contains it)
-  if (p0.tag.toLowerCase().includes(idLower)) return 0;
-  if (p1.tag.toLowerCase().includes(idLower)) return 1;
+  // 3. Exact connect code match (for non-# identifiers too)
+  if (!isConnectCode) {
+    if (p0.connectCode.toLowerCase() === idLower) return 0;
+    if (p1.connectCode.toLowerCase() === idLower) return 1;
+  }
 
-  // 4. Tag in identifier (user entered a longer tag that contains the replay tag)
-  if (idLower.includes(p0.tag.toLowerCase()) && p0.tag.toLowerCase() !== "unknown") return 0;
-  if (idLower.includes(p1.tag.toLowerCase()) && p1.tag.toLowerCase() !== "unknown") return 1;
+  // 4. Tag contains identifier (e.g., identifier "Sait" matches tag "Saitor")
+  if (idLower.length >= 2) {
+    if (p0.tag.toLowerCase().includes(idLower)) return 0;
+    if (p1.tag.toLowerCase().includes(idLower)) return 1;
+  }
 
-  // 5. Connect code contains the identifier as a prefix (e.g., "FOX" matches "FOX#123")
-  if (p0.connectCode.toLowerCase().startsWith(idLower)) return 0;
-  if (p1.connectCode.toLowerCase().startsWith(idLower)) return 1;
+  // 5. Identifier contains tag (e.g., identifier "Saitor123" contains tag "Saitor")
+  if (p0.tag.toLowerCase() !== "unknown" && p0.tag.length >= 2 && idLower.includes(p0.tag.toLowerCase())) return 0;
+  if (p1.tag.toLowerCase() !== "unknown" && p1.tag.length >= 2 && idLower.includes(p1.tag.toLowerCase())) return 1;
 
-  // 6. Final fallback: prefer the player with a non-generic tag
-  // This is better than blindly returning 1
+  // 6. Connect code prefix match (e.g., "FOX" matches "FOX#123")
+  if (!isConnectCode) {
+    if (p0.connectCode.toLowerCase().startsWith(idLower) && p0.connectCode.length > 0) return 0;
+    if (p1.connectCode.toLowerCase().startsWith(idLower) && p1.connectCode.length > 0) return 1;
+  }
+
+  // 7. Fallback: prefer the player with a non-generic tag
   if (p0.tag.toLowerCase() !== "unknown" && p1.tag.toLowerCase() === "unknown") return 0;
   if (p1.tag.toLowerCase() !== "unknown" && p0.tag.toLowerCase() === "unknown") return 1;
 
-  // Default to player 0 (port 1) if no match — more likely to be the local player
+  // No match found — this is concerning, log it
+  console.warn(
+    `[findPlayerIdx] Could not match "${id}" to either player: ` +
+    `p0="${p0.tag}" (${p0.connectCode}), p1="${p1.tag}" (${p1.connectCode}). Defaulting to 0.`,
+  );
   return 0;
 }
 

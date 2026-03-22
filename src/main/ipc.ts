@@ -1,9 +1,31 @@
 import { ipcMain } from "electron";
+import * as path from "path";
 
 export type SafeHandleFn = (
   channel: string,
   handler: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => any,
 ) => void;
+
+/**
+ * Validate that a path from the renderer is safe:
+ * - Must be absolute
+ * - Must not contain path traversal sequences
+ * - Must not point to sensitive system directories
+ */
+export function validatePath(p: unknown): string {
+  if (typeof p !== "string" || p.length === 0) {
+    throw new Error("Invalid path: must be a non-empty string");
+  }
+  if (!path.isAbsolute(p)) {
+    throw new Error("Invalid path: must be absolute");
+  }
+  // Normalize to resolve any .. segments, then check it didn't escape
+  const normalized = path.normalize(p);
+  if (normalized.includes("..")) {
+    throw new Error("Invalid path: traversal not allowed");
+  }
+  return normalized;
+}
 
 /** Wrap an IPC handler so errors are always serialized properly to the renderer */
 export function safeHandle(

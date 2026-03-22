@@ -212,7 +212,7 @@ export interface PeachSignatureStats {
   stitchFaces: number;
   /** Conversions ending with dsmash that killed */
   dsmashKills: number;
-  /** Float cancel aerials — not detectable precisely, always 0 */
+  /** Float cancel aerials — detected via heuristic (short airborne state after float) */
   floatCancelAerials: number;
 }
 

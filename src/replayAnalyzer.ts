@@ -232,13 +232,14 @@ export async function processReplay(
   if (existingGame) {
     // ── 2. Game exists — look for cached analysis ────────────────────
 
+    const currentModelId = loadConfig().llmModelId ?? LLM_DEFAULTS.modelId;
     const cachedAnalysis = db.prepare(`
       SELECT id, game_id, analysis_text, model_used, created_at
       FROM coaching_analyses
-      WHERE game_id = ?
+      WHERE game_id = ? AND model_used = ?
       ORDER BY created_at DESC
       LIMIT 1
-    `).get(existingGame.id) as AnalysisRow | undefined;
+    `).get(existingGame.id, currentModelId) as AnalysisRow | undefined;
 
     if (cachedAnalysis) {
       // Cache hit — zero cost, return immediately

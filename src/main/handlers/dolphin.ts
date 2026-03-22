@@ -1,10 +1,11 @@
 import * as path from "path";
 import * as fs from "fs";
 import { loadConfig } from "../../config.js";
-import type { SafeHandleFn } from "../ipc.js";
+import { type SafeHandleFn, validatePath } from "../ipc.js";
 
 export function registerDolphinHandlers(safeHandle: SafeHandleFn): void {
   safeHandle("replay:openInDolphin", async (_e, replayPath: string) => {
+    const safeReplayPath = validatePath(replayPath);
     const config = loadConfig();
     let dolphinPath = config.dolphinPath;
 
@@ -30,7 +31,7 @@ export function registerDolphinHandlers(safeHandle: SafeHandleFn): void {
               path.join(home, "Library/Application Support/Slippi Launcher/playback/Slippi Dolphin.app/Contents/MacOS/Slippi Dolphin"),
             ]
           : [
-              "C:\\Users\\" + require("os").userInfo().username + "\\AppData\\Roaming\\Slippi Launcher\\playback\\Slippi Dolphin.exe",
+              path.join(home, "AppData", "Roaming", "Slippi Launcher", "playback", "Slippi Dolphin.exe"),
               "C:\\Program Files\\Slippi Dolphin\\Slippi Dolphin.exe",
             ];
 
@@ -62,8 +63,8 @@ export function registerDolphinHandlers(safeHandle: SafeHandleFn): void {
       );
     }
 
-    if (!fs.existsSync(replayPath)) {
-      throw new Error(`Replay file not found: ${replayPath}`);
+    if (!fs.existsSync(safeReplayPath)) {
+      throw new Error(`Replay file not found: ${safeReplayPath}`);
     }
 
     // Replicate how Slippi Launcher launches playback Dolphin:
@@ -79,19 +80,27 @@ export function registerDolphinHandlers(safeHandle: SafeHandleFn): void {
     const commFile = path.join(require("os").tmpdir(), `magi-comm-${Date.now()}.json`);
     fs.writeFileSync(commFile, JSON.stringify({
       mode: "mirror",
-      replay: replayPath,
+      replay: safeReplayPath,
       isRealTimeMode: false,
       commandId: Math.random().toString(36).slice(2),
     }));
 
-    // Find Melee ISO from Slippi Launcher settings
+    // Find Melee ISO from Slippi Launcher settings (platform-specific paths)
     let isoPath: string | null = null;
     try {
-      const slippiSettingsPath = path.join(home, ".config/Slippi Launcher/Settings");
-      if (fs.existsSync(slippiSettingsPath)) {
-        const slippiSettings = JSON.parse(fs.readFileSync(slippiSettingsPath, "utf-8"));
-        if (slippiSettings?.settings?.isoPath && fs.existsSync(slippiSettings.settings.isoPath)) {
-          isoPath = slippiSettings.settings.isoPath;
+      const slippiSettingsCandidates = process.platform === "darwin"
+        ? [path.join(home, "Library/Application Support/Slippi Launcher/Settings")]
+        : process.platform === "win32"
+          ? [path.join(home, "AppData/Roaming/Slippi Launcher/Settings")]
+          : [path.join(home, ".config/Slippi Launcher/Settings")];
+
+      for (const slippiSettingsPath of slippiSettingsCandidates) {
+        if (fs.existsSync(slippiSettingsPath)) {
+          const slippiSettings = JSON.parse(fs.readFileSync(slippiSettingsPath, "utf-8"));
+          if (slippiSettings?.settings?.isoPath && fs.existsSync(slippiSettings.settings.isoPath)) {
+            isoPath = slippiSettings.settings.isoPath;
+            break;
+          }
         }
       }
     } catch { /* ignore parse errors */ }
