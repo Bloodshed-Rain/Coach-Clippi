@@ -716,10 +716,125 @@
       z-index: 1;
     }
 
-    /* Stagger the second row for visual interest */
-    .feature-card:nth-child(4) { margin-top: 20px; }
-    .feature-card:nth-child(5) { margin-top: 20px; }
-    .feature-card:nth-child(6) { margin-top: 20px; }
+    /* ── Feature tiers: hero features (large) + capability grid (compact) ── */
+    .features-hero {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .features-hero .feature-card {
+      padding: 44px 32px;
+    }
+
+    .features-hero .feature-card h3 {
+      font-size: 14px;
+      letter-spacing: 2px;
+    }
+
+    .features-hero .feature-card p {
+      font-size: 14px;
+    }
+
+    .feature-tag {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      clip-path: var(--clip-corner-sm);
+      margin-bottom: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .feature-tag-new {
+      background: rgba(var(--accent-rgb), 0.12);
+      color: var(--accent);
+      border: 1px solid rgba(var(--accent-rgb), 0.2);
+    }
+
+    .feature-tag-free {
+      background: rgba(var(--blue-rgb), 0.12);
+      color: rgb(var(--blue-rgb));
+      border: 1px solid rgba(var(--blue-rgb), 0.2);
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+
+    .features-grid .feature-card {
+      padding: 28px 22px;
+    }
+
+    .features-grid .feature-card h3 {
+      font-size: 11px;
+    }
+
+    .features-grid .feature-card p {
+      font-size: 12px;
+    }
+
+    .features-grid .feature-icon {
+      width: 32px;
+      height: 32px;
+      margin-bottom: 16px;
+    }
+
+    .features-grid .feature-icon svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    /* Color-coded feature icons per category */
+    .feature-card[data-color="blue"] .feature-icon svg {
+      stroke: rgb(var(--blue-rgb));
+      filter: drop-shadow(0 0 8px rgba(var(--blue-rgb), 0.3));
+    }
+    .feature-card[data-color="purple"] .feature-icon svg {
+      stroke: rgb(var(--purple-rgb));
+      filter: drop-shadow(0 0 8px rgba(var(--purple-rgb), 0.3));
+    }
+    .feature-card[data-color="yellow"] .feature-icon svg {
+      stroke: rgb(var(--yellow-rgb));
+      filter: drop-shadow(0 0 8px rgba(var(--yellow-rgb), 0.3));
+    }
+    .feature-card[data-color="red"] .feature-icon svg {
+      stroke: rgb(var(--red-rgb));
+      filter: drop-shadow(0 0 8px rgba(var(--red-rgb), 0.3));
+    }
+
+    .feature-card[data-color="blue"]::after {
+      background: radial-gradient(ellipse at top left, rgba(var(--blue-rgb), 0.03), transparent 60%);
+    }
+    .feature-card[data-color="purple"]::after {
+      background: radial-gradient(ellipse at top left, rgba(var(--purple-rgb), 0.03), transparent 60%);
+    }
+    .feature-card[data-color="yellow"]::after {
+      background: radial-gradient(ellipse at top left, rgba(var(--yellow-rgb), 0.03), transparent 60%);
+    }
+    .feature-card[data-color="red"]::after {
+      background: radial-gradient(ellipse at top left, rgba(var(--red-rgb), 0.03), transparent 60%);
+    }
+
+    .feature-card[data-color="blue"]:hover {
+      border-color: rgba(var(--blue-rgb), 0.15);
+    }
+    .feature-card[data-color="purple"]:hover {
+      border-color: rgba(var(--purple-rgb), 0.15);
+    }
+    .feature-card[data-color="yellow"]:hover {
+      border-color: rgba(var(--yellow-rgb), 0.15);
+    }
+    .feature-card[data-color="red"]:hover {
+      border-color: rgba(var(--red-rgb), 0.15);
+    }
 
     /* ══════════════════════════════════════════════════════════════════
        HOW IT WORKS — Pipeline visualization
@@ -1111,14 +1226,12 @@
       .orbit-2 { width: 210px; height: 210px; margin: -105px 0 0 -105px; }
       .orbit-3 { width: 250px; height: 250px; margin: -125px 0 0 -125px; }
 
-      .features-grid {
+      .features-hero {
         grid-template-columns: 1fr 1fr;
       }
 
-      .feature-card:nth-child(4),
-      .feature-card:nth-child(5),
-      .feature-card:nth-child(6) {
-        margin-top: 0;
+      .features-grid {
+        grid-template-columns: 1fr 1fr;
       }
 
       .pipeline {
@@ -1165,7 +1278,8 @@
     @media (max-width: 600px) {
       .section { padding: 80px 20px; }
 
-      .features-grid { grid-template-columns: 1fr; }
+      .features-hero { grid-template-columns: 1fr; }
+      .features-grid { grid-template-columns: 1fr 1fr; }
 
       .stats-inner { grid-template-columns: 1fr 1fr; }
 
@@ -1281,8 +1395,8 @@
         <h1 class="hero-title">MAGI</h1>
         <p class="hero-tagline">
           <strong>AI-powered coaching</strong> for Super Smash Bros. Melee.
-          Import your replays, get tactical analysis from LLMs, and track your
-          improvement over time.
+          Zero-friction setup, real-time streaming analysis, and deep stat tracking
+          across 26 characters. Works out of the box -- no API key needed.
         </p>
         <div class="hero-actions">
           <a href="https://github.com/Bloodshed-Rain/TheMAGI/releases" class="btn btn-primary">
@@ -1349,8 +1463,10 @@
       <p class="section-subtitle">Every tool a competitive Melee player needs, powered by AI analysis and deep game data extraction from your .slp replays.</p>
     </div>
 
-    <div class="features-grid">
+    <!-- ── Tier 1: Hero features (large cards) ── -->
+    <div class="features-hero">
       <div class="feature-card reveal reveal-delay-1">
+        <span class="feature-tag feature-tag-new">Streaming</span>
         <div class="feature-icon">
           <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -1358,32 +1474,12 @@
             <line x1="9" y1="12" x2="14" y2="12"/>
           </svg>
         </div>
-        <h3>AI Coaching</h3>
-        <p>Get per-game tactical analysis from LLMs. Streamed in real-time with clickable timestamps that jump to moments in your replay.</p>
+        <h3>AI Coaching with LLM Streaming</h3>
+        <p>Coaching text appears in real-time, chunk by chunk with a blinking cursor. The AI references your historical trends -- "your L-cancel rate improved from 72% to 85%" -- and generates clickable timestamps that jump to moments in your replay via Dolphin.</p>
       </div>
 
       <div class="feature-card reveal reveal-delay-2">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-          </svg>
-        </div>
-        <h3>Deep Stats</h3>
-        <p>Neutral win rate, openings per kill, L-cancel rate, edgeguard success, recovery patterns, and 26-character signature stat detection.</p>
-      </div>
-
-      <div class="feature-card reveal reveal-delay-3">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 6v6l4 2"/>
-          </svg>
-        </div>
-        <h3>Session Tracking</h3>
-        <p>Replays auto-grouped into tournament sets by matchup and time proximity. Track your record, trends, and adaptation across sessions.</p>
-      </div>
-
-      <div class="feature-card reveal reveal-delay-4">
+        <span class="feature-tag feature-tag-new">Rivalry</span>
         <div class="feature-icon">
           <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -1392,11 +1488,94 @@
             <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
           </svg>
         </div>
-        <h3>Opponent Intel</h3>
-        <p>Deep-dive profiles on every opponent. Win rates, character matchup data, habit patterns, and adaptation analysis across your history.</p>
+        <h3>Opponent Rivalry Dossier</h3>
+        <p>Click any opponent to see a full rivalry breakdown: head-to-head record, stage win rates, character matchup data, habit patterns, and AI-generated matchup analysis. Know your nemesis inside and out.</p>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-3">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <h3>Deep Stats + Signature Detection</h3>
+        <p>80+ statistics per game: neutral win rate, openings per kill, L-cancel rate, edgeguard success, recovery patterns, shield pressure, DI quality scores, and character-specific signatures across all 26 fighters -- Fox waveshines, Marth Ken combos, Puff rests, ICs wobbles.</p>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-4" data-color="blue">
+        <span class="feature-tag feature-tag-new">Visual</span>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="4" width="22" height="4" rx="1"/>
+            <rect x="1" y="10" width="16" height="4" rx="1"/>
+            <rect x="1" y="16" width="19" height="4" rx="1"/>
+          </svg>
+        </div>
+        <h3>Stock Timeline</h3>
+        <p>Visual strip chart showing each stock's lifecycle: duration, damage dealt, kill move, and momentum shifts. See the shape of a game at a glance -- where you dominated, where you crumbled.</p>
+      </div>
+    </div>
+
+    <!-- ── Tier 2: Capability grid (compact cards) ── -->
+    <div class="features-grid">
+      <div class="feature-card reveal reveal-delay-1" data-color="yellow">
+        <span class="feature-tag feature-tag-new">New</span>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            <line x1="11" y1="8" x2="11" y2="14"/>
+            <line x1="8" y1="11" x2="14" y2="11"/>
+          </svg>
+        </div>
+        <h3>Command Palette</h3>
+        <p>Cmd+K to search opponents, navigate pages, and trigger actions instantly. Power-user speed.</p>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-2" data-color="purple">
+        <span class="feature-tag feature-tag-new">New</span>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <h3>Shield & DI Tracking</h3>
+        <p>Shield damage dealt, shield breaks, poke rate. Plus DI quality estimation -- survival DI and combo DI scores per game.</p>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-3">
+        <span class="feature-tag feature-tag-new">New</span>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+        </div>
+        <h3>Onboarding Wizard</h3>
+        <p>4-step boot sequence: welcome, player tag, replay folder, auto-import. Zero friction from install to insights.</p>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-4" data-color="red">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+        </div>
+        <h3>Dolphin Playback</h3>
+        <p>Watch any replay directly from the app. Clickable timestamps in coaching text jump to exact moments in Dolphin.</p>
       </div>
 
       <div class="feature-card reveal reveal-delay-5">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        <h3>Session Tracking</h3>
+        <p>Replays auto-grouped into sets by matchup and time. Track your record and adaptation across sessions.</p>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-6">
         <div class="feature-icon">
           <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="20" x2="18" y2="10"/>
@@ -1405,10 +1584,11 @@
           </svg>
         </div>
         <h3>Trend Analysis</h3>
-        <p>Watch your metrics evolve over time. Identify plateaus, breakthroughs, and regressions across any stat with interactive charts.</p>
+        <p>Metrics over time. Identify plateaus, breakthroughs, and regressions across any stat.</p>
       </div>
 
-      <div class="feature-card reveal reveal-delay-6">
+      <div class="feature-card reveal reveal-delay-1" data-color="blue">
+        <span class="feature-tag feature-tag-free">Free Tier</span>
         <div class="feature-icon">
           <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
@@ -1417,7 +1597,20 @@
           </svg>
         </div>
         <h3>Multi-Provider LLM</h3>
-        <p>Works with Gemini, OpenRouter, Anthropic, OpenAI, or local models. Bring your own API key or run fully offline.</p>
+        <p>Gemini free tier works with no API key. Also supports OpenRouter, Anthropic, OpenAI, and local models.</p>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-2" data-color="yellow">
+        <span class="feature-tag feature-tag-new">New</span>
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </div>
+        <h3>Import with Progress</h3>
+        <p>Bulk import with real-time progress tracking. "47/312 replays..." with dedup and parallel parsing.</p>
       </div>
     </div>
   </section>
@@ -1446,7 +1639,7 @@
           </svg>
         </div>
         <h3>Import</h3>
-        <p>Point MAGI at your Slippi replay folder. It bulk-imports, deduplicates, and extracts 50+ statistics per game.</p>
+        <p>A 4-step onboarding wizard gets you running in seconds. Bulk import with live progress, dedup, and 80+ stats per game.</p>
       </div>
 
       <div class="pipeline-connector reveal reveal-delay-2">
@@ -1464,7 +1657,7 @@
           </svg>
         </div>
         <h3>Analyze</h3>
-        <p>AI reads your game data and generates coaching feedback -- habits, punish optimization, recovery patterns, adaptation signals.</p>
+        <p>AI streams coaching in real-time, referencing your historical trends. Shield pressure, DI quality, signature stats, and rivalry data.</p>
       </div>
 
       <div class="pipeline-connector reveal reveal-delay-4">
@@ -1499,20 +1692,20 @@
     <div class="stats-section reveal">
       <div class="stats-inner">
         <div class="stat-cell">
-          <div class="stat-value">50<span class="stat-suffix">+</span></div>
+          <div class="stat-value">80<span class="stat-suffix">+</span></div>
           <div class="stat-label">Stats Per Game</div>
         </div>
         <div class="stat-cell">
           <div class="stat-value">26</div>
-          <div class="stat-label">Characters Tracked</div>
+          <div class="stat-label">Signature Characters</div>
         </div>
         <div class="stat-cell">
           <div class="stat-value">5</div>
           <div class="stat-label">LLM Providers</div>
         </div>
         <div class="stat-cell">
-          <div class="stat-value">3</div>
-          <div class="stat-label">Platforms</div>
+          <div class="stat-value">0</div>
+          <div class="stat-label">API Keys Required</div>
         </div>
       </div>
     </div>
@@ -1527,7 +1720,7 @@
     <div class="section-header reveal">
       <div class="section-label">Deploy</div>
       <h2 class="section-title">Get MAGI</h2>
-      <p class="section-subtitle">Free, open source, runs locally. Your replay data never leaves your machine.</p>
+      <p class="section-subtitle">Free, open source, runs locally. Works out of the box with Gemini free tier -- no API key needed. Your replay data never leaves your machine.</p>
     </div>
 
     <div class="platform-grid">
