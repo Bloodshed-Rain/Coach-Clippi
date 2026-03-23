@@ -142,8 +142,9 @@ export function buildPlayerSummary(
   let shieldFrameCount = 0; // how many frames since shield was first activated
   let prevActionState = 0;
 
-  // Shield pressure tracking: detect sequences where THIS player attacks
-  // while OPPONENT is shielding, tracking shield health changes.
+  // Shield pressure tracking: detect sequences where THIS player's attacks
+  // actually connect with the OPPONENT's shield (shield size decreases).
+  // A "sequence" = consecutive shield hits with gaps of <=30 frames between.
   let shieldPressureSequences = 0;
   let totalShieldDamageDealt = 0;
   let shieldBreaks = 0;
@@ -151,11 +152,13 @@ export function buildPlayerSummary(
   let totalShieldHits = 0;
   let inPressureSequence = false;
   let currentSequenceShieldDamage = 0;
-  let prevOppShieldSize = FULL_SHIELD_SIZE;
+  let currentSequenceHits = 0;
+  let prevOppShieldSize = -1; // -1 = no previous shield value tracked
   let prevOppActionState = 0;
-  let framesWithoutPressure = 0;
+  let prevOppShielding = false;
+  let framesWithoutShieldHit = 0;
   // Gap tolerance: shield pressure sequence ends if >30 frames pass without
-  // the opponent being in shield while this player is in an attack state.
+  // a new shield hit connecting.
   const PRESSURE_GAP_TOLERANCE = 30;
 
   for (let f = Frames.FIRST_PLAYABLE; f <= lastFrame; f++) {
@@ -202,6 +205,7 @@ export function buildPlayerSummary(
         if (inPressureSequence) {
           totalShieldDamageDealt += currentSequenceShieldDamage;
           currentSequenceShieldDamage = 0;
+          currentSequenceHits = 0;
           inPressureSequence = false;
         }
       }
@@ -209,44 +213,55 @@ export function buildPlayerSummary(
       // Is opponent currently shielding?
       const oppShielding = oppAction === GUARD_ON || oppAction === GUARD || oppAction === GUARD_SET_OFF;
 
-      // Is this player currently in an attack action state?
-      const myAction = actionState;
-      const inAttackState =
-        (myAction >= State.GROUND_ATTACK_START && myAction <= State.GROUND_ATTACK_END) ||
-        (myAction >= State.AERIAL_ATTACK_START && myAction <= 69) || // AERIAL_DAIR
-        myAction === State.DASH_GRAB || myAction === State.GRAB;
-
-      if (oppShielding && inAttackState) {
-        if (!inPressureSequence) {
-          // Start a new pressure sequence
-          shieldPressureSequences++;
-          inPressureSequence = true;
-          currentSequenceShieldDamage = 0;
-        }
-        framesWithoutPressure = 0;
-
-        // Track shield damage: decrease in opponent's shield size
+      // Track shield damage: only compare shield sizes between consecutive
+      // frames where the opponent IS shielding. Reset tracking when opponent
+      // leaves shield so regeneration doesn't produce false readings.
+      let shieldHitThisFrame = false;
+      if (oppShielding && prevOppShielding && prevOppShieldSize >= 0) {
         const shieldLost = prevOppShieldSize - oppShield;
-        if (shieldLost > 0) {
-          currentSequenceShieldDamage += shieldLost;
+        if (shieldLost > 0.5) {
+          // Actual shield hit detected (>0.5 to ignore natural decay noise)
+          shieldHitThisFrame = true;
           totalShieldHits++;
-          // Shield poke: attack connected while opponent's shield was very low
+
+          if (!inPressureSequence) {
+            // Start a new pressure sequence on first actual hit
+            shieldPressureSequences++;
+            inPressureSequence = true;
+            currentSequenceShieldDamage = 0;
+            currentSequenceHits = 0;
+          }
+          currentSequenceShieldDamage += shieldLost;
+          currentSequenceHits++;
+          framesWithoutShieldHit = 0;
+
+          // Shield poke: hit connected while opponent's shield was very low
           if (oppShield < SHIELD_POKE_THRESHOLD) {
             shieldPokeHits++;
           }
         }
-      } else if (inPressureSequence) {
-        framesWithoutPressure++;
-        if (framesWithoutPressure > PRESSURE_GAP_TOLERANCE) {
-          // End pressure sequence
+      }
+
+      // Only track prevOppShieldSize when opponent is actively shielding
+      if (oppShielding) {
+        prevOppShieldSize = oppShield;
+      } else {
+        prevOppShieldSize = -1; // reset — don't compare across non-shield gaps
+      }
+      prevOppShielding = oppShielding;
+
+      // End pressure sequence after gap without any shield hits
+      if (inPressureSequence && !shieldHitThisFrame) {
+        framesWithoutShieldHit++;
+        if (framesWithoutShieldHit > PRESSURE_GAP_TOLERANCE) {
           totalShieldDamageDealt += currentSequenceShieldDamage;
           currentSequenceShieldDamage = 0;
+          currentSequenceHits = 0;
           inPressureSequence = false;
-          framesWithoutPressure = 0;
+          framesWithoutShieldHit = 0;
         }
       }
 
-      prevOppShieldSize = oppShield;
       prevOppActionState = oppAction;
     }
 
@@ -664,7 +679,7 @@ export function buildPlayerSummary(
     // Map: ratio 0.5 → 1.0, ratio 1.0 → 0.5, ratio 2.0 → 0.0
     // Using clamped linear: score = 1 - (comboRatio - 0.5) / 1.5
     comboDIScore = Math.max(0, Math.min(1,
-      Math.round((1 - (comboRatio - 0.5) / 1.5) * 10000) / 10000,
+      Math.round((1 - (comboRatio - 0.5) / 1.5) * 100) / 100,
     ));
   } else if (conversionsReceived.length === 0 && myConversionsWithMoves.length > 0) {
     // Never got comboed — perfect DI score
@@ -683,8 +698,8 @@ export function buildPlayerSummary(
     const DEATH_PCT_HIGH = 160; // excellent survival baseline
     survivalDIScore = Math.max(0, Math.min(1,
       Math.round(
-        ((avgDeathPercent - DEATH_PCT_LOW) / (DEATH_PCT_HIGH - DEATH_PCT_LOW)) * 10000,
-      ) / 10000,
+        ((avgDeathPercent - DEATH_PCT_LOW) / (DEATH_PCT_HIGH - DEATH_PCT_LOW)) * 100,
+      ) / 100,
     ));
   } else if (deaths.length === 0) {
     // Never died — perfect survival DI

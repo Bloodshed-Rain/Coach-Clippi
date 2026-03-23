@@ -17,6 +17,7 @@ export interface Config {
   localEndpoint: string | null;
   // Dolphin
   dolphinPath: string | null;
+  meleeIsoPath: string | null;
   // UI
   theme: string | null;
   colorMode: string | null;
@@ -33,6 +34,7 @@ const DEFAULTS: Config = {
   openaiApiKey: null,
   localEndpoint: null,
   dolphinPath: null,
+  meleeIsoPath: null,
   theme: null,
   colorMode: null,
 };

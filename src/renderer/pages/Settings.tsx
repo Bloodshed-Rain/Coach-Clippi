@@ -7,6 +7,7 @@ interface Config {
   connectCode: string | null;
   replayFolder: string | null;
   dolphinPath: string | null;
+  meleeIsoPath: string | null;
   llmModelId: string | null;
   openrouterApiKey: string | null;
   geminiApiKey: string | null;
@@ -41,6 +42,7 @@ export function Settings({ onImport }: SettingsProps) {
     connectCode: null,
     replayFolder: null,
     dolphinPath: null,
+    meleeIsoPath: null,
     llmModelId: null,
     openrouterApiKey: null,
     geminiApiKey: null,
@@ -271,6 +273,23 @@ export function Settings({ onImport }: SettingsProps) {
                 [{ name: "All Files", extensions: ["*"] }],
               );
               if (filePath) setConfig({ ...config, dolphinPath: filePath });
+            }}>Browse</button>
+          </div>
+        </div>
+        <div className="settings-field">
+          <label>Melee ISO Path (vanilla NTSC 1.02 — needed for replay playback)</label>
+          <div className="settings-row">
+            <input
+              value={config.meleeIsoPath ?? ""}
+              onChange={(e) => setConfig({ ...config, meleeIsoPath: e.target.value || null })}
+              placeholder="Falls back to Slippi Launcher ISO if blank"
+            />
+            <button className="btn" onClick={async () => {
+              const filePath = await window.clippi.openFileDialog(
+                "Select Melee ISO",
+                [{ name: "ISO Files", extensions: ["iso", "gcm"] }],
+              );
+              if (filePath) setConfig({ ...config, meleeIsoPath: filePath });
             }}>Browse</button>
           </div>
         </div>

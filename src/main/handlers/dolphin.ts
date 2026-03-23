@@ -77,7 +77,7 @@ function launchDolphin(replayPath: string, startFrame?: number): true {
 
   // Write JSON comm file (same format as Slippi Launcher)
   const commData: Record<string, unknown> = {
-    mode: "mirror",
+    mode: "normal",
     replay: safeReplayPath,
     isRealTimeMode: false,
     commandId: Math.random().toString(36).slice(2),
@@ -91,9 +91,16 @@ function launchDolphin(replayPath: string, startFrame?: number): true {
   const commFile = path.join(require("os").tmpdir(), `magi-comm-${Date.now()}.json`);
   fs.writeFileSync(commFile, JSON.stringify(commData));
 
-  // Find Melee ISO from Slippi Launcher settings (platform-specific paths)
+  // Find Melee ISO: MAGI config first, then Slippi Launcher settings
   let isoPath: string | null = null;
-  try {
+
+  // Check MAGI's own ISO path setting first
+  if (config.meleeIsoPath && fs.existsSync(config.meleeIsoPath)) {
+    isoPath = config.meleeIsoPath;
+  }
+
+  // Fall back to Slippi Launcher settings
+  if (!isoPath) try {
     const slippiSettingsCandidates = process.platform === "darwin"
       ? [path.join(home, "Library/Application Support/Slippi Launcher/Settings")]
       : process.platform === "win32"
@@ -112,16 +119,30 @@ function launchDolphin(replayPath: string, startFrame?: number): true {
   } catch { /* ignore parse errors */ }
 
   if (!isoPath) {
-    throw new Error("Melee ISO not found. Set your ISO path in Slippi Launcher first.");
+    throw new Error("Melee ISO not found. Set your Melee ISO path in MAGI Settings (Slippi Dolphin section).");
   }
 
   // Build args exactly like Slippi Launcher: -b -e <iso> -i <commFile>
   const args = ["-b", "-e", isoPath, "-i", commFile];
 
+  console.log("[MAGI] Launching Dolphin:", dolphinPath);
+  console.log("[MAGI] Args:", args.join(" "));
+  console.log("[MAGI] Comm file:", JSON.stringify(commData, null, 2));
+
   const child = spawn(dolphinPath, args, {
     detached: true,
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", "pipe"],
   });
+
+  // Log any Dolphin errors
+  let stderrData = "";
+  child.stderr?.on("data", (chunk: Buffer) => { stderrData += chunk.toString(); });
+  child.on("exit", (code) => {
+    if (code !== 0 && stderrData) {
+      console.error("[MAGI] Dolphin exited with code", code, "stderr:", stderrData);
+    }
+  });
+
   child.unref();
 
   // Clean up comm file after a delay

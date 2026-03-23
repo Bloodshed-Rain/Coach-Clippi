@@ -1057,6 +1057,200 @@ body {
   border: 1px solid rgba(var(--accent-rgb), 0.15);
 }
 
+/* ── Stock Timeline ──────────────────────────────────────────────── */
+
+.stock-timeline-container {
+  margin: 12px 0 16px;
+  padding: 14px 16px;
+  background: rgba(var(--accent-rgb), 0.03);
+  border: 1px solid var(--border);
+  clip-path: var(--clip-corner-sm);
+}
+
+.stock-timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.stock-timeline-title {
+  font-family: var(--font-display, var(--font-mono));
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.stock-timeline-duration {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.stock-timeline-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stock-timeline-lane {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stock-timeline-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  width: 60px;
+  flex-shrink: 0;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stock-timeline-label-player { color: var(--green); }
+.stock-timeline-label-opponent { color: var(--red); }
+
+.stock-timeline-divider {
+  height: 1px;
+  margin: 2px 0 2px 68px;
+  background: var(--border);
+  opacity: 0.5;
+}
+
+.stock-timeline-row {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  height: 28px;
+}
+
+.stock-segment {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  cursor: default;
+  border-radius: 1px;
+}
+
+.stock-segment-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--segment-color);
+  opacity: calc(0.12 + var(--segment-intensity) * 0.25);
+  border-radius: 1px;
+}
+
+.stock-segment-number {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-dim);
+  opacity: 0.6;
+  position: absolute;
+  left: 4px;
+  top: 2px;
+}
+
+.stock-segment-dmg {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text);
+  z-index: 1;
+}
+
+.stock-segment-kill {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-dim);
+  z-index: 1;
+}
+
+.stock-kill-icon {
+  color: var(--red);
+  font-weight: 900;
+  font-size: 9px;
+}
+
+.stock-kill-move {
+  max-width: 40px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stock-kill-pct {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.stock-segment.stock-dead {
+  border-right: 2px solid var(--segment-color);
+}
+
+.stock-segment.stock-momentum .stock-segment-fill {
+  opacity: calc(0.2 + var(--segment-intensity) * 0.35);
+}
+
+.stock-momentum-pip {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  width: 4px;
+  height: 4px;
+  background: var(--segment-color);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--segment-color);
+}
+
+.stock-timeline-loading {
+  height: 60px;
+  display: flex;
+  align-items: center;
+}
+
+.stock-timeline-loading-bar {
+  height: 2px;
+  width: 100%;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+  position: relative;
+}
+
+.stock-timeline-loading-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -30%;
+  width: 30%;
+  height: 100%;
+  background: var(--accent);
+  animation: timeline-load 1.2s ease-in-out infinite;
+}
+
+@keyframes timeline-load {
+  0% { left: -30%; }
+  100% { left: 100%; }
+}
+
 /* ── Timestamp links in coaching text ─────────────────────────────── */
 
 .timestamp-link {
