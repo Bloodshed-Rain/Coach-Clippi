@@ -90,7 +90,9 @@ function HabitPanel() {
           knockdown: avg("knockdownEntropy"),
           shield: avg("shieldPressureEntropy"),
         });
-      } catch {}
+      } catch {
+        setHabits(null);
+      }
     }
     load();
   }, []);

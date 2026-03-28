@@ -224,11 +224,12 @@ export async function callLLMStream(
   switch (provider) {
     case "gemini":
       return callGeminiStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
-    default:
+    default: {
       // Should not reach here due to supportsStreaming check, but satisfy TS
       const text = await callLLM(opts);
       onChunk(text);
       return text;
+    }
   }
 }
 

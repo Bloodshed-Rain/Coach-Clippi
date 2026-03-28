@@ -352,7 +352,7 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
       setLoading(false);
     }
     load();
-  }, [refreshKey]);
+  }, [refreshKey, selected]);
 
   const loadDetail = useCallback(async (char: string) => {
     setDetailLoading(true);

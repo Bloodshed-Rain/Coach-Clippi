@@ -29,7 +29,7 @@ loadEnvFile();
 import { loadConfig } from "../config";
 import { getDb, closeDb, getPlayerHistory } from "../db";
 import { processGame, assembleUserPrompt, SYSTEM_PROMPT } from "../pipeline";
-import { callLLM, LLM_DEFAULTS, type LLMConfig } from "../llm";
+import { callLLM } from "../llm";
 import { setAnalysisGenerator } from "../replayAnalyzer";
 import { llmQueue } from "../llmQueue";
 import { setMainWindow, getFileWatcher } from "./state";

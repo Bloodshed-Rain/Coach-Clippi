@@ -5,7 +5,7 @@ import {
 } from "@slippi/slippi-js/node";
 
 import type { GameSummary, DerivedInsights } from "./types.js";
-import { getPlayerTag, getCharacterName, framesToSeconds, endMethodString } from "./helpers.js";
+import { getPlayerTag, framesToSeconds, endMethodString } from "./helpers.js";
 import { buildPlayerSummary } from "./playerSummary.js";
 import { buildDerivedInsights } from "./derivedInsights.js";
 

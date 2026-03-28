@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Markdown, { type Components } from "react-markdown";
-import { useStagger } from "../hooks";
 import { Onboarding } from "../components/Onboarding";
 import { StockTimeline } from "../components/StockTimeline";
 
@@ -142,8 +141,6 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
     }
     setLaunchingDolphin(null);
   };
-
-  const stagger = useStagger(50);
 
   const load = useCallback(async () => {
     try {

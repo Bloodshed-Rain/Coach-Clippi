@@ -89,7 +89,7 @@ export function detectSignatureStats(
   frames: FramesType,
   lastFrame: number,
   stageId: number,
-  allConversions: ConversionType[],
+  _allConversions: ConversionType[],
 ): CharacterSignatureStats | null {
   switch (character) {
     case "Fox": {

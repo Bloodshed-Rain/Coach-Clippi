@@ -53,7 +53,18 @@ export function Settings({ onImport }: SettingsProps) {
   const [showKeys, setShowKeys] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
-  const [importProgress, setImportProgress] = useState<{ current: number; total: number; lastFile: string } | null>(null);
+  const [importErrors, setImportErrors] = useState<{ filePath: string; error: string }[]>([]);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
+  const [importProgress, setImportProgress] = useState<{
+    current: number;
+    total: number;
+    lastFile: string;
+    importedSoFar: number;
+    skippedSoFar: number;
+    errorsSoFar: number;
+    lastError?: string;
+    lastFileStatus: "imported" | "skipped" | "error";
+  } | null>(null);
   const [watching, setWatching] = useState(false);
 
   // Load user config
@@ -74,7 +85,11 @@ export function Settings({ onImport }: SettingsProps) {
     if (!importing) return;
     const unsub = window.clippi.onImportProgress((progress) => {
       setImportProgress(progress);
-      setImportStatus(`Importing ${progress.current}/${progress.total}...`);
+      const parts = [`${progress.current}/${progress.total}`];
+      if (progress.importedSoFar > 0) parts.push(`${progress.importedSoFar} imported`);
+      if (progress.skippedSoFar > 0) parts.push(`${progress.skippedSoFar} skipped`);
+      if (progress.errorsSoFar > 0) parts.push(`${progress.errorsSoFar} failed`);
+      setImportStatus(parts.join(" \u2014 "));
     });
     return () => {
       unsub();
@@ -121,20 +136,43 @@ export function Settings({ onImport }: SettingsProps) {
     }
     setImporting(true);
     setImportProgress(null);
+    setImportErrors([]);
+    setShowErrorDetails(false);
     setImportStatus("Scanning for replays...");
     try {
       const result = await window.clippi.importFolder(
         config.replayFolder,
         config.connectCode ?? config.targetPlayer,
-      );
+      ) as {
+        imported: number;
+        skipped: number;
+        errors: number;
+        errorDetails: { filePath: string; error: string }[];
+        total: number;
+        unreadableDirs: number;
+      };
       setImportProgress(null);
-      setImportStatus(
-        `Imported ${result.imported} games, skipped ${result.skipped} duplicates (${result.total} total files).`,
-      );
+
+      const parts: string[] = [];
+      parts.push(`${result.imported} imported`);
+      if (result.skipped > 0) parts.push(`${result.skipped} duplicates skipped`);
+      if (result.errors > 0) parts.push(`${result.errors} failed`);
+      parts.push(`${result.total} total files`);
+
+      let status = parts.join(", ") + ".";
+      if (result.unreadableDirs > 0) {
+        status += ` (${result.unreadableDirs} subdirectories were unreadable)`;
+      }
+      setImportStatus(status);
+
+      if (result.errorDetails && result.errorDetails.length > 0) {
+        setImportErrors(result.errorDetails);
+      }
+
       onImport();
     } catch (err: unknown) {
       setImportProgress(null);
-      setImportStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      setImportStatus(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
     }
     setImporting(false);
   };
@@ -238,10 +276,46 @@ export function Settings({ onImport }: SettingsProps) {
                 }}
               />
             </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text-dim)", marginTop: 4 }}>
+              <span>{importProgress.lastFile}</span>
+              <span>{Math.round((importProgress.current / importProgress.total) * 100)}%</span>
+            </div>
           </div>
         )}
         {importStatus && (
-          <p className="import-status">{importStatus}</p>
+          <p className={`import-status${importErrors.length > 0 ? " import-status--warn" : ""}`}>
+            {importStatus}
+          </p>
+        )}
+        {importErrors.length > 0 && !importing && (
+          <div style={{ marginTop: 4 }}>
+            <button
+              className="btn"
+              style={{ fontSize: 11, padding: "2px 8px" }}
+              onClick={() => setShowErrorDetails((v) => !v)}
+            >
+              {showErrorDetails ? "Hide errors" : `Show ${importErrors.length} error${importErrors.length === 1 ? "" : "s"}`}
+            </button>
+            {showErrorDetails && (
+              <div style={{
+                marginTop: 6,
+                maxHeight: 200,
+                overflowY: "auto",
+                fontSize: 11,
+                fontFamily: "var(--font-mono, monospace)",
+                background: "var(--bg-inset, rgba(0,0,0,0.2))",
+                borderRadius: 4,
+                padding: 8,
+              }}>
+                {importErrors.map((e, i) => (
+                  <div key={i} style={{ marginBottom: 4, color: "var(--text-dim)" }}>
+                    <span style={{ color: "var(--color-danger, #f87171)" }}>{e.filePath.split("/").pop()}</span>
+                    {" \u2014 "}{e.error}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

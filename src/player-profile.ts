@@ -1,5 +1,5 @@
-import { detectSets, type DetectedSet, type GameMeta } from "./detect-sets";
-import { processGame, findPlayerIdx, type GameResult } from "./pipeline";
+import { detectSets } from "./detect-sets";
+import { processGame, findPlayerIdx } from "./pipeline";
 import * as fs from "fs";
 
 // ── Types ────────────────────────────────────────────────────────────

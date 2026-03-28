@@ -5,7 +5,6 @@ import { loadConfig } from "./config";
 import { LLM_DEFAULTS } from "./llm";
 import {
   findPlayerIdx,
-  type GameResult,
   type GameSummary,
   type DerivedInsights,
   type PlayerSummary,
@@ -13,7 +12,6 @@ import {
 import {
   insertGame,
   insertGameStats,
-  insertCoachingAnalysis,
   insertSignatureStats,
   type InsertGameParams,
   type InsertGameStatsParams,

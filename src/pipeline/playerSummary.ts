@@ -152,7 +152,6 @@ export function buildPlayerSummary(
   let totalShieldHits = 0;
   let inPressureSequence = false;
   let currentSequenceShieldDamage = 0;
-  let currentSequenceHits = 0;
   let prevOppShieldSize = -1; // -1 = no previous shield value tracked
   let prevOppActionState = 0;
   let prevOppShielding = false;
@@ -205,7 +204,6 @@ export function buildPlayerSummary(
         if (inPressureSequence) {
           totalShieldDamageDealt += currentSequenceShieldDamage;
           currentSequenceShieldDamage = 0;
-          currentSequenceHits = 0;
           inPressureSequence = false;
         }
       }
@@ -229,10 +227,8 @@ export function buildPlayerSummary(
             shieldPressureSequences++;
             inPressureSequence = true;
             currentSequenceShieldDamage = 0;
-            currentSequenceHits = 0;
           }
           currentSequenceShieldDamage += shieldLost;
-          currentSequenceHits++;
           framesWithoutShieldHit = 0;
 
           // Shield poke: hit connected while opponent's shield was very low
@@ -256,7 +252,6 @@ export function buildPlayerSummary(
         if (framesWithoutShieldHit > PRESSURE_GAP_TOLERANCE) {
           totalShieldDamageDealt += currentSequenceShieldDamage;
           currentSequenceShieldDamage = 0;
-          currentSequenceHits = 0;
           inPressureSequence = false;
           framesWithoutShieldHit = 0;
         }
@@ -491,7 +486,7 @@ export function buildPlayerSummary(
   // - killMove: conversion where THIS player is victim (c.playerIndex === playerIndex)
   // - openingsGiven: conversions where THIS player is victim
   // - damageDealt: conversions where OPPONENT is victim (myConversions)
-  const stockBreakdown = playerStocks.map((stock, i) => {
+  const stockBreakdown = playerStocks.map((stock) => {
     const stockNum = stock.count;
 
     // Find what killed this player — conversion where THIS player is the victim

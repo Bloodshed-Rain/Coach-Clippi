@@ -1,6 +1,4 @@
 import type { GameResult, PlayerHistory } from "./types.js";
-import { moveIdToName, getMoveName } from "./helpers.js";
-
 // ── System prompt ─────────────────────────────────────────────────────
 
 // prettier-ignore

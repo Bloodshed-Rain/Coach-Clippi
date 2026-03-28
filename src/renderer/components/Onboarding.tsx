@@ -454,11 +454,14 @@ export function Onboarding({ onComplete, onSkip }: OnboardingProps) {
       const result = await window.clippi.importFolder(folder, identifier) as {
         imported: number;
         skipped: number;
+        errors: number;
         total: number;
       };
-      setImportResult(
-        `Imported ${result.imported} games, skipped ${result.skipped} duplicates (${result.total} total files scanned).`
-      );
+      const parts: string[] = [`Imported ${result.imported} games`];
+      if (result.skipped > 0) parts.push(`skipped ${result.skipped} duplicates`);
+      if (result.errors > 0) parts.push(`${result.errors} files failed to parse`);
+      parts.push(`${result.total} total files scanned`);
+      setImportResult(parts.join(", ") + ".");
       setImportDone(true);
     } catch (err: unknown) {
       setImportError(err instanceof Error ? err.message : String(err));

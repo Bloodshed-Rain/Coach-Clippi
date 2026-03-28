@@ -110,7 +110,7 @@ async function main() {
       }
     } else {
       console.error(`Importing ${filePaths.length} replay(s)...`);
-      const result = importReplays(filePaths, targetPlayer);
+      const result = await importReplays(filePaths, targetPlayer);
 
       for (const r of result.imported) {
         if (r.skipped) {
@@ -119,11 +119,14 @@ async function main() {
           console.error(`  [ok]   ${r.filePath} → game #${r.gameId}`);
         }
       }
+      for (const e of result.errorDetails) {
+        console.error(`  [FAIL] ${e.filePath}: ${e.error}`);
+      }
 
       const imported = result.imported.filter((r) => !r.skipped);
-      console.error(
-        `\nDone. Imported: ${imported.length}, Skipped: ${result.skipped}`,
-      );
+      const parts = [`Imported: ${imported.length}`, `Skipped: ${result.skipped}`];
+      if (result.errors > 0) parts.push(`Errors: ${result.errors}`);
+      console.error(`\nDone. ${parts.join(", ")}`);
     }
   } finally {
     closeDb();

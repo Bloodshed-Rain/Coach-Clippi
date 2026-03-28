@@ -79,8 +79,26 @@ const api = {
     ipcRenderer.on("update:ready", listener);
     return () => ipcRenderer.removeListener("update:ready", listener);
   },
-  onImportProgress: (callback: (progress: { current: number; total: number; lastFile: string }) => void) => {
-    const listener = (_event: unknown, progress: { current: number; total: number; lastFile: string }) => callback(progress);
+  onImportProgress: (callback: (progress: {
+    current: number;
+    total: number;
+    lastFile: string;
+    importedSoFar: number;
+    skippedSoFar: number;
+    errorsSoFar: number;
+    lastError?: string;
+    lastFileStatus: "imported" | "skipped" | "error";
+  }) => void) => {
+    const listener = (_event: unknown, progress: {
+      current: number;
+      total: number;
+      lastFile: string;
+      importedSoFar: number;
+      skippedSoFar: number;
+      errorsSoFar: number;
+      lastError?: string;
+      lastFileStatus: "imported" | "skipped" | "error";
+    }) => callback(progress);
     ipcRenderer.on("import:progress", listener);
     return () => ipcRenderer.removeListener("import:progress", listener);
   },

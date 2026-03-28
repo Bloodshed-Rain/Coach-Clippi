@@ -91,17 +91,6 @@ export function computeAdaptationSignals(
 ): DerivedInsights["adaptationSignals"] {
   if (gameResults.length < 2) return [];
 
-  const first = gameResults[0]!;
-  const last = gameResults[gameResults.length - 1]!;
-
-  const firstIdx = findPlayerIdx(first.gameSummary, playerTag);
-  const lastIdx = findPlayerIdx(last.gameSummary, playerTag);
-
-  const firstPlayer = first.gameSummary.players[firstIdx];
-  const lastPlayer = last.gameSummary.players[lastIdx];
-  const firstInsights = first.derivedInsights[firstIdx];
-  const lastInsights = last.derivedInsights[lastIdx];
-
   // Extract per-game values for each metric across the full set
   type MetricExtractor = (player: PlayerSummary, insights: DerivedInsights) => number;
 

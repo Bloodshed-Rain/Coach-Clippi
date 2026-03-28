@@ -146,7 +146,13 @@ function launchDolphin(replayPath: string, startFrame?: number): true {
   child.unref();
 
   // Clean up comm file after a delay
-  setTimeout(() => { try { fs.unlinkSync(commFile); } catch {} }, 30000);
+  setTimeout(() => {
+    try {
+      fs.unlinkSync(commFile);
+    } catch {
+      // Best-effort cleanup: the file may already be gone.
+    }
+  }, 30000);
 
   return true;
 }

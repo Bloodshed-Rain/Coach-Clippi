@@ -6,7 +6,7 @@ const prettierConfig = require("eslint-config-prettier");
 
 module.exports = tseslint.config(
   {
-    ignores: ["dist/", "release/", "node_modules/", "*.js", "!eslint.config.js", "!vite.config.ts", "!vitest.config.ts"],
+    ignores: ["dist/", "release/", "node_modules/", "**/*.js", "!eslint.config.js", "!vite.config.ts", "!vitest.config.ts"],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

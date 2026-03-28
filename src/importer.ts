@@ -10,8 +10,6 @@ import {
   SYSTEM_PROMPT,
   type GameResult,
   type GameSummary,
-  type PlayerSummary,
-  type DerivedInsights,
 } from "./pipeline";
 import { callLLM, LLM_DEFAULTS, type LLMConfig } from "./llm";
 import { loadConfig } from "./config";
@@ -26,8 +24,6 @@ import {
   createSession,
   updateSession,
   getPlayerHistory,
-  type InsertGameParams,
-  type InsertGameStatsParams,
 } from "./db";
 
 // ── File hashing ─────────────────────────────────────────────────────
@@ -35,6 +31,11 @@ import {
 function hashFile(filePath: string): string {
   const content = fs.readFileSync(filePath);
   return crypto.createHash("sha256").update(content).digest("hex");
+}
+
+/** Yield to the event loop so Electron stays responsive */
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
 }
 
 // ── Import result ────────────────────────────────────────────────────
@@ -180,25 +181,65 @@ export interface ImportProgress {
   current: number;
   total: number;
   lastFile: string;
+  /** Running count of successfully imported games */
+  importedSoFar: number;
+  /** Running count of skipped duplicates */
+  skippedSoFar: number;
+  /** Running count of files that failed to parse/import */
+  errorsSoFar: number;
+  /** If the current file errored, a short reason */
+  lastError?: string;
+  /** Status of the current file */
+  lastFileStatus: "imported" | "skipped" | "error";
 }
 
 export type ImportProgressCallback = (progress: ImportProgress) => void;
 
 // ── Batch import (a set of replays) ──────────────────────────────────
 
+export interface FileError {
+  filePath: string;
+  error: string;
+}
+
 export interface BatchImportResult {
   imported: ImportResult[];
   skipped: number;
+  /** Number of files that failed to parse or import */
+  errors: number;
+  /** Details for each failed file (capped to avoid huge payloads) */
+  errorDetails: FileError[];
   sessionId: number | null;
 }
 
-export function importReplays(
+/** How many files to process before yielding to the event loop */
+const BATCH_YIELD_SIZE = 10;
+
+/** Max error details to keep — prevents huge payloads when most files fail */
+const MAX_ERROR_DETAILS = 50;
+
+/** Classify an import error into a user-friendly short message */
+function classifyError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+
+  if (msg.includes("ENOENT") || msg.includes("no such file")) return "File not found";
+  if (msg.includes("EACCES") || msg.includes("permission denied")) return "Permission denied";
+  if (msg.includes("is not a valid")) return "Not a valid Slippi replay";
+  if (msg.includes("ENOMEM") || msg.includes("out of memory")) return "Out of memory";
+  if (msg.includes("Cannot read") || msg.includes("undefined")) return "Corrupt or incomplete replay";
+  if (msg.includes("target player")) return "Target player not found in replay";
+
+  // Truncate long messages
+  return msg.length > 120 ? msg.slice(0, 117) + "..." : msg;
+}
+
+export async function importReplays(
   filePaths: string[],
   targetPlayer: string | null,
   onProgress?: ImportProgressCallback,
-): BatchImportResult {
+): Promise<BatchImportResult> {
   if (filePaths.length === 0) {
-    return { imported: [], skipped: 0, sessionId: null };
+    return { imported: [], skipped: 0, errors: 0, errorDetails: [], sessionId: null };
   }
 
   // Create a session for this batch
@@ -208,13 +249,31 @@ export function importReplays(
   const results: ImportResult[] = [];
   let skippedCount = 0;
   let winsCount = 0;
+  let errorCount = 0;
+  const errorDetails: FileError[] = [];
 
   for (let i = 0; i < filePaths.length; i++) {
+    const fileName = path.basename(filePaths[i]!);
+    let lastFileStatus: "imported" | "skipped" | "error" = "imported";
+    let lastError: string | undefined;
+
     try {
       const result = importReplay(filePaths[i]!, targetPlayer, i + 1, sessionId);
-      results.push(result);
+
+      // Only keep lightweight data — drop the heavy gameResult to free memory
+      const lightResult: ImportResult = {
+        filePath: result.filePath,
+        hash: result.hash,
+        skipped: result.skipped,
+        ...(result.gameId !== undefined ? { gameId: result.gameId } : {}),
+        ...(result.gameSummary !== undefined ? { gameSummary: result.gameSummary } : {}),
+        // gameResult intentionally omitted to reduce memory pressure
+      };
+      results.push(lightResult);
+
       if (result.skipped) {
         skippedCount++;
+        lastFileStatus = "skipped";
       } else if (result.gameSummary) {
         // Resolve target to check win
         const tag =
@@ -226,17 +285,36 @@ export function importReplays(
         }
       }
     } catch (err) {
-      console.error(`[import] Skipping ${path.basename(filePaths[i]!)}: ${err instanceof Error ? err.message : String(err)}`);
-      skippedCount++;
+      const errorMsg = classifyError(err);
+      console.error(`[import] Failed ${fileName}: ${errorMsg}`);
+      errorCount++;
+      lastFileStatus = "error";
+      lastError = errorMsg;
+      if (errorDetails.length < MAX_ERROR_DETAILS) {
+        errorDetails.push({ filePath: filePaths[i]!, error: errorMsg });
+      }
     }
 
     // Report progress after each file (whether success, skip, or error)
     if (onProgress) {
-      onProgress({
+      const progress: ImportProgress = {
         current: i + 1,
         total: filePaths.length,
-        lastFile: path.basename(filePaths[i]!),
-      });
+        lastFile: fileName,
+        importedSoFar: results.filter((r) => !r.skipped).length,
+        skippedSoFar: skippedCount,
+        errorsSoFar: errorCount,
+        lastFileStatus,
+      };
+      if (lastError !== undefined) {
+        progress.lastError = lastError;
+      }
+      onProgress(progress);
+    }
+
+    // Yield to the event loop periodically so Electron doesn't freeze
+    if ((i + 1) % BATCH_YIELD_SIZE === 0) {
+      await yieldToEventLoop();
     }
   }
 
@@ -245,7 +323,7 @@ export function importReplays(
   // Update session with final stats
   updateSession(sessionId, now, importedCount, winsCount);
 
-  return { imported: results, skipped: skippedCount, sessionId };
+  return { imported: results, skipped: skippedCount, errors: errorCount, errorDetails, sessionId };
 }
 
 // ── Import + analyze ─────────────────────────────────────────────────
@@ -256,18 +334,22 @@ export async function importAndAnalyze(
   onProgress?: ImportProgressCallback,
 ): Promise<{ batchResult: BatchImportResult; analysis: string | null }> {
   // First import all replays
-  const batchResult = importReplays(filePaths, targetPlayer, onProgress);
+  const batchResult = await importReplays(filePaths, targetPlayer, onProgress);
 
   const importedFiles = batchResult.imported.filter((r) => !r.skipped);
   if (importedFiles.length === 0) {
     return { batchResult, analysis: null };
   }
 
-  // Reuse cached GameResult objects from the import pass (no re-parsing needed)
+  // Re-parse only the imported files for LLM prompt assembly.
+  // This trades a small re-parse cost for much lower peak memory during import.
   const gameResults: GameResult[] = [];
-  for (const result of batchResult.imported) {
-    if (!result.skipped && result.gameResult) {
-      gameResults.push(result.gameResult);
+  for (const result of importedFiles) {
+    try {
+      const gameResult = processGame(result.filePath, 1);
+      gameResults.push(gameResult);
+    } catch {
+      // Skip files that fail to re-parse — they were imported successfully so this is rare
     }
   }
 
