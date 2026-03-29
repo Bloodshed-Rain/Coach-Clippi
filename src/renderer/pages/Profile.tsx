@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { PlayerRadar } from "../components/RadarChart";
 import { computeRadarStats, type RadarStats } from "../radarStats";
+import { Tooltip } from "../components/Tooltip";
+import { useOverallRecord, useMatchupRecords, useStageRecords, useRecentGames } from "../hooks/queries";
 
 interface MatchupRecord {
   opponentCharacter: string;
@@ -65,7 +67,9 @@ function EntropyBar({ label, value, description }: { label: string; value: numbe
   return (
     <div className="profile-entropy-item">
       <div className="profile-entropy-header">
-        <span className="profile-entropy-label">{label}</span>
+        <Tooltip text={description} position="right">
+          <span className="profile-entropy-label">{label}</span>
+        </Tooltip>
         <span className="profile-entropy-verdict" style={{ color }}>{verdict}</span>
       </div>
       <div className="winrate-bar" style={{ height: 6 }}>
@@ -77,25 +81,17 @@ function EntropyBar({ label, value, description }: { label: string; value: numbe
 }
 
 function HabitPanel() {
-  const [habits, setHabits] = useState<{ ledge: number; knockdown: number; shield: number } | null>(null);
+  const { data: games } = useRecentGames(100);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const games = await window.clippi.getRecentGames(100);
-        if (games.length === 0) return;
-        const avg = (key: string) => games.reduce((s: number, g: any) => s + (g[key] ?? 0), 0) / games.length;
-        setHabits({
-          ledge: avg("ledgeEntropy"),
-          knockdown: avg("knockdownEntropy"),
-          shield: avg("shieldPressureEntropy"),
-        });
-      } catch {
-        setHabits(null);
-      }
-    }
-    load();
-  }, []);
+  const habits = useMemo(() => {
+    if (!games || games.length === 0) return null;
+    const avg = (key: string) => games.reduce((s: number, g: any) => s + (g[key] ?? 0), 0) / games.length;
+    return {
+      ledge: avg("ledgeEntropy"),
+      knockdown: avg("knockdownEntropy"),
+      shield: avg("shieldPressureEntropy"),
+    };
+  }, [games]);
 
   if (!habits) return null;
 
@@ -113,32 +109,23 @@ function HabitPanel() {
 }
 
 export function Profile({ refreshKey }: { refreshKey: number }) {
-  const [record, setRecord] = useState<OverallRecord | null>(null);
-  const [matchups, setMatchups] = useState<MatchupRecord[]>([]);
-  const [stages, setStages] = useState<StageRecord[]>([]);
-  const [radarStats, setRadarStats] = useState<RadarStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: record, isLoading: loadingRecord, refetch: refetchRecord } = useOverallRecord();
+  const { data: matchups, isLoading: loadingMatchups, refetch: refetchMatchups } = useMatchupRecords();
+  const { data: stages, isLoading: loadingStages, refetch: refetchStages } = useStageRecords();
+  const { data: games, isLoading: loadingGames, refetch: refetchGames } = useRecentGames(100);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const [r, m, s, games] = await Promise.all([
-          window.clippi.getOverallRecord(),
-          window.clippi.getMatchupRecords(),
-          window.clippi.getStageRecords(),
-          window.clippi.getRecentGames(100),
-        ]);
-        setRecord(r);
-        setMatchups(m);
-        setStages(s);
-        setRadarStats(computeRadarStats(games));
-      } catch (err) {
-        console.error("Failed to load profile:", err);
-      }
-      setLoading(false);
-    }
-    load();
-  }, [refreshKey]);
+    refetchRecord();
+    refetchMatchups();
+    refetchStages();
+    refetchGames();
+  }, [refreshKey, refetchRecord, refetchMatchups, refetchStages, refetchGames]);
+
+  const radarStats = useMemo(() => {
+    return games ? computeRadarStats(games) : null;
+  }, [games]);
+
+  const loading = loadingRecord || loadingMatchups || loadingStages || loadingGames;
 
   if (loading) {
     return (
@@ -172,7 +159,9 @@ export function Profile({ refreshKey }: { refreshKey: number }) {
           <h1>Profile</h1>
           {archetype && (
             <p>
-              <span className="profile-archetype-name">{archetype.name}</span>
+              <Tooltip text="Your playstyle archetype, computed from your strongest stat dimension across all games" position="bottom">
+                <span className="profile-archetype-name">{archetype.name}</span>
+              </Tooltip>
               {" \u2014 "}{archetype.description}
             </p>
           )}
@@ -224,7 +213,7 @@ export function Profile({ refreshKey }: { refreshKey: number }) {
         </motion.div>
       )}
 
-      {matchups.length > 0 && (
+      {matchups && matchups.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
@@ -243,7 +232,7 @@ export function Profile({ refreshKey }: { refreshKey: number }) {
                 </tr>
               </thead>
               <tbody>
-                {matchups.map((m, i) => {
+                {matchups.map((m: MatchupRecord, i: number) => {
                   const wr = m.winRate * 100;
                   return (
                     <motion.tr
@@ -279,7 +268,7 @@ export function Profile({ refreshKey }: { refreshKey: number }) {
         </motion.div>
       )}
 
-      {stages.length > 0 && (
+      {stages && stages.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
@@ -298,7 +287,7 @@ export function Profile({ refreshKey }: { refreshKey: number }) {
                 </tr>
               </thead>
               <tbody>
-                {stages.map((s, i) => {
+                {stages.map((s: StageRecord, i: number) => {
                   const wr = s.winRate * 100;
                   return (
                     <motion.tr

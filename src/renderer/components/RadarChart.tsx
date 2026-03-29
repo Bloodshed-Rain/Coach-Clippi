@@ -54,9 +54,9 @@ export function PlayerRadar({ stats }: RadarProps) {
           dataKey="value"
           stroke="var(--accent)"
           fill="var(--accent)"
-          fillOpacity={0.12}
+          fillOpacity={0.15}
           strokeWidth={2}
-          dot={{ r: 3.5, fill: "var(--accent)", strokeWidth: 2, stroke: "var(--bg-card)" } as any}
+          dot={{ r: 3.5, fill: "var(--bg-card)", strokeWidth: 2, stroke: "var(--accent)" } as any}
         />
         <Tooltip content={<RadarTooltip />} />
       </RechartsRadarChart>

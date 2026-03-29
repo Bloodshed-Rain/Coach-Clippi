@@ -1,6 +1,12 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Markdown, { type Components } from "react-markdown";
+import {
+  useSets,
+  useOpponents,
+  useOpponentDetail,
+  useConfig,
+} from "../hooks/queries";
 
 interface DetectedSet {
   opponentTag: string;
@@ -360,15 +366,16 @@ function OpponentDetailPanel({
 
 export function Sessions({ refreshKey }: { refreshKey: number }) {
   const [view, setView] = useState<View>("sets");
-  const [sets, setSets] = useState<DetectedSet[]>([]);
-  const [opponents, setOpponents] = useState<OpponentRecord[]>([]);
   const [opponentSearch, setOpponentSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { data: sets = [], isLoading: setsLoading, refetch: refetchSets } = useSets();
+  const { data: opponents = [], isLoading: oppsLoading, refetch: refetchOpps } = useOpponents(searchQuery || undefined);
+  const { data: config } = useConfig();
 
   // Opponent detail state
   const [expandedOpponent, setExpandedOpponent] = useState<string | null>(null);
-  const [opponentDetail, setOpponentDetail] = useState<OpponentDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const { data: opponentDetail, isFetching: detailLoading, refetch: refetchDetail } = useOpponentDetail(expandedOpponent);
 
   // AI analysis state for opponent matchup
   const [matchupAnalysis, setMatchupAnalysis] = useState<Record<string, string>>({});
@@ -378,34 +385,17 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
   const [matchupAnalysisError, setMatchupAnalysisError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const [s, o] = await Promise.all([
-          window.clippi.getSets(),
-          window.clippi.getOpponents(),
-        ]);
-        setSets(s);
-        setOpponents(o);
-      } catch (err) {
-        console.error("Failed to load sessions:", err);
-      }
-      setLoading(false);
+    refetchSets();
+    refetchOpps();
+    if (expandedOpponent) {
+      refetchDetail();
     }
-    load();
-  }, [refreshKey]);
+  }, [refreshKey, refetchSets, refetchOpps, refetchDetail, expandedOpponent]);
 
-  const handleSearch = async () => {
-    try {
-      if (!opponentSearch.trim()) {
-        const o = await window.clippi.getOpponents();
-        setOpponents(o);
-      } else {
-        const o = await window.clippi.getOpponents(opponentSearch.trim());
-        setOpponents(o);
-      }
-    } catch (err) {
-      console.error("Opponent search failed:", err);
-    }
+  const loading = setsLoading || oppsLoading;
+
+  const handleSearch = () => {
+    setSearchQuery(opponentSearch.trim());
   };
 
   const handleOpponentClick = useCallback(async (opponent: OpponentRecord) => {
@@ -413,22 +403,11 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
 
     if (expandedOpponent === key) {
       setExpandedOpponent(null);
-      setOpponentDetail(null);
       return;
     }
 
     setExpandedOpponent(key);
-    setDetailLoading(true);
     setMatchupAnalysisError(null);
-
-    try {
-      const detail = await window.clippi.getOpponentDetail(key);
-      setOpponentDetail(detail);
-    } catch (err) {
-      console.error("Failed to load opponent detail:", err);
-      setOpponentDetail(null);
-    }
-    setDetailLoading(false);
   }, [expandedOpponent]);
 
   const handleRequestMatchupAnalysis = useCallback(async () => {
@@ -452,7 +431,6 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
     try {
       // Analyze the most recent games against this opponent (up to 5)
       const replayPaths = opponentDetail.games.slice(0, 5).map(g => g.replayPath);
-      const config = await window.clippi.loadConfig();
       const target = config?.connectCode || config?.targetPlayer || "";
       const result = await window.clippi.analyzeReplays(replayPaths, target);
       setMatchupAnalysis(prev => ({ ...prev, [key]: result }));
@@ -466,7 +444,7 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
       setMatchupIsStreaming(false);
       setAnalyzingMatchup(null);
     }
-  }, [opponentDetail, expandedOpponent, matchupAnalysis]);
+  }, [opponentDetail, expandedOpponent, matchupAnalysis, config]);
 
   if (loading) {
     return (

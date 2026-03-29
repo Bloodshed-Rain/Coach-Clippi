@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Markdown, { type Components } from "react-markdown";
 import { Onboarding } from "../components/Onboarding";
 import { StockTimeline } from "../components/StockTimeline";
+import { Tooltip } from "../components/Tooltip";
+import { useRecentGames, useConfig } from "../hooks/queries";
 
 const FPS = 60;
 const FIRST_PLAYABLE = -123; // Frames.FIRST_PLAYABLE from slippi-js
@@ -70,11 +72,12 @@ interface RecentGame {
 }
 
 // Animated stat with count-up
-function PulseStat({ value, label, color, index }: {
+function PulseStat({ value, label, color, index, tip }: {
   value: string;
   label: string;
   color: string;
   index: number;
+  tip?: string;
 }) {
   return (
     <motion.div
@@ -84,7 +87,13 @@ function PulseStat({ value, label, color, index }: {
       className="stat-box"
     >
       <div className="stat-value" style={{ color }}>{value}</div>
-      <div className="stat-label">{label}</div>
+      {tip ? (
+        <Tooltip text={tip} position="bottom">
+          <span className="stat-label">{label}</span>
+        </Tooltip>
+      ) : (
+        <div className="stat-label">{label}</div>
+      )}
     </motion.div>
   );
 }
@@ -99,24 +108,24 @@ function SessionPulse({ games }: { games: RecentGame[] }) {
   const avgLCancel = games.reduce((s, g) => s + g.lCancelRate, 0) / games.length;
 
   const stats = [
-    { label: "Record", value: `${wins}W-${losses}L`, color: wins > losses ? "var(--green)" : wins < losses ? "var(--red)" : "var(--text)" },
-    { label: "Neutral WR", value: `${(avgNeutral * 100).toFixed(1)}%`, color: avgNeutral > 0.5 ? "var(--green)" : "var(--yellow)" },
-    { label: "L-Cancel", value: `${(avgLCancel * 100).toFixed(1)}%`, color: avgLCancel > 0.85 ? "var(--green)" : "var(--yellow)" },
-    { label: "Games", value: `${games.length}`, color: "var(--text)" },
+    { label: "Record", value: `${wins}W-${losses}L`, color: wins > losses ? "var(--green)" : wins < losses ? "var(--red)" : "var(--text)", tip: "Wins vs losses in your recent session" },
+    { label: "Neutral WR", value: `${(avgNeutral * 100).toFixed(1)}%`, color: avgNeutral > 0.5 ? "var(--green)" : "var(--yellow)", tip: "How often you win the neutral game — first hit in an exchange. Above 50% means you're winning more openers than your opponent." },
+    { label: "L-Cancel", value: `${(avgLCancel * 100).toFixed(1)}%`, color: avgLCancel > 0.85 ? "var(--green)" : "var(--yellow)", tip: "Percentage of aerial landings where you successfully L-cancelled. 85%+ is good, 95%+ is top-level." },
+    { label: "Games", value: `${games.length}`, color: "var(--text)", tip: "Total games in this recent session" },
   ];
 
   return (
     <div className="session-pulse">
       {stats.map((s, i) => (
-        <PulseStat key={s.label} value={s.value} label={s.label} color={s.color} index={i} />
+        <PulseStat key={s.label} value={s.value} label={s.label} color={s.color} index={i} tip={s.tip} />
       ))}
     </div>
   );
 }
 
 export function Dashboard({ refreshKey }: { refreshKey: number }) {
-  const [games, setGames] = useState<RecentGame[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: games = [], isLoading: loading, refetch } = useRecentGames(20);
+  const { data: config } = useConfig();
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
   // Per-game analysis state
@@ -142,17 +151,9 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
     setLaunchingDolphin(null);
   };
 
-  const load = useCallback(async () => {
-    try {
-      const g = await window.clippi.getRecentGames(20);
-      setGames(g);
-    } catch (err) {
-      console.error("Failed to load dashboard:", err);
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load, refreshKey]);
+  useEffect(() => {
+    refetch();
+  }, [refreshKey, refetch]);
 
   const handleGameClick = async (game: RecentGame) => {
     if (expandedGame === game.id) {
@@ -179,7 +180,6 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
     });
 
     try {
-      const config = await window.clippi.loadConfig();
       const target = config?.connectCode || config?.targetPlayer || "";
       const result = await window.clippi.analyzeReplays([game.replayPath], target);
       // Cache the final complete text (from the invoke return value)
@@ -210,7 +210,7 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
       <Onboarding
         onComplete={() => {
           setOnboardingDismissed(true);
-          load();
+          refetch();
         }}
         onSkip={() => setOnboardingDismissed(true)}
       />
@@ -290,7 +290,9 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
                       }}>
                         {(game.neutralWinRate * 100).toFixed(0)}%
                       </span>
-                      <span className="mini-stat-label">Neutral</span>
+                      <Tooltip text="Neutral win rate — how often you won the first hit in an exchange" position="top">
+                        <span className="mini-stat-label">Neutral</span>
+                      </Tooltip>
                     </div>
                     <div className="mini-stat">
                       <span className="mini-stat-value" style={{
@@ -298,7 +300,9 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
                       }}>
                         {Number.isFinite(game.openingsPerKill) ? game.openingsPerKill.toFixed(1) : "\u2014"}
                       </span>
-                      <span className="mini-stat-label">Op/Kill</span>
+                      <Tooltip text="Openings per kill — how many neutral wins it takes to get a stock. Lower is better (fewer openings needed)." position="top">
+                        <span className="mini-stat-label">Op/Kill</span>
+                      </Tooltip>
                     </div>
                     <div className="mini-stat">
                       <span className="mini-stat-value" style={{
@@ -306,7 +310,9 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
                       }}>
                         {(game.lCancelRate * 100).toFixed(0)}%
                       </span>
-                      <span className="mini-stat-label">L-Cancel</span>
+                      <Tooltip text="L-cancel success rate — percentage of aerials landing with a successful L-cancel input" position="top">
+                        <span className="mini-stat-label">L-Cancel</span>
+                      </Tooltip>
                     </div>
                     <div className="mini-stat">
                       <span className="mini-stat-value" style={{
@@ -314,7 +320,9 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
                       }}>
                         {(game.edgeguardSuccessRate * 100).toFixed(0)}%
                       </span>
-                      <span className="mini-stat-label">Edgeguard</span>
+                      <Tooltip text="Edgeguard success rate — how often your offstage attempts result in a stock taken" position="top">
+                        <span className="mini-stat-label">Edgeguard</span>
+                      </Tooltip>
                     </div>
                   </div>
                   <div className="game-card-chevron">

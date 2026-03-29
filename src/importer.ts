@@ -3,7 +3,6 @@ import fs from "fs";
 import path from "path";
 
 import {
-  processGame,
   findPlayerIdx,
   computeAdaptationSignals,
   assembleUserPrompt,
@@ -13,6 +12,7 @@ import {
 } from "./pipeline";
 import { callLLM, LLM_DEFAULTS, type LLMConfig } from "./llm";
 import { loadConfig } from "./config";
+import { parsePool } from "./parsePool";
 
 import {
   getDb,
@@ -28,9 +28,14 @@ import {
 
 // ── File hashing ─────────────────────────────────────────────────────
 
-function hashFile(filePath: string): string {
-  const content = fs.readFileSync(filePath);
-  return crypto.createHash("sha256").update(content).digest("hex");
+async function hashFile(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    const stream = fs.createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("end", () => resolve(hash.digest("hex")));
+    stream.on("error", (err) => reject(err));
+  });
 }
 
 /** Yield to the event loop so Electron stays responsive */
@@ -52,22 +57,23 @@ export interface ImportResult {
 
 // ── Single game import ───────────────────────────────────────────────
 
-export function importReplay(
+export async function importReplay(
   filePath: string,
   targetPlayer: string | null,
   gameNumber: number = 1,
   sessionId: number | null = null,
-): ImportResult {
+): Promise<ImportResult> {
   const absolutePath = path.resolve(filePath);
-  const hash = hashFile(absolutePath);
+  const hash = await hashFile(absolutePath);
 
   // Dedup check
   if (replayExists(hash)) {
     return { filePath: absolutePath, hash, skipped: true };
   }
 
-  // Parse the game
-  const { gameSummary, derivedInsights, startAt } = processGame(absolutePath, gameNumber);
+  // Parse the game via pool
+  const gameResult = await parsePool.parse(absolutePath, gameNumber);
+  const { gameSummary, derivedInsights, startAt } = gameResult;
 
   // Resolve target player — use the explicit target, only guess if nothing provided
   let targetTag = targetPlayer ?? "";
@@ -99,7 +105,6 @@ export function importReplay(
   const totalDamageDealt = player.stocks.reduce((sum, s) => sum + s.damageDealt, 0);
 
   // Insert game + stats + signature stats atomically.
-  // If any insert fails, all roll back — no orphaned game rows without stats.
   const importTransaction = getDb().transaction(() => {
     const gameId = insertGame({
       sessionId,
@@ -172,7 +177,7 @@ export function importReplay(
 
   const gameId = importTransaction();
 
-  return { filePath: absolutePath, hash, skipped: false, gameId, gameSummary, gameResult: { gameSummary, derivedInsights, startAt } };
+  return { filePath: absolutePath, hash, skipped: false, gameId, gameSummary, gameResult };
 }
 
 // ── Progress callback ────────────────────────────────────────────────
@@ -212,9 +217,6 @@ export interface BatchImportResult {
   sessionId: number | null;
 }
 
-/** How many files to process before yielding to the event loop */
-const BATCH_YIELD_SIZE = 10;
-
 /** Max error details to keep — prevents huge payloads when most files fail */
 const MAX_ERROR_DETAILS = 50;
 
@@ -242,88 +244,246 @@ export async function importReplays(
     return { imported: [], skipped: 0, errors: 0, errorDetails: [], sessionId: null };
   }
 
-  // Create a session for this batch
   const now = new Date().toISOString();
   const sessionId = createSession(now);
 
-  const results: ImportResult[] = [];
+  const finalResults: ImportResult[] = [];
   let skippedCount = 0;
   let winsCount = 0;
   let errorCount = 0;
+  let importedCount = 0;
   const errorDetails: FileError[] = [];
 
-  for (let i = 0; i < filePaths.length; i++) {
-    const fileName = path.basename(filePaths[i]!);
-    let lastFileStatus: "imported" | "skipped" | "error" = "imported";
-    let lastError: string | undefined;
-
-    try {
-      const result = importReplay(filePaths[i]!, targetPlayer, i + 1, sessionId);
-
-      // Only keep lightweight data — drop the heavy gameResult to free memory
-      const lightResult: ImportResult = {
-        filePath: result.filePath,
-        hash: result.hash,
-        skipped: result.skipped,
-        ...(result.gameId !== undefined ? { gameId: result.gameId } : {}),
-        ...(result.gameSummary !== undefined ? { gameSummary: result.gameSummary } : {}),
-        // gameResult intentionally omitted to reduce memory pressure
-      };
-      results.push(lightResult);
-
-      if (result.skipped) {
-        skippedCount++;
-        lastFileStatus = "skipped";
-      } else if (result.gameSummary) {
-        // Resolve target to check win
-        const tag =
-          targetPlayer ??
-          result.gameSummary.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ??
-          result.gameSummary.players[0].tag;
-        if (result.gameSummary.result.winner === tag) {
-          winsCount++;
+  // Step 1: Hash and filter duplicates in parallel (with limit)
+  const toParse: { filePath: string; hash: string; gameNumber: number }[] = [];
+  const HASH_CONCURRENCY = 16;
+  
+  for (let i = 0; i < filePaths.length; i += HASH_CONCURRENCY) {
+    const chunk = filePaths.slice(i, i + HASH_CONCURRENCY);
+    const hashes = await Promise.all(
+      chunk.map(async (fp) => {
+        try {
+          const hash = await hashFile(fp);
+          return { fp, hash };
+        } catch (err) {
+          return { fp, err };
         }
-      }
-    } catch (err) {
-      const errorMsg = classifyError(err);
-      console.error(`[import] Failed ${fileName}: ${errorMsg}`);
-      errorCount++;
-      lastFileStatus = "error";
-      lastError = errorMsg;
-      if (errorDetails.length < MAX_ERROR_DETAILS) {
-        errorDetails.push({ filePath: filePaths[i]!, error: errorMsg });
-      }
-    }
+      })
+    );
 
-    // Report progress after each file (whether success, skip, or error)
-    if (onProgress) {
-      const progress: ImportProgress = {
-        current: i + 1,
-        total: filePaths.length,
-        lastFile: fileName,
-        importedSoFar: results.filter((r) => !r.skipped).length,
-        skippedSoFar: skippedCount,
-        errorsSoFar: errorCount,
-        lastFileStatus,
-      };
-      if (lastError !== undefined) {
-        progress.lastError = lastError;
+    for (const { fp, hash, err } of hashes as any[]) {
+      const fileName = path.basename(fp);
+      if (err) {
+        const errorMsg = classifyError(err);
+        errorCount++;
+        if (errorDetails.length < MAX_ERROR_DETAILS) {
+          errorDetails.push({ filePath: fp, error: errorMsg });
+        }
+        onProgress?.({
+          current: finalResults.length + 1,
+          total: filePaths.length,
+          lastFile: fileName,
+          importedSoFar: importedCount,
+          skippedSoFar: skippedCount,
+          errorsSoFar: errorCount,
+          lastFileStatus: "error",
+          lastError: errorMsg,
+        });
+        finalResults.push({ filePath: fp, hash: "", skipped: false }); // Placeholder
+        continue;
       }
-      onProgress(progress);
-    }
 
-    // Yield to the event loop periodically so Electron doesn't freeze
-    if ((i + 1) % BATCH_YIELD_SIZE === 0) {
-      await yieldToEventLoop();
+      if (replayExists(hash)) {
+        skippedCount++;
+        finalResults.push({ filePath: fp, hash, skipped: true });
+        onProgress?.({
+          current: finalResults.length,
+          total: filePaths.length,
+          lastFile: fileName,
+          importedSoFar: importedCount,
+          skippedSoFar: skippedCount,
+          errorsSoFar: errorCount,
+          lastFileStatus: "skipped",
+        });
+      } else {
+        toParse.push({ filePath: fp, hash, gameNumber: finalResults.length + 1 });
+        finalResults.push({ filePath: fp, hash, skipped: false }); // Will be updated
+      }
     }
+    await yieldToEventLoop();
   }
 
-  const importedCount = results.filter((r) => !r.skipped).length;
+  // Step 2: Parse remaining replays in parallel via ParsePool
+  // We process in batches to allow database commit interleaving
+  const DB_BATCH_SIZE = 50;
+  for (let i = 0; i < toParse.length; i += DB_BATCH_SIZE) {
+    const chunk = toParse.slice(i, i + DB_BATCH_SIZE);
+    
+    // Parse the chunk in parallel
+    const parseResults = await Promise.all(
+      chunk.map(async (item) => {
+        try {
+          const result = await parsePool.parse(item.filePath, item.gameNumber);
+          return { success: true, item, result };
+        } catch (err) {
+          return { success: false, item, error: err };
+        }
+      })
+    );
 
-  // Update session with final stats
+    // Insert into DB in a single transaction
+    const dbBatch = getDb().transaction(() => {
+      for (const res of parseResults) {
+        if (!res.success) continue;
+        const { item, result } = res;
+        const { gameSummary, derivedInsights, startAt } = result!;
+
+        let targetTag = targetPlayer ?? "";
+        if (!targetTag) {
+          targetTag =
+            gameSummary.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ??
+            gameSummary.players[0].tag;
+        }
+
+        const playerIdx = findPlayerIdx(gameSummary, targetTag);
+        const opponentIdx = playerIdx === 0 ? 1 : 0;
+        const player = gameSummary.players[playerIdx];
+        const opponent = gameSummary.players[opponentIdx];
+        const playerInsights = derivedInsights[playerIdx];
+
+        let gameResultStr: "win" | "loss" | "draw";
+        if (gameSummary.result.winner === player.tag) {
+          gameResultStr = "win";
+        } else if (gameSummary.result.winner === "Unknown") {
+          gameResultStr = "draw";
+        } else {
+          gameResultStr = "loss";
+        }
+
+        const totalDamageDealt = player.stocks.reduce((sum, s) => sum + s.damageDealt, 0);
+
+        const gameId = insertGame({
+          sessionId,
+          replayPath: item.filePath,
+          replayHash: item.hash,
+          playedAt: startAt,
+          stage: gameSummary.stage,
+          durationSeconds: gameSummary.duration,
+          playerCharacter: player.character,
+          opponentCharacter: opponent.character,
+          playerTag: player.tag,
+          opponentTag: opponent.tag,
+          playerConnectCode: player.connectCode || null,
+          opponentConnectCode: opponent.connectCode || null,
+          result: gameResultStr,
+          endMethod: gameSummary.result.endMethod,
+          playerFinalStocks: gameSummary.result.finalStocks[playerIdx],
+          playerFinalPercent: gameSummary.result.finalPercents[playerIdx],
+          opponentFinalStocks: gameSummary.result.finalStocks[opponentIdx],
+          opponentFinalPercent: gameSummary.result.finalPercents[opponentIdx],
+          gameNumber: item.gameNumber,
+        });
+
+        insertGameStats({
+          gameId,
+          neutralWins: player.neutralWins,
+          neutralLosses: player.neutralLosses,
+          neutralWinRate: player.neutralWinRate,
+          counterHits: player.counterHits,
+          openingsPerKill: player.openingsPerKill,
+          totalOpenings: player.totalOpenings,
+          totalConversions: player.totalConversions,
+          conversionRate: player.conversionRate,
+          avgDamagePerOpening: player.averageDamagePerOpening,
+          killConversions: player.killConversions,
+          lCancelRate: player.lCancelRate,
+          wavedashCount: player.wavedashCount,
+          dashDanceFrames: player.dashDanceFrames,
+          avgStagePositionX: player.avgStagePosition.x,
+          timeOnPlatform: player.timeOnPlatform,
+          timeInAir: player.timeInAir,
+          timeAtLedge: player.timeAtLedge,
+          totalDamageTaken: player.totalDamageTaken,
+          totalDamageDealt: totalDamageDealt,
+          avgDeathPercent: player.avgDeathPercent,
+          recoveryAttempts: player.recoveryAttempts,
+          recoverySuccessRate: player.recoverySuccessRate,
+          ledgeEntropy: playerInsights.afterLedgeGrab.entropy,
+          knockdownEntropy: playerInsights.afterKnockdown.entropy,
+          shieldPressureEntropy: playerInsights.afterShieldPressure.entropy,
+          powerShieldCount: player.powerShieldCount,
+          edgeguardAttempts: player.edgeguardAttempts,
+          edgeguardSuccessRate: player.edgeguardSuccessRate,
+          shieldPressureSequences: player.shieldPressure.sequenceCount,
+          shieldPressureAvgDamage: player.shieldPressure.avgShieldDamage,
+          shieldBreaks: player.shieldPressure.shieldBreaks,
+          shieldPokeRate: player.shieldPressure.shieldPokeRate,
+          diSurvivalScore: player.diQuality.survivalDIScore,
+          diComboScore: player.diQuality.comboDIScore,
+          diAvgComboLengthReceived: player.diQuality.avgComboLengthReceived,
+          diAvgComboLengthDealt: player.diQuality.avgComboLengthDealt,
+        });
+
+        if (player.signatureStats) {
+          insertSignatureStats(gameId, JSON.stringify(player.signatureStats));
+        }
+
+        if (gameSummary.result.winner === targetTag) {
+          winsCount++;
+        }
+
+        // Update finalResults entry — use the gameNumber to find the index directly
+        const idx = item.gameNumber - 1;
+        if (finalResults[idx]) {
+          finalResults[idx] = {
+            ...finalResults[idx],
+            gameId,
+            gameSummary,
+          };
+        }
+      }
+    });
+
+    dbBatch();
+
+    // Update progress and error counts
+    for (const res of parseResults) {
+      const fileName = path.basename(res.item.filePath);
+      if (res.success) {
+        importedCount++;
+        onProgress?.({
+          current: finalResults.length, // approximation
+          total: filePaths.length,
+          lastFile: fileName,
+          importedSoFar: importedCount,
+          skippedSoFar: skippedCount,
+          errorsSoFar: errorCount,
+          lastFileStatus: "imported",
+        });
+      } else {
+        const errorMsg = classifyError(res.error);
+        errorCount++;
+        if (errorDetails.length < MAX_ERROR_DETAILS) {
+          errorDetails.push({ filePath: res.item.filePath, error: errorMsg });
+        }
+        onProgress?.({
+          current: finalResults.length,
+          total: filePaths.length,
+          lastFile: fileName,
+          importedSoFar: importedCount,
+          skippedSoFar: skippedCount,
+          errorsSoFar: errorCount,
+          lastFileStatus: "error",
+          lastError: errorMsg,
+        });
+      }
+    }
+    await yieldToEventLoop();
+  }
+
   updateSession(sessionId, now, importedCount, winsCount);
 
-  return { imported: results, skipped: skippedCount, errors: errorCount, errorDetails, sessionId };
+  return { imported: finalResults, skipped: skippedCount, errors: errorCount, errorDetails, sessionId };
 }
 
 // ── Import + analyze ─────────────────────────────────────────────────
@@ -333,38 +493,43 @@ export async function importAndAnalyze(
   targetPlayer: string | null,
   onProgress?: ImportProgressCallback,
 ): Promise<{ batchResult: BatchImportResult; analysis: string | null }> {
-  // First import all replays
   const batchResult = await importReplays(filePaths, targetPlayer, onProgress);
 
-  const importedFiles = batchResult.imported.filter((r) => !r.skipped);
+  const importedFiles = batchResult.imported.filter((r) => !r.skipped && r.gameId !== undefined);
   if (importedFiles.length === 0) {
     return { batchResult, analysis: null };
   }
 
-  // Re-parse only the imported files for LLM prompt assembly.
-  // This trades a small re-parse cost for much lower peak memory during import.
+  // Parallel re-parse for LLM prompt assembly
   const gameResults: GameResult[] = [];
-  for (const result of importedFiles) {
-    try {
-      const gameResult = processGame(result.filePath, 1);
-      gameResults.push(gameResult);
-    } catch {
-      // Skip files that fail to re-parse — they were imported successfully so this is rare
+  const REPARSE_BATCH_SIZE = 10;
+  for (let i = 0; i < importedFiles.length; i += REPARSE_BATCH_SIZE) {
+    const chunk = importedFiles.slice(i, i + REPARSE_BATCH_SIZE);
+    const results = await Promise.all(
+      chunk.map(async (file) => {
+        try {
+          return await parsePool.parse(file.filePath, 1);
+        } catch {
+          return null;
+        }
+      })
+    );
+    for (const r of results) {
+      if (r) gameResults.push(r);
     }
+    await yieldToEventLoop();
   }
 
   if (gameResults.length === 0) {
     return { batchResult, analysis: null };
   }
 
-  // Resolve target player
   const firstGame = gameResults[0]!.gameSummary;
   const targetTag =
     targetPlayer ??
     firstGame.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ??
     firstGame.players[0].tag;
 
-  // Compute adaptation signals for multi-game sets
   if (gameResults.length >= 2) {
     const p0Tag = firstGame.players[0].tag;
     const p1Tag = firstGame.players[1].tag;
@@ -377,7 +542,6 @@ export async function importAndAnalyze(
     lastResult.derivedInsights[lastP1Idx].adaptationSignals = p1Signals;
   }
 
-  // Query player history for contextual coaching
   const playerHistory = getPlayerHistory(targetTag) ?? undefined;
   const userPrompt = assembleUserPrompt(gameResults, targetTag, playerHistory);
   const userCfg = loadConfig();
@@ -395,10 +559,10 @@ export async function importAndAnalyze(
     config: llmConfig,
   });
 
-  // Store the coaching analysis
   if (batchResult.sessionId) {
     insertCoachingAnalysis(null, batchResult.sessionId, llmConfig.modelId, analysis);
   }
 
   return { batchResult, analysis };
 }
+

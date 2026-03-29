@@ -114,15 +114,21 @@
     }
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.28.0",
     "@slippi/slippi-js": "^9.0.0",
+    "@tanstack/react-query": "^5.95.2",
     "better-sqlite3": "^12.8.0",
     "chokidar": "^5.0.0",
+    "clsx": "^2.1.1",
     "electron-updater": "^6.8.3",
     "framer-motion": "^12.38.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0",
-    "recharts": "^3.8.0"
+    "react-router-dom": "^7.13.2",
+    "recharts": "^3.8.0",
+    "tailwind-merge": "^3.5.0",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

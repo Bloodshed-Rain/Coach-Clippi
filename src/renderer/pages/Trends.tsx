@@ -3,8 +3,10 @@ import { useTypewriter } from "../hooks";
 import { motion } from "framer-motion";
 import Markdown from "react-markdown";
 import {
-  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart,
+  XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart,
 } from "recharts";
+import { useRecentGames } from "../hooks/queries";
+import { Tooltip } from "../components/Tooltip";
 
 interface RecentGame {
   playedAt: string | null;
@@ -26,6 +28,7 @@ interface RecentGame {
 interface MetricConfig {
   key: keyof RecentGame;
   label: string;
+  tip: string;
   format: (v: number) => string;
   color: string;
   isPercent: boolean;
@@ -34,65 +37,50 @@ interface MetricConfig {
 }
 
 const METRICS: MetricConfig[] = [
-  { key: "neutralWinRate", label: "Neutral Win Rate", format: (v) => `${(v * 100).toFixed(1)}%`, color: "#6366f1", isPercent: true, higherBetter: true },
-  { key: "lCancelRate", label: "L-Cancel Rate", format: (v) => `${(v * 100).toFixed(1)}%`, color: "#22c55e", isPercent: true, higherBetter: true },
-  { key: "conversionRate", label: "Conversion Rate", format: (v) => `${(v * 100).toFixed(1)}%`, color: "#eab308", isPercent: true, higherBetter: true },
-  { key: "avgDamagePerOpening", label: "Dmg / Opening", format: (v) => v.toFixed(1), color: "#f97316", isPercent: false, higherBetter: true, maxValue: 60 },
-  { key: "openingsPerKill", label: "Openings / Kill", format: (v) => Number.isFinite(v) ? v.toFixed(1) : "N/A", color: "#ef4444", isPercent: false, higherBetter: false, maxValue: 15 },
-  { key: "avgDeathPercent", label: "Avg Death %", format: (v) => `${v.toFixed(0)}%`, color: "#8b5cf6", isPercent: false, higherBetter: true, maxValue: 200 },
-  { key: "powerShieldCount", label: "Power Shields", format: (v) => v.toFixed(1), color: "#14b8a6", isPercent: false, higherBetter: true, maxValue: 20 },
-  { key: "edgeguardSuccessRate", label: "Edgeguard Rate", format: (v) => `${(v * 100).toFixed(1)}%`, color: "#f43f5e", isPercent: true, higherBetter: true },
-  { key: "recoverySuccessRate", label: "Recovery Rate", format: (v) => `${(v * 100).toFixed(1)}%`, color: "#06b6d4", isPercent: true, higherBetter: true },
+  { key: "neutralWinRate", label: "Neutral Win Rate", tip: "How often you win the first hit in an exchange. Above 50% means you're outplaying in neutral.", format: (v) => `${(v * 100).toFixed(1)}%`, color: "#18FF6D", isPercent: true, higherBetter: true },
+  { key: "lCancelRate", label: "L-Cancel Rate", tip: "Percentage of aerial landings with a successful L-cancel. 85%+ is solid, 95%+ is top-level.", format: (v) => `${(v * 100).toFixed(1)}%`, color: "#14e060", isPercent: true, higherBetter: true },
+  { key: "conversionRate", label: "Conversion Rate", tip: "How often a neutral win turns into a combo or string. Higher means better punish game off openings.", format: (v) => `${(v * 100).toFixed(1)}%`, color: "#f5a623", isPercent: true, higherBetter: true },
+  { key: "avgDamagePerOpening", label: "Dmg / Opening", tip: "Average damage dealt per neutral win. Measures how hard you punish each opening.", format: (v) => v.toFixed(1), color: "#5cdb95", isPercent: false, higherBetter: true, maxValue: 60 },
+  { key: "openingsPerKill", label: "Openings / Kill", tip: "Neutral wins needed per stock taken. Lower is better — fewer openings to close a stock.", format: (v) => Number.isFinite(v) ? v.toFixed(1) : "N/A", color: "#C60707", isPercent: false, higherBetter: false, maxValue: 15 },
+  { key: "avgDeathPercent", label: "Avg Death %", tip: "Average percent at which you die. Higher means you're surviving longer and DI-ing well.", format: (v) => `${v.toFixed(0)}%`, color: "#8ba89a", isPercent: false, higherBetter: true, maxValue: 200 },
+  { key: "powerShieldCount", label: "Power Shields", tip: "Power shields per game. Reflects defensive timing and reactions to projectiles/approaches.", format: (v) => v.toFixed(1), color: "#18FF6D", isPercent: false, higherBetter: true, maxValue: 20 },
+  { key: "edgeguardSuccessRate", label: "Edgeguard Rate", tip: "How often your edgeguard attempts result in a taken stock. Measures offstage lethality.", format: (v) => `${(v * 100).toFixed(1)}%`, color: "#ff6b6b", isPercent: true, higherBetter: true },
+  { key: "recoverySuccessRate", label: "Recovery Rate", tip: "How often you make it back to stage when knocked offstage. Higher means better survival.", format: (v) => `${(v * 100).toFixed(1)}%`, color: "#45c9a8", isPercent: true, higherBetter: true },
 ];
 
-function StatGauge({ value, label, format, color, higherBetter, delta, isPercent, maxValue }: {
+/** Inline stat header shown above each chart card */
+function ChartHeader({ value, label, tip, format, color, higherBetter, delta, isPercent }: {
   value: number;
   label: string;
+  tip: string;
   format: (v: number) => string;
   color: string;
   higherBetter: boolean;
   delta: number;
   isPercent: boolean;
-  maxValue?: number;
 }) {
-  const safeValue = Number.isFinite(value) ? value : 0;
-  const fillPercent = isPercent ? safeValue * 100 : Math.min(100, Math.max(0, (safeValue / (maxValue ?? 60)) * 100));
-  const circumference = 2 * Math.PI * 36;
-  const strokeDashoffset = circumference - (fillPercent / 100) * circumference;
   const improving = higherBetter ? delta > 0 : delta < 0;
   const stable = Math.abs(delta) < 0.01;
 
   return (
-    <div className="stat-box" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "18px 14px" }}>
-      <svg width="84" height="84" viewBox="0 0 88 88" style={{ transform: "rotate(-90deg)" }}>
-        <circle cx="44" cy="44" r="36" fill="none" stroke="var(--border)" strokeWidth="4" />
-        <circle
-          cx="44" cy="44" r="36" fill="none"
-          stroke={color} strokeWidth="4" strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          style={{
-            transition: "stroke-dashoffset 1.2s cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-        />
-      </svg>
-      <div style={{ marginTop: -68, marginBottom: 26, textAlign: "center" }}>
-        <div style={{ color, fontSize: 16, fontWeight: 700, fontFamily: "var(--font-mono)" }}>{format(value)}</div>
-      </div>
-      <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 500 }}>{label}</div>
-        {!stable && (
-          <span style={{
-            fontSize: 11,
-            fontFamily: "var(--font-mono)",
-            fontWeight: 600,
-            color: improving ? "var(--green)" : "var(--red)",
-          }}>
-            {improving ? "\u2191 " : "\u2193 "}
-            {isPercent ? Math.abs(delta * 100).toFixed(1) + "pp" : Math.abs(delta).toFixed(1)}
-          </span>
-        )}
-      </div>
+    <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
+      <Tooltip text={tip} position="right">
+        <span className="card-title" style={{ marginBottom: 0 }}>{label}</span>
+      </Tooltip>
+      <span style={{ color, fontSize: 16, fontWeight: 700, fontFamily: "var(--font-mono)", letterSpacing: "-0.5px" }}>
+        {format(value)}
+      </span>
+      {!stable && (
+        <span style={{
+          fontSize: 11,
+          fontFamily: "var(--font-mono)",
+          fontWeight: 600,
+          color: improving ? "var(--green)" : "var(--red)",
+        }}>
+          {improving ? "\u2191" : "\u2193"}{" "}
+          {isPercent ? Math.abs(delta * 100).toFixed(1) + "pp" : Math.abs(delta).toFixed(1)}
+        </span>
+      )}
     </div>
   );
 }
@@ -181,25 +169,15 @@ function ChartTooltip({ active, payload, label, metric }: any) {
 }
 
 export function Trends({ refreshKey }: { refreshKey: number }) {
-  const [games, setGames] = useState<RecentGame[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: games = [], isLoading: loading, refetch } = useRecentGames(200);
   const [commentary, setCommentary] = useState<string | null>(null);
   const { displayText: typedCommentary, isTyping } = useTypewriter(commentary ?? "", 4, !!commentary);
   const [analyzingTrends, setAnalyzingTrends] = useState(false);
   const [trendError, setTrendError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const g = await window.clippi.getRecentGames(200);
-        setGames(g);
-      } catch (err) {
-        console.error("Failed to load trends:", err);
-      }
-      setLoading(false);
-    }
-    load();
-  }, [refreshKey]);
+    refetch();
+  }, [refreshKey, refetch]);
 
   // Memos must be above early returns to keep hook count stable
   const chronological = useMemo(() => [...games].reverse(), [games]);
@@ -317,44 +295,29 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
         </div>
       </motion.div>
 
-      {/* Gauge grid */}
-      <div className="trends-gauge-grid">
-        {METRICS.map((m, index) => {
-          const early = avg(firstHalf, m.key);
-          const late = avg(secondHalf, m.key);
-          const delta = late - early;
-          return (
-            <motion.div
-              key={m.key}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.15 + index * 0.04, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <StatGauge
-                value={late}
-                label={m.label}
-                format={m.format}
-                color={m.color}
-                higherBetter={m.higherBetter}
-                delta={delta}
-                isPercent={m.isPercent}
-                maxValue={m.maxValue}
-              />
-            </motion.div>
-          );
-        })}
-      </div>
-
-      {/* Charts with gradient area fills */}
-      {METRICS.map((m, index) => (
+      {/* Charts — each card shows current value, delta, and trend line */}
+      {METRICS.map((m, index) => {
+        const early = avg(firstHalf, m.key);
+        const late = avg(secondHalf, m.key);
+        const delta = late - early;
+        return (
         <motion.div
           key={m.key}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 + index * 0.03, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ delay: 0.15 + index * 0.03, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="card">
-            <div className="card-title">{m.label}</div>
+            <ChartHeader
+              value={late}
+              label={m.label}
+              tip={m.tip}
+              format={m.format}
+              color={m.color}
+              higherBetter={m.higherBetter}
+              delta={delta}
+              isPercent={m.isPercent}
+            />
             <ResponsiveContainer width="100%" height={160}>
               <AreaChart data={chartData}>
                 <defs>
@@ -378,7 +341,7 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
                   domain={m.isPercent ? [0, 1] : ["auto", "auto"]}
                   width={42}
                 />
-                <Tooltip content={<ChartTooltip metric={m} />} />
+                <RechartsTooltip content={<ChartTooltip metric={m} />} />
                 <Area
                   type="monotone"
                   dataKey={m.key}
@@ -392,7 +355,8 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
             </ResponsiveContainer>
           </div>
         </motion.div>
-      ))}
+        );
+      })}
     </div>
   );
 }

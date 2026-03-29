@@ -4,7 +4,6 @@
   to { transform: rotate(360deg); }
 }
 
-/* Alias used by old CSS */
 @keyframes spinPlasma {
   to { transform: rotate(360deg); }
 }
@@ -27,6 +26,155 @@
 @keyframes timeline-load {
   0% { left: -30%; }
   100% { left: 100%; }
+}
+
+/* ── Entrance & State Animations ─────────────────────────────── */
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(var(--accent-rgb), 0.15); }
+  50%      { box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.35), 0 0 4px rgba(var(--accent-rgb), 0.15); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes border-glow {
+  0%, 100% { border-color: rgba(var(--accent-rgb), 0.15); }
+  50%      { border-color: rgba(var(--accent-rgb), 0.5); }
+}
+
+@keyframes focus-ring-in {
+  from { outline-offset: 6px; outline-color: transparent; }
+  to   { outline-offset: 2px; outline-color: var(--accent); }
+}
+
+/* ── Utility Classes ─────────────────────────────────────────── */
+
+.anim-slide-up {
+  animation: slide-up 0.4s var(--ease-spring) both;
+}
+
+.anim-scale-in {
+  animation: scale-in 0.35s var(--ease-spring) both;
+}
+
+.anim-fade-in {
+  animation: fadeIn 0.3s var(--ease-out) both;
+}
+
+.anim-glow-pulse {
+  animation: glow-pulse 2.5s ease-in-out infinite;
+}
+
+.anim-border-glow {
+  animation: border-glow 2s ease-in-out infinite;
+}
+
+/* Shimmer loading state — apply to skeleton elements */
+.anim-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface-1) 0%,
+    var(--surface-2) 40%,
+    var(--surface-1) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+/* ── Hover Lift ──────────────────────────────────────────────── */
+
+.hover-lift {
+  transition:
+    transform 0.25s var(--ease-spring),
+    box-shadow 0.25s var(--ease-spring);
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    var(--shadow-md),
+    0 0 0 1px rgba(var(--accent-rgb), 0.06);
+}
+
+/* ── Staggered Entrance Delays ───────────────────────────────── */
+
+.delay-1 { animation-delay: 0.04s; }
+.delay-2 { animation-delay: 0.08s; }
+.delay-3 { animation-delay: 0.12s; }
+.delay-4 { animation-delay: 0.16s; }
+.delay-5 { animation-delay: 0.20s; }
+.delay-6 { animation-delay: 0.24s; }
+
+/* ── Visual Textures ─────────────────────────────────────────── */
+
+/* Subtle noise overlay */
+.bg-noise {
+  position: relative;
+}
+.bg-noise::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 0;
+  mix-blend-mode: overlay;
+}
+.bg-noise > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Faint engineering grid */
+.bg-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(var(--accent-rgb), 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--accent-rgb), 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 0;
+  mask-image: radial-gradient(ellipse at center, black 50%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 50%, transparent 100%);
+}
+
+/* Glassmorphism panel */
+.glass {
+  background: rgba(var(--accent-rgb), 0.04);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid rgba(var(--accent-rgb), 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    var(--shadow-sm);
+}
+
+/* Animated accent border glow */
+.glow-border {
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  box-shadow:
+    0 0 8px rgba(var(--accent-rgb), 0.08),
+    inset 0 0 8px rgba(var(--accent-rgb), 0.04);
+  animation: border-glow 2.5s ease-in-out infinite;
 }
 
 /* ── Spinner ──────────────────────────────────────────────────── */

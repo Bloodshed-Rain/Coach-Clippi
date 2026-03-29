@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
+import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dashboard } from "./pages/Dashboard";
 import { Sessions } from "./pages/Sessions";
@@ -6,22 +7,23 @@ import { Trends } from "./pages/Trends";
 import { Profile } from "./pages/Profile";
 import { Settings } from "./pages/Settings";
 import { Characters } from "./pages/Characters";
-import { applyTheme, getResolvedTheme, type ColorMode } from "./themes";
+import { applyTheme, getResolvedTheme, THEME_ORDER, THEMES, type ColorMode } from "./themes";
 import magiLogo from "./assets/magi-logo.png";
 import {
   CoachingIcon, SessionsIcon, TrendsIcon, ProfileIcon, CharactersIcon, SettingsIcon,
 } from "./components/NavIcons";
 import { CommandPalette } from "./components/CommandPalette";
+import { useGlobalStore } from "./stores/useGlobalStore";
 
 type Page = "dashboard" | "sessions" | "trends" | "profile" | "characters" | "settings";
 
-const NAV_ITEMS: { id: Page; label: string; Icon: React.FC<{ size?: number }> }[] = [
-  { id: "dashboard", label: "Coaching", Icon: CoachingIcon },
-  { id: "sessions", label: "Sessions", Icon: SessionsIcon },
-  { id: "trends", label: "Trends", Icon: TrendsIcon },
-  { id: "profile", label: "Profile", Icon: ProfileIcon },
-  { id: "characters", label: "Characters", Icon: CharactersIcon },
-  { id: "settings", label: "Settings", Icon: SettingsIcon },
+const NAV_ITEMS: { id: Page; label: string; path: string; Icon: React.FC<{ size?: number }> }[] = [
+  { id: "dashboard", label: "Coaching", path: "/dashboard", Icon: CoachingIcon },
+  { id: "sessions", label: "Sessions", path: "/sessions", Icon: SessionsIcon },
+  { id: "trends", label: "Trends", path: "/trends", Icon: TrendsIcon },
+  { id: "profile", label: "Profile", path: "/profile", Icon: ProfileIcon },
+  { id: "characters", label: "Characters", path: "/characters", Icon: CharactersIcon },
+  { id: "settings", label: "Settings", path: "/settings", Icon: SettingsIcon },
 ];
 
 const pageTransition = {
@@ -34,8 +36,6 @@ const pageVariants = {
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: -6 },
 };
-
-// ── Icon components for theme toggle ──
 
 function SunIcon() {
   return (
@@ -54,12 +54,51 @@ function MoonIcon() {
   );
 }
 
-// ── App ──
+function CrtIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="2" width="14" height="10" rx="1" />
+      <path d="M5 14h6M8 12v2" />
+      <path d="M4 5h8M4 7.5h5" opacity="0.5" />
+    </svg>
+  );
+}
+
+function TournamentIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 2h8l-1 5H5L4 2z" />
+      <path d="M6 7v2a2 2 0 0 0 4 0V7" />
+      <path d="M6 13h4M8 9v4" />
+      <path d="M3 2C2 3 2 5 3 6M13 2c1 1 1 3 0 4" />
+    </svg>
+  );
+}
+
+function AmberIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 2C5 2 3 5 3 8c0 2.5 2 5 5 6 3-1 5-3.5 5-6 0-3-2-6-5-6z" />
+      <path d="M8 5v4M6.5 7h3" opacity="0.5" />
+    </svg>
+  );
+}
+
+const THEME_ICONS: Record<string, React.FC> = {
+  dark: MoonIcon,
+  light: SunIcon,
+  crt: CrtIcon,
+  tournament: TournamentIcon,
+  amber: AmberIcon,
+};
 
 export function App() {
-  const [page, setPage] = useState<Page>("dashboard");
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [colorMode, setColorMode] = useState<ColorMode>("dark");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const colorMode = useGlobalStore((state) => state.colorMode);
+  const setColorMode = useGlobalStore((state) => state.setColorMode);
+  const refreshKey = useGlobalStore((state) => state.refreshKey);
+  const triggerRefresh = useGlobalStore((state) => state.triggerRefresh);
 
   useEffect(() => {
     async function loadTheme() {
@@ -73,7 +112,7 @@ export function App() {
       }
     }
     loadTheme();
-  }, []);
+  }, [setColorMode]);
 
   const handleModeChange = useCallback((mode: ColorMode) => {
     setColorMode(mode);
@@ -81,35 +120,28 @@ export function App() {
     window.clippi.loadConfig().then((config: any) => {
       window.clippi.saveConfig({ ...config, colorMode: mode });
     });
-  }, []);
-
-  const handleImport = useCallback(() => {
-    setRefreshKey((k) => k + 1);
-  }, []);
+  }, [setColorMode]);
 
   const handleToggleTheme = useCallback(() => {
-    const next: ColorMode = colorMode === "dark" ? "light" : "dark";
+    const currentIdx = THEME_ORDER.indexOf(colorMode);
+    const nextIdx = (currentIdx + 1) % THEME_ORDER.length;
+    const next = THEME_ORDER[nextIdx] as ColorMode;
     handleModeChange(next);
   }, [colorMode, handleModeChange]);
 
-  const navigateTo = useCallback((target: Page) => {
-    setPage(target);
-  }, []);
-
   const handleCommandImport = useCallback(() => {
-    navigateTo("settings");
-  }, [navigateTo]);
+    navigate("/settings");
+  }, [navigate]);
 
   return (
     <div className="app-layout">
       <CommandPalette
-        navigateTo={navigateTo}
+        navigateTo={(page) => navigate(`/${page}`)}
         onToggleTheme={handleToggleTheme}
         onImport={handleCommandImport}
       />
 
       <nav className="sidebar" role="tablist" aria-label="Main navigation">
-        {/* Brand */}
         <div className="sidebar-brand">
           <img src={magiLogo} alt="MAGI" className="sidebar-logo-img" width={32} height={32} />
           <div className="sidebar-brand-text">
@@ -118,15 +150,14 @@ export function App() {
           </div>
         </div>
 
-        {/* Navigation */}
         <div className="sidebar-nav">
           {NAV_ITEMS.map((item) => (
             <button
               key={item.id}
-              className={`nav-item${page === item.id ? " active" : ""}`}
-              onClick={() => navigateTo(item.id)}
+              className={`nav-item${location.pathname === item.path || (location.pathname === "/" && item.path === "/dashboard") ? " active" : ""}`}
+              onClick={() => navigate(item.path)}
               role="tab"
-              aria-selected={page === item.id}
+              aria-selected={location.pathname === item.path || (location.pathname === "/" && item.path === "/dashboard")}
               aria-label={item.label}
             >
               <span className="nav-icon"><item.Icon size={18} /></span>
@@ -135,14 +166,17 @@ export function App() {
           ))}
         </div>
 
-        {/* Footer */}
         <div className="sidebar-footer">
           <button
             className="theme-toggle"
             onClick={handleToggleTheme}
-            aria-label={colorMode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={`Theme: ${THEMES[colorMode]?.name ?? colorMode}. Click to cycle.`}
+            title={THEMES[colorMode]?.name ?? colorMode}
           >
-            {colorMode === "dark" ? <SunIcon /> : <MoonIcon />}
+            {(() => {
+              const Icon = THEME_ICONS[colorMode] ?? MoonIcon;
+              return <Icon />;
+            })()}
           </button>
         </div>
       </nav>
@@ -150,19 +184,23 @@ export function App() {
       <main className="main-content" role="tabpanel">
         <AnimatePresence mode="wait">
           <motion.div
-            key={page}
+            key={location.pathname}
             variants={pageVariants}
             initial="initial"
             animate="animate"
             exit="exit"
             transition={pageTransition}
+            style={{ width: "100%", height: "100%" }}
           >
-            {page === "dashboard" && <Dashboard refreshKey={refreshKey} />}
-            {page === "sessions" && <Sessions refreshKey={refreshKey} />}
-            {page === "trends" && <Trends refreshKey={refreshKey} />}
-            {page === "profile" && <Profile refreshKey={refreshKey} />}
-            {page === "characters" && <Characters refreshKey={refreshKey} />}
-            {page === "settings" && <Settings onImport={handleImport} />}
+            <Routes location={location} key={location.pathname}>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard refreshKey={refreshKey} />} />
+              <Route path="/sessions" element={<Sessions refreshKey={refreshKey} />} />
+              <Route path="/trends" element={<Trends refreshKey={refreshKey} />} />
+              <Route path="/profile" element={<Profile refreshKey={refreshKey} />} />
+              <Route path="/characters" element={<Characters refreshKey={refreshKey} />} />
+              <Route path="/settings" element={<Settings onImport={triggerRefresh} />} />
+            </Routes>
           </motion.div>
         </AnimatePresence>
       </main>

@@ -7,7 +7,7 @@
   position: relative;
 }
 
-/* ── Sidebar ──────────────────────────────────────────────────── */
+/* ── Sidebar — 64px icon rail ────────────────────────────────── */
 
 .sidebar {
   width: var(--rail-width);
@@ -19,76 +19,70 @@
   padding: 0;
   -webkit-app-region: drag;
   z-index: 10;
-  position: relative;
   flex-shrink: 0;
+  transition: width 0.3s var(--ease-spring);
+  overflow: hidden;
+}
+.sidebar:hover {
+  width: 160px;
+}
+.sidebar:hover .nav-item {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 0 14px;
+  gap: 10px;
+}
+.sidebar:hover .nav-label {
+  position: static;
+  transform: none;
+  opacity: 1;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
+/* ── Brand — logo only, centered ─────────────────────────────── */
+
 .sidebar-brand {
-  padding: 24px 16px 20px;
+  padding: 16px 0 12px;
   -webkit-app-region: drag;
-  border-bottom: 1px solid var(--border);
   width: 100%;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
+  justify-content: center;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .sidebar-logo {
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  width: 48px;
-  height: 48px;
+  width: 28px;
+  height: 28px;
 }
 
 .sidebar-logo-img {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
 }
 
-/* Hide all the old orbit/glow decorations — they still exist in DOM */
-.logo-orbit,
-.logo-orbit-1,
-.logo-orbit-2,
-.logo-orbit-3,
-.logo-glow {
-  display: none;
-}
+/* Hide brand text (wordmark + subtitle) */
+.sidebar-brand-text { display: none; }
+.sidebar-wordmark { display: none; }
+.sidebar-subtitle { display: none; }
 
-.logo-wordmark {
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 4px;
-  color: var(--text);
-  -webkit-app-region: no-drag;
-}
-
-.logo-subtitle {
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 2px;
-  color: var(--text-dim);
-  font-family: var(--font-sans);
-  -webkit-app-region: no-drag;
-}
-
-/* Remove the old blinking dot pseudo-element */
-.logo-subtitle::before {
-  display: none;
-}
-
-/* ── Navigation ───────────────────────────────────────────────── */
+/* ── Navigation — icon-only, 40x40 squares ───────────────────── */
 
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 2px;
-  padding: 12px 8px;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 0;
   flex: 1;
   -webkit-app-region: no-drag;
 }
@@ -97,46 +91,83 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
+  justify-content: center;
+  width: 40px;
   height: 40px;
-  padding: 0 12px;
+  padding: 0;
   border: none;
-  border-left: 2px solid transparent;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: var(--radius-md);
   background: none;
   cursor: pointer;
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 500;
   font-family: var(--font-sans);
-  letter-spacing: 0;
-  text-transform: none;
-  white-space: nowrap;
-  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease, width 0.3s var(--ease-spring), justify-content 0.3s ease, padding 0.3s ease;
+  overflow: hidden;
 }
 
 .nav-item:hover {
-  background: var(--bg-hover);
+  background: var(--sidebar-hover);
   color: var(--text);
 }
 
 .nav-item.active {
-  background: var(--accent-muted);
+  background: var(--sidebar-active-bg);
   color: var(--accent);
-  border-left-color: var(--accent);
 }
 
-/* Remove old pseudo-element decorations */
-.nav-item.active::before,
-.nav-item.active::after {
-  display: none;
+/* Active indicator — left bar */
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 25%;
+  height: 50%;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+  animation: nav-pulse 2s ease-in-out infinite;
+}
+
+.nav-item.active::after { display: none; }
+
+@keyframes nav-pulse {
+  0%, 100% { height: 50%; opacity: 1; box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.3); }
+  50% { height: 65%; opacity: 0.8; box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.15); }
 }
 
 .nav-item:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
+
+/* ── Nav Label — hidden, tooltip on hover ────────────────────── */
+
+.nav-label {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+}
+
+.nav-item:hover .nav-label {
+  opacity: 1;
+}
+
+/* ── Nav Icon ────────────────────────────────────────────────── */
 
 .nav-icon {
   width: 20px;
@@ -145,42 +176,47 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  opacity: 0.6;
+  opacity: 0.5;
   transition: opacity 0.15s ease;
 }
 
 .nav-item:hover .nav-icon { opacity: 0.85; }
 .nav-item.active .nav-icon { opacity: 1; }
 
-/* ── Sidebar Footer ───────────────────────────────────────────── */
+/* ── Sidebar Footer ──────────────────────────────────────────── */
 
 .sidebar-footer {
-  padding: 12px 0 16px;
-  border-top: 1px solid var(--border);
+  padding: 0 0 12px;
   -webkit-app-region: no-drag;
   width: 100%;
   display: flex;
   justify-content: center;
 }
 
-.system-status {
-  font-size: 9px;
-  font-family: var(--font-mono);
+/* ── Theme Toggle ────────────────────────────────────────────── */
+
+.theme-toggle {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
   color: var(--text-muted);
-  letter-spacing: 0.5px;
-  padding: 6px 0;
-  text-align: center;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
 }
 
-.system-status::before {
-  content: "";
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  margin-right: 6px;
-  vertical-align: middle;
+.theme-toggle:hover {
+  color: var(--text);
+  background: var(--sidebar-hover);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ── Main Content ─────────────────────────────────────────────── */
@@ -188,30 +224,100 @@
 .main-content {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-9) var(--space-11);
+  padding: 28px 40px;
   z-index: 1;
   position: relative;
   background: var(--bg);
 }
 
-/* ── Scrollbar ────────────────────────────────────────────────── */
+/* Subtle dot-grid background texture */
+.main-content::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--border-subtle) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+  opacity: 0.4;
+  z-index: 0;
+}
+.main-content > * {
+  position: relative;
+  z-index: 1;
+}
 
-.main-content::-webkit-scrollbar { width: 6px; }
+/* CRT theme: scanlines instead of dots */
+[data-theme="crt"] .main-content::before {
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.15) 2px,
+    rgba(0, 0, 0, 0.15) 4px
+  );
+  background-size: auto;
+  opacity: 1;
+}
+
+/* CRT theme: phosphor text glow */
+[data-theme="crt"] .stat-value {
+  text-shadow: 0 0 8px rgba(51, 255, 51, 0.4);
+}
+[data-theme="crt"] .card {
+  border-color: rgba(51, 255, 51, 0.12);
+}
+
+/* CRT theme: vignette */
+[data-theme="crt"] .main-content::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.4) 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Tournament theme: no dots, clean black */
+[data-theme="tournament"] .main-content::before {
+  opacity: 0;
+}
+
+/* Tournament theme: thicker accent bars */
+[data-theme="tournament"] .stat-box {
+  border-left-width: 3px;
+}
+[data-theme="tournament"] .card {
+  border-width: 2px;
+}
+
+/* ── Scrollbar — neutral ──────────────────────────────────────── */
+
+.main-content::-webkit-scrollbar { width: 4px; }
 .main-content::-webkit-scrollbar-track { background: transparent; }
 .main-content::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+  background: var(--border-subtle);
+  border-radius: 2px;
 }
 .main-content::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--border-muted);
 }
 
-/* ── Background decorations — neutralized ─────────────────────── */
+/* ── Kill all legacy decorations ──────────────────────────────── */
 
 .neural-mesh,
 .hex-grid,
 .scan-line,
 .particle-field,
-.particle {
+.particle,
+.logo-orbit,
+.logo-orbit-1,
+.logo-orbit-2,
+.logo-orbit-3,
+.logo-glow,
+.logo-wordmark,
+.logo-subtitle,
+.system-status {
   display: none;
 }
+
+.system-status::before { display: none; }

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "magi": {
+      "command": "npx",
+      "args": ["tsx", "/home/lol/MAGI/src/mcp-server.ts"],
+      "cwd": "/home/lol/MAGI"
+    }
+  }
+}

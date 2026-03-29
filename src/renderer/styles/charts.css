@@ -7,7 +7,7 @@
 
 .recharts-default-tooltip {
   background: var(--bg-card) !important;
-  border: 1px solid var(--border) !important;
+  border: 1px solid var(--border-muted, var(--border)) !important;
   border-radius: var(--radius-md) !important;
   padding: 8px 12px !important;
   box-shadow: var(--shadow-lg) !important;
@@ -31,5 +31,5 @@
 }
 
 .recharts-cartesian-grid line {
-  stroke: var(--border-subtle);
+  stroke: var(--border-subtle, var(--border));
 }

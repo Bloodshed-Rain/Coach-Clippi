@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
           textAlign: "center",
           color: "var(--text)",
         }}>
-          <h2 style={{ marginBottom: 12, color: "var(--red, #ef4444)" }}>Something went wrong</h2>
+          <h2 style={{ marginBottom: 12, color: "var(--red, #C60707)" }}>Something went wrong</h2>
           <p style={{ color: "var(--text-dim)", marginBottom: 16, fontSize: 14 }}>
             MAGI hit an unexpected error. Try reloading the app.
           </p>
@@ -41,8 +41,8 @@ export class ErrorBoundary extends Component<Props, State> {
             textAlign: "left",
             padding: 16,
             borderRadius: 8,
-            background: "var(--surface, #1a1d27)",
-            border: "1px solid var(--border, #2a2d3a)",
+            background: "var(--surface-1, #111a16)",
+            border: "1px solid var(--border, #263830)",
             fontSize: 12,
             overflow: "auto",
             maxHeight: 200,
@@ -59,7 +59,7 @@ export class ErrorBoundary extends Component<Props, State> {
               padding: "8px 20px",
               borderRadius: 6,
               border: "none",
-              background: "var(--accent, #44d080)",
+              background: "var(--accent, #18FF6D)",
               color: "#000",
               cursor: "pointer",
               fontWeight: 600,

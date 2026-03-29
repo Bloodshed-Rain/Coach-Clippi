@@ -47,29 +47,33 @@ export function watchReplays(options: WatcherOptions): { close: () => void } {
     const existing = findSlpFiles(replayFolder);
     if (existing.length > 0) {
       console.log(`Found ${existing.length} existing replay(s), importing...`);
-      let imported = 0;
-      let skipped = 0;
-      for (const filePath of existing) {
-        gameCount++;
-        try {
-          const result = importReplay(filePath, targetPlayer, gameCount);
-          if (result.skipped) {
-            skipped++;
-          } else {
-            imported++;
+      
+      // Use an async IIFE to handle the initial import without blocking the return
+      (async () => {
+        let imported = 0;
+        let skipped = 0;
+        for (const filePath of existing) {
+          gameCount++;
+          try {
+            const result = await importReplay(filePath, targetPlayer, gameCount);
+            if (result.skipped) {
+              skipped++;
+            } else {
+              imported++;
+            }
+            onImport?.({
+              filePath,
+              skipped: result.skipped,
+              gameId: result.gameId,
+            });
+          } catch (err) {
+            const error = err instanceof Error ? err : new Error(String(err));
+            console.error(`[error] ${path.basename(filePath)}: ${error.message}`);
+            onError?.(error, filePath);
           }
-          onImport?.({
-            filePath,
-            skipped: result.skipped,
-            gameId: result.gameId,
-          });
-        } catch (err) {
-          const error = err instanceof Error ? err : new Error(String(err));
-          console.error(`[error] ${path.basename(filePath)}: ${error.message}`);
-          onError?.(error, filePath);
         }
-      }
-      console.log(`Imported: ${imported}, Skipped (duplicate): ${skipped}`);
+        console.log(`Imported: ${imported}, Skipped (duplicate): ${skipped}`);
+      })();
     }
   }
 
@@ -84,12 +88,12 @@ export function watchReplays(options: WatcherOptions): { close: () => void } {
     },
   });
 
-  watcher.on("add", (relativePath) => {
+  watcher.on("add", async (relativePath) => {
     const absolutePath = path.join(replayFolder, relativePath);
     gameCount++;
 
     try {
-      const result = importReplay(absolutePath, targetPlayer, gameCount);
+      const result = await importReplay(absolutePath, targetPlayer, gameCount);
 
       if (result.skipped) {
         console.log(`[skip] Already imported: ${relativePath}`);

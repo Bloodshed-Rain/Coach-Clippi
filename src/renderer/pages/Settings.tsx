@@ -309,7 +309,7 @@ export function Settings({ onImport }: SettingsProps) {
               }}>
                 {importErrors.map((e, i) => (
                   <div key={i} style={{ marginBottom: 4, color: "var(--text-dim)" }}>
-                    <span style={{ color: "var(--color-danger, #f87171)" }}>{e.filePath.split("/").pop()}</span>
+                    <span style={{ color: "var(--red, #C60707)" }}>{e.filePath.split("/").pop()}</span>
                     {" \u2014 "}{e.error}
                   </div>
                 ))}
