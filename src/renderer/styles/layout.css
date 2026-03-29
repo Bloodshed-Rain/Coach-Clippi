@@ -59,14 +59,15 @@
 .sidebar-logo {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
+  justifyContent: center;
+  width: 48px;
+  height: 32px;
 }
 
 .sidebar-logo-img {
-  width: 28px;
-  height: 28px;
+  width: 48px;
+  height: auto;
+  max-height: 32px;
   object-fit: contain;
 }
 
@@ -91,7 +92,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justifyContent: center;
   width: 40px;
   height: 40px;
   padding: 0;
@@ -103,7 +104,7 @@
   font-size: 13px;
   font-weight: 500;
   font-family: var(--font-sans);
-  transition: color 0.15s ease, background 0.15s ease, width 0.3s var(--ease-spring), justify-content 0.3s ease, padding 0.3s ease;
+  transition: color 0.5s ease, background-color 0.5s ease, width 0.3s var(--ease-spring), justify-content 0.3s ease, padding 0.3s ease;
   overflow: hidden;
 }
 
@@ -228,6 +229,7 @@
   z-index: 1;
   position: relative;
   background: var(--bg);
+  transition: background-color 0.5s ease;
 }
 
 /* Subtle dot-grid background texture */
@@ -318,6 +320,11 @@
 .logo-subtitle,
 .system-status {
   display: none;
+}
+
+.system-status::before { display: none; }
+
+e;
 }
 
 .system-status::before { display: none; }

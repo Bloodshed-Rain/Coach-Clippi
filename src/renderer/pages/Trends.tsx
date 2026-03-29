@@ -5,8 +5,9 @@ import Markdown from "react-markdown";
 import {
   XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart,
 } from "recharts";
-import { useRecentGames } from "../hooks/queries";
+import { useRecentGames, useStageRecords } from "../hooks/queries";
 import { Tooltip } from "../components/Tooltip";
+import { CoachingModal } from "../components/CoachingModal";
 
 interface RecentGame {
   playedAt: string | null;
@@ -170,6 +171,14 @@ function ChartTooltip({ active, payload, label, metric }: any) {
 
 export function Trends({ refreshKey }: { refreshKey: number }) {
   const { data: games = [], isLoading: loading, refetch } = useRecentGames(200);
+  const { data: stages = [], refetch: refetchStages } = useStageRecords();
+
+  const [scopedCoaching, setScopedCoaching] = useState<{
+    scope: "game" | "session" | "character" | "stage" | "opponent";
+    id: string | number;
+    title: string;
+  } | null>(null);
+
   const [commentary, setCommentary] = useState<string | null>(null);
   const { displayText: typedCommentary, isTyping } = useTypewriter(commentary ?? "", 4, !!commentary);
   const [analyzingTrends, setAnalyzingTrends] = useState(false);
@@ -177,7 +186,8 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
 
   useEffect(() => {
     refetch();
-  }, [refreshKey, refetch]);
+    refetchStages();
+  }, [refreshKey, refetch, refetchStages]);
 
   // Memos must be above early returns to keep hook count stable
   const chronological = useMemo(() => [...games].reverse(), [games]);
@@ -357,6 +367,73 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
         </motion.div>
         );
       })}
+
+      {/* Stage Analysis Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, duration: 0.4 }}
+        style={{ marginTop: 40 }}
+      >
+        <div className="page-header" style={{ marginBottom: 20 }}>
+          <h2>Stage Performance</h2>
+          <p>AI coaching available per stage</p>
+        </div>
+
+        <div className="char-grid">
+          {stages.map((s, index) => {
+            const wr = (s.winRate * 100).toFixed(0);
+            return (
+              <motion.div
+                key={s.stage}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.05, duration: 0.3 }}
+              >
+                <div className="card stage-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 700, fontSize: 16 }}>{s.stage}</span>
+                    <span style={{ 
+                      fontFamily: 'var(--font-mono)', 
+                      fontSize: 14, 
+                      color: s.winRate >= 0.5 ? 'var(--green)' : 'var(--red)' 
+                    }}>{wr}%</span>
+                  </div>
+                  <div className="winrate-bar">
+                    <div className="winrate-bar-fill" style={{ width: `${s.winRate * 100}%` }} />
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                    {s.wins}W - {s.losses}L ({s.totalGames} games)
+                  </div>
+                  <button 
+                    className="btn btn-primary btn-sm" 
+                    style={{ width: '100%', marginTop: '8px' }}
+                    onClick={() => setScopedCoaching({
+                      scope: 'stage',
+                      id: s.stage,
+                      title: `${s.stage} Performance Profile`
+                    })}
+                  >
+                    Analyze Habits
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </motion.div>
+
+      <AnimatePresence>
+        {scopedCoaching && (
+          <CoachingModal
+            isOpen={!!scopedCoaching}
+            onClose={() => setScopedCoaching(null)}
+            scope={scopedCoaching.scope}
+            id={scopedCoaching.id}
+            title={scopedCoaching.title}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

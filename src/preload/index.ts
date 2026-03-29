@@ -21,6 +21,10 @@ const api = {
     ipcRenderer.invoke("analyze:recent", count, targetPlayer),
   analyzeTrends: (trendSummary: string) =>
     ipcRenderer.invoke("analyze:trends", trendSummary),
+  analyzeScoped: (scope: string, id: string | number, targetPlayer?: string) =>
+    ipcRenderer.invoke("analyze:scoped", scope, id, targetPlayer),
+  analyzeDiscovery: () =>
+    ipcRenderer.invoke("analyze:discovery"),
 
   // LLM
   getLLMModels: () => ipcRenderer.invoke("llm:models"),

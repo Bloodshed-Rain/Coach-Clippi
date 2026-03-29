@@ -4,6 +4,7 @@ import { PlayerRadar } from "../components/RadarChart";
 import { computeRadarStats, type RadarStats } from "../radarStats";
 import { Tooltip } from "../components/Tooltip";
 import { useOverallRecord, useMatchupRecords, useStageRecords, useRecentGames } from "../hooks/queries";
+import { CoachingModal } from "../components/CoachingModal";
 
 interface MatchupRecord {
   opponentCharacter: string;
@@ -109,6 +110,7 @@ function HabitPanel() {
 }
 
 export function Profile({ refreshKey }: { refreshKey: number }) {
+  const [isCoachingOpen, setIsCoachingOpen] = useState(false);
   const { data: record, isLoading: loadingRecord, refetch: refetchRecord } = useOverallRecord();
   const { data: matchups, isLoading: loadingMatchups, refetch: refetchMatchups } = useMatchupRecords();
   const { data: stages, isLoading: loadingStages, refetch: refetchStages } = useStageRecords();
@@ -155,18 +157,47 @@ export function Profile({ refreshKey }: { refreshKey: number }) {
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="page-header">
-          <h1>Profile</h1>
-          {archetype && (
-            <p>
-              <Tooltip text="Your playstyle archetype, computed from your strongest stat dimension across all games" position="bottom">
-                <span className="profile-archetype-name">{archetype.name}</span>
-              </Tooltip>
-              {" \u2014 "}{archetype.description}
-            </p>
-          )}
+        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1>Profile</h1>
+            {archetype && (
+              <p>
+                <Tooltip text="Your playstyle archetype, computed from your strongest stat dimension across all games" position="bottom">
+                  <span className="profile-archetype-name">{archetype.name}</span>
+                </Tooltip>
+                {" \u2014 "}{archetype.description}
+              </p>
+            )}
+          </div>
+
+          <button 
+            className="btn btn-primary"
+            onClick={() => setIsCoachingOpen(true)}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px',
+              padding: '10px 20px',
+              fontSize: '14px',
+              fontWeight: 700,
+              boxShadow: '0 4px 12px rgba(var(--accent-rgb), 0.2)'
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12L2.1 12.1"/><path d="M12 12L19 19"/><path d="M12 12V22"/>
+            </svg>
+            AI Career Analysis
+          </button>
         </div>
       </motion.div>
+
+      <CoachingModal 
+        isOpen={isCoachingOpen}
+        onClose={() => setIsCoachingOpen(false)}
+        scope="career"
+        id="lifetime"
+        title="Full Career Analysis"
+      />
 
       {/* Hero stats + radar */}
       <motion.div

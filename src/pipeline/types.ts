@@ -467,3 +467,35 @@ export interface PlayerHistory {
   } | null;
   currentStreak: { type: "win" | "loss"; count: number } | null;
 }
+
+/** Aggregate statistics across a filtered scope (e.g. all games against Fox) */
+export interface AggregateStats {
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  avgNeutralWinRate: number;
+  avgConversionRate: number;
+  avgLCancelRate: number;
+  avgOpeningsPerKill: number;
+  avgDamagePerOpening: number;
+  avgDeathPercent: number;
+  avgRecoverySuccessRate: number;
+  avgEdgeguardSuccessRate: number;
+  avgPowerShieldCount: number;
+  avgShieldPressureSequences: number;
+  avgShieldPressureDamage: number;
+  avgShieldPokeRate: number;
+  avgDISurvivalScore: number;
+  avgDIComboScore: number;
+  
+  /** Frequency of characters played in this scope */
+  characterDistribution: { character: string; count: number }[];
+  /** Frequency of opponents played in this scope */
+  opponentDistribution: { opponentTag: string; count: number }[];
+  /** Frequency of stages played in this scope */
+  stageDistribution: { stage: string; count: number }[];
+  
+  /** Character-specific signature stat averages (if filtered by character) */
+  signatureAggregates: any | null;
+}

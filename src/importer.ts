@@ -279,8 +279,9 @@ export async function importReplays(
         if (errorDetails.length < MAX_ERROR_DETAILS) {
           errorDetails.push({ filePath: fp, error: errorMsg });
         }
+        finalResults.push({ filePath: fp, hash: "", skipped: false }); // Placeholder for failed hash
         onProgress?.({
-          current: finalResults.length + 1,
+          current: finalResults.length,
           total: filePaths.length,
           lastFile: fileName,
           importedSoFar: importedCount,
@@ -289,7 +290,6 @@ export async function importReplays(
           lastFileStatus: "error",
           lastError: errorMsg,
         });
-        finalResults.push({ filePath: fp, hash: "", skipped: false }); // Placeholder
         continue;
       }
 

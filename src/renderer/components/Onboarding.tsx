@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import magiLogo from "../assets/magi-logo.png";
+import { useGlobalStore } from "../stores/useGlobalStore";
+import { ColorMode, THEMES, applyTheme } from "../themes";
 
 /* ═══════════════════════════════════════════════════════════════════
    ONBOARDING — Setup wizard
@@ -13,13 +15,14 @@ interface OnboardingProps {
   onSkip: () => void;
 }
 
-type Step = 0 | 1 | 2 | 3;
+type Step = 0 | 1 | 2 | 3 | 4;
 
 const STEP_LABELS: string[] = [
   "Welcome",
   "Player",
   "Replays",
   "Import",
+  "Theme",
 ];
 
 const STEP_DESCRIPTIONS: string[] = [
@@ -27,6 +30,36 @@ const STEP_DESCRIPTIONS: string[] = [
   "Your identity",
   "Replay folder",
   "Import games",
+  "Personalize",
+];
+
+const CHARACTERS = [
+  { id: "char-drmario", name: "Dr. Mario", image: "drmario.jpg" },
+  { id: "char-mario", name: "Mario", image: "mario.jpg" },
+  { id: "char-luigi", name: "Luigi", image: "luigi.jpg" },
+  { id: "char-bowser", name: "Bowser", image: "bowser.jpg" },
+  { id: "char-peach", name: "Peach", image: "peach.jpg" },
+  { id: "char-yoshi", name: "Yoshi", image: "yoshi.jpg" },
+  { id: "char-dk", name: "Donkey Kong", image: "dk.jpg" },
+  { id: "char-falcon", name: "Captain Falcon", image: "falcon.jpg" },
+  { id: "char-ganon", name: "Ganondorf", image: "ganon.jpg" },
+  { id: "char-falco", name: "Falco", image: "falco.jpg" },
+  { id: "char-fox", name: "Fox", image: "fox.jpg" },
+  { id: "char-ness", name: "Ness", image: "ness.jpg" },
+  { id: "char-ics", name: "Ice Climbers", image: "ics.jpg" },
+  { id: "char-kirby", name: "Kirby", image: "kirby.jpg" },
+  { id: "char-samus", name: "Samus", image: "samus.jpg" },
+  { id: "char-zelda", name: "Zelda", image: "zelda.jpg" },
+  { id: "char-sheik", name: "Sheik", image: "sheik.jpg" },
+  { id: "char-link", name: "Link", image: "link.jpg" },
+  { id: "char-ylink", name: "Young Link", image: "ylink.jpg" },
+  { id: "char-pichu", name: "Pichu", image: "pichu.jpg" },
+  { id: "char-pikachu", name: "Pikachu", image: "pikachu.jpg" },
+  { id: "char-puff", name: "Jigglypuff", image: "puff.jpg" },
+  { id: "char-mewtwo", name: "Mewtwo", image: "mewtwo.jpg" },
+  { id: "char-gnw", name: "Mr. G&W", image: "gnw.jpg" },
+  { id: "char-marth", name: "Marth", image: "marth.jpg" },
+  { id: "char-roy", name: "Roy", image: "roy.jpg" },
 ];
 
 // ── Shared animation config ──────────────────────────────────────
@@ -43,8 +76,6 @@ const stepTransition = {
 };
 
 // ── Inline styles ────────────────────────────────────────────────
-// Kept inline to avoid polluting the global stylesheet with
-// one-time-use wizard styles. Uses CSS custom properties from :root.
 
 const styles = {
   overlay: {
@@ -55,6 +86,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     background: "var(--bg)",
+    transition: "background 0.5s ease",
   },
 
   backdrop: {
@@ -70,15 +102,15 @@ const styles = {
     display: "flex",
     gap: 0,
     width: "min(820px, 90vw)",
-    minHeight: 460,
+    minHeight: 480,
     maxHeight: "85vh",
     background: "var(--bg-glass-strong)",
     border: "1px solid var(--border)",
     borderRadius: 8,
     overflow: "hidden" as const,
+    transition: "all 0.5s ease",
   },
 
-  // Left step rail
   rail: {
     width: 200,
     flexShrink: 0,
@@ -88,6 +120,7 @@ const styles = {
     display: "flex",
     flexDirection: "column" as const,
     justifyContent: "space-between",
+    transition: "all 0.5s ease",
   },
 
   railHeader: {
@@ -97,8 +130,9 @@ const styles = {
   },
 
   railLogo: {
-    width: 36,
-    height: 36,
+    width: 48,
+    height: "auto",
+    maxHeight: 36,
     marginBottom: 10,
     opacity: 0.9,
   },
@@ -177,7 +211,6 @@ const styles = {
     transition: "color 0.2s",
   },
 
-  // Right content panel
   panel: {
     flex: 1,
     display: "flex",
@@ -277,7 +310,6 @@ const styles = {
     marginTop: 8,
   },
 
-  // Import step
   importStatus: {
     display: "flex",
     flexDirection: "column" as const,
@@ -319,7 +351,6 @@ const styles = {
     color: "var(--red)",
   },
 
-  // Welcome step hero
   heroGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr 1fr",
@@ -349,9 +380,73 @@ const styles = {
     fontWeight: 600,
     color: "var(--accent)",
   },
+
+  // Theme selection
+  charGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
+    gap: 10,
+    maxWidth: "100%",
+    maxHeight: 280,
+    overflowY: "auto" as const,
+    padding: "4px",
+    marginBottom: 24,
+    paddingRight: 8,
+  },
+
+  charCard: (selected: boolean) => ({
+    position: "relative" as const,
+    aspectRatio: "1/1",
+    borderRadius: 8,
+    overflow: "hidden" as const,
+    cursor: "pointer",
+    border: `2px solid ${selected ? "var(--accent)" : "var(--border)"}`,
+    transition: "all 0.3s var(--ease-spring)",
+    background: "var(--bg-card)",
+  }),
+
+  charImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover" as const,
+    opacity: 0.8,
+    transition: "transform 0.5s ease, opacity 0.3s ease",
+  },
+
+  charPlaceholder: {
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 24,
+    fontWeight: 700,
+    color: "var(--text-dim)",
+    background: "var(--surface-2)",
+    fontFamily: "var(--font-display)",
+  },
+
+  charOverlay: (selected: boolean) => ({
+    position: "absolute" as const,
+    inset: 0,
+    background: selected 
+      ? "rgba(var(--accent-rgb), 0.2)" 
+      : "linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)",
+    display: "flex",
+    alignItems: "flex-end",
+    padding: 8,
+    transition: "all 0.3s ease",
+  }),
+
+  charName: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#fff",
+    textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+  },
 } as const;
 
-// ── Checkmark SVG ────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────
 
 function Check() {
   return (
@@ -361,13 +456,29 @@ function Check() {
   );
 }
 
-// ── Folder icon ──────────────────────────────────────────────────
-
 function FolderIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
       <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
     </svg>
+  );
+}
+
+function CharacterImage({ char }: { char: typeof CHARACTERS[0] }) {
+  const [error, setError] = useState(false);
+  const src = new URL(`../assets/characters/${char.image}`, import.meta.url).href;
+
+  if (error) {
+    return <div style={styles.charPlaceholder}>{char.name.charAt(0)}</div>;
+  }
+
+  return (
+    <img 
+      src={src} 
+      alt={char.name} 
+      style={styles.charImage} 
+      onError={() => setError(true)}
+    />
   );
 }
 
@@ -382,8 +493,10 @@ export function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importDone, setImportDone] = useState(false);
+  const [selectedChar, setSelectedChar] = useState<string | null>(null);
 
-  // Preload existing config in case user has partial setup
+  const { setColorMode } = useGlobalStore();
+
   useEffect(() => {
     async function load() {
       try {
@@ -391,58 +504,48 @@ export function Onboarding({ onComplete, onSkip }: OnboardingProps) {
         if (config?.targetPlayer) setTag(config.targetPlayer);
         if (config?.connectCode) setConnectCode(config.connectCode);
         if (config?.replayFolder) setFolder(config.replayFolder);
-      } catch {
-        // No config yet -- expected for first run
-      }
+      } catch { }
     }
     load();
   }, []);
 
   const advance = useCallback(() => {
-    setStep((s) => Math.min(s + 1, 3) as Step);
+    setStep((s) => Math.min(s + 1, 4) as Step);
   }, []);
 
   const goBack = useCallback(() => {
     setStep((s) => Math.max(s - 1, 0) as Step);
   }, []);
 
-  // Save player info and advance
   const savePlayerAndAdvance = useCallback(async () => {
     try {
-      const config = await window.clippi.loadConfig().catch(() => ({})) as Record<string, unknown>;
+      const config = await window.clippi.loadConfig().catch(() => ({}));
       await window.clippi.saveConfig({
         ...config,
         targetPlayer: tag || null,
         connectCode: connectCode || null,
       });
-    } catch {
-      // Non-critical -- continue anyway
-    }
+    } catch { }
     advance();
   }, [tag, connectCode, advance]);
 
-  // Browse for folder
   const handleBrowse = useCallback(async () => {
     const selected = await window.clippi.openFolder();
     if (selected) setFolder(selected);
   }, []);
 
-  // Save folder and advance to import
   const saveFolderAndAdvance = useCallback(async () => {
     if (!folder) return;
     try {
-      const config = await window.clippi.loadConfig().catch(() => ({})) as Record<string, unknown>;
+      const config = await window.clippi.loadConfig().catch(() => ({}));
       await window.clippi.saveConfig({
         ...config,
         replayFolder: folder,
       });
-    } catch {
-      // Non-critical
-    }
+    } catch { }
     advance();
   }, [folder, advance]);
 
-  // Run import
   const runImport = useCallback(async () => {
     if (!folder) return;
     setImporting(true);
@@ -451,25 +554,39 @@ export function Onboarding({ onComplete, onSkip }: OnboardingProps) {
 
     try {
       const identifier = connectCode || tag || "";
-      const result = await window.clippi.importFolder(folder, identifier) as {
-        imported: number;
-        skipped: number;
-        errors: number;
-        total: number;
-      };
+      const result = await window.clippi.importFolder(folder, identifier) as any;
       const parts: string[] = [`Imported ${result.imported} games`];
       if (result.skipped > 0) parts.push(`skipped ${result.skipped} duplicates`);
       if (result.errors > 0) parts.push(`${result.errors} files failed to parse`);
       parts.push(`${result.total} total files scanned`);
       setImportResult(parts.join(", ") + ".");
       setImportDone(true);
-    } catch (err: unknown) {
-      setImportError(err instanceof Error ? err.message : String(err));
+    } catch (err: any) {
+      setImportError(err.message || String(err));
     }
     setImporting(false);
   }, [folder, connectCode, tag]);
 
-  // Auto-trigger import when arriving at step 3
+  const handleCharSelect = useCallback((charId: string) => {
+    setSelectedChar(charId);
+    setColorMode(charId as ColorMode);
+    const theme = THEMES[charId];
+    if (theme) applyTheme(theme);
+  }, [setColorMode]);
+
+  const handleFinish = useCallback(async () => {
+    if (selectedChar) {
+      try {
+        const config = await window.clippi.loadConfig().catch(() => ({}));
+        await window.clippi.saveConfig({
+          ...config,
+          colorMode: selectedChar,
+        });
+      } catch { }
+    }
+    onComplete();
+  }, [selectedChar, onComplete]);
+
   useEffect(() => {
     if (step === 3 && folder && !importing && !importDone && !importError) {
       runImport();
@@ -486,7 +603,6 @@ export function Onboarding({ onComplete, onSkip }: OnboardingProps) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
-        {/* ── Step rail ───────────────────────────────────────── */}
         <div style={styles.rail}>
           <div>
             <div style={styles.railHeader}>
@@ -523,298 +639,119 @@ export function Onboarding({ onComplete, onSkip }: OnboardingProps) {
           </div>
 
           <div style={styles.railSkip}>
-            <button
-              style={styles.skipBtn}
-              onClick={onSkip}
-              onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-dim)"; }}
-              type="button"
-            >
+            <button style={styles.skipBtn} onClick={onSkip} type="button">
               Skip setup
             </button>
           </div>
         </div>
 
-        {/* ── Content panel ───────────────────────────────────── */}
         <div style={styles.panel}>
           <AnimatePresence mode="wait">
             {step === 0 && (
-              <motion.div
-                key="step-0"
-                variants={stepVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={stepTransition}
-                style={styles.panelContent}
-              >
-                <div style={styles.stepTag}>Step 1 of 4</div>
+              <motion.div key="step-0" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={stepTransition} style={styles.panelContent}>
+                <div style={styles.stepTag}>Step 1 of 5</div>
                 <h2 style={styles.heading}>Welcome to MAGI</h2>
                 <p style={styles.description}>
                   MAGI is your AI-powered coaching system for Super Smash Bros. Melee.
                   Import your Slippi replays, and MAGI will analyze your gameplay,
                   track your habits, and deliver coaching feedback.
                 </p>
-
                 <div style={styles.heroGrid}>
-                  <div style={styles.heroStat}>
-                    <div style={styles.heroStatLabel}>Analyze</div>
-                    <div style={styles.heroStatValue}>Replays</div>
-                  </div>
-                  <div style={styles.heroStat}>
-                    <div style={styles.heroStatLabel}>Track</div>
-                    <div style={styles.heroStatValue}>Habits</div>
-                  </div>
-                  <div style={styles.heroStat}>
-                    <div style={styles.heroStatLabel}>Receive</div>
-                    <div style={styles.heroStatValue}>Coaching</div>
-                  </div>
+                  <div style={styles.heroStat}><div style={styles.heroStatLabel}>Analyze</div><div style={styles.heroStatValue}>Replays</div></div>
+                  <div style={styles.heroStat}><div style={styles.heroStatLabel}>Track</div><div style={styles.heroStatValue}>Habits</div></div>
+                  <div style={styles.heroStat}><div style={styles.heroStatLabel}>Receive</div><div style={styles.heroStatValue}>Coaching</div></div>
                 </div>
-
                 <div style={styles.actions}>
-                  <button className="btn btn-primary" onClick={advance} type="button">
-                    Begin Setup
-                  </button>
+                  <button className="btn btn-primary" onClick={advance} type="button">Begin Setup</button>
                 </div>
               </motion.div>
             )}
 
             {step === 1 && (
-              <motion.div
-                key="step-1"
-                variants={stepVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={stepTransition}
-                style={styles.panelContent}
-              >
-                <div style={styles.stepTag}>Step 2 of 4</div>
+              <motion.div key="step-1" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={stepTransition} style={styles.panelContent}>
+                <div style={styles.stepTag}>Step 2 of 5</div>
                 <h2 style={styles.heading}>Player Info</h2>
                 <p style={styles.description}>
-                  Enter your Slippi tag or connect code so MAGI can identify you in replays
-                  and track your performance across sessions.
+                  Enter your Slippi tag or connect code so MAGI can identify you in replays.
                 </p>
-
                 <div style={styles.fieldGroup}>
-                  <label style={styles.label} htmlFor="onboard-tag">Display Name / Tag</label>
-                  <input
-                    id="onboard-tag"
-                    style={styles.input}
-                    value={tag}
-                    onChange={(e) => setTag(e.target.value)}
-                    placeholder="YourTag"
-                    autoFocus
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = "var(--accent)";
-                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(var(--accent-rgb), 0.12)";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = "var(--border)";
-                      e.currentTarget.style.boxShadow = "none";
-                    }}
-                  />
+                  <label style={styles.label}>Display Name / Tag</label>
+                  <input style={styles.input} value={tag} onChange={(e) => setTag(e.target.value)} placeholder="YourTag" autoFocus />
                 </div>
-
                 <div style={styles.fieldGroup}>
-                  <label style={styles.label} htmlFor="onboard-code">Connect Code</label>
-                  <input
-                    id="onboard-code"
-                    style={styles.input}
-                    value={connectCode}
-                    onChange={(e) => setConnectCode(e.target.value)}
-                    placeholder="TAG#123"
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = "var(--accent)";
-                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(var(--accent-rgb), 0.12)";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = "var(--border)";
-                      e.currentTarget.style.boxShadow = "none";
-                    }}
-                  />
-                  <div style={styles.inputHint}>
-                    Your Slippi Online connect code for accurate player matching
-                  </div>
+                  <label style={styles.label}>Connect Code</label>
+                  <input style={styles.input} value={connectCode} onChange={(e) => setConnectCode(e.target.value)} placeholder="TAG#123" />
                 </div>
-
                 <div style={styles.actions}>
-                  <button className="btn" onClick={goBack} type="button">
-                    Back
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={savePlayerAndAdvance}
-                    disabled={!tag && !connectCode}
-                    type="button"
-                  >
-                    Continue
-                  </button>
-                  {!tag && !connectCode && (
-                    <span style={{ fontSize: 11, color: "var(--text-dim)" }}>
-                      Enter at least one identifier
-                    </span>
-                  )}
+                  <button className="btn" onClick={goBack} type="button">Back</button>
+                  <button className="btn btn-primary" onClick={savePlayerAndAdvance} disabled={!tag && !connectCode} type="button">Continue</button>
                 </div>
               </motion.div>
             )}
 
             {step === 2 && (
-              <motion.div
-                key="step-2"
-                variants={stepVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={stepTransition}
-                style={styles.panelContent}
-              >
-                <div style={styles.stepTag}>Step 3 of 4</div>
+              <motion.div key="step-2" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={stepTransition} style={styles.panelContent}>
+                <div style={styles.stepTag}>Step 3 of 5</div>
                 <h2 style={styles.heading}>Replay Folder</h2>
-                <p style={styles.description}>
-                  Point MAGI to your Slippi replay folder. This is typically located in
-                  your Slippi launcher's output directory.
-                </p>
-
+                <p style={styles.description}>Point MAGI to your Slippi replay folder.</p>
                 <div style={styles.fieldGroup}>
                   <label style={styles.label}>Replay Folder</label>
                   <div style={styles.folderDisplay}>
-                    {folder ? (
-                      <div style={styles.folderPath} title={folder}>
-                        {folder}
-                      </div>
-                    ) : (
-                      <div style={{ ...styles.folderPath, color: "var(--text-dim)" }}>
-                        No folder selected
-                      </div>
-                    )}
-                    <button className="btn" onClick={handleBrowse} type="button" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <FolderIcon />
-                      Browse
-                    </button>
-                  </div>
-                  <div style={styles.inputHint}>
-                    Common locations: ~/Slippi or Documents/Slippi
+                    <div style={styles.folderPath}>{folder || "No folder selected"}</div>
+                    <button className="btn" onClick={handleBrowse} type="button">Browse</button>
                   </div>
                 </div>
-
                 <div style={styles.actions}>
-                  <button className="btn" onClick={goBack} type="button">
-                    Back
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={saveFolderAndAdvance}
-                    disabled={!folder}
-                    type="button"
-                  >
-                    Import Replays
-                  </button>
+                  <button className="btn" onClick={goBack} type="button">Back</button>
+                  <button className="btn btn-primary" onClick={saveFolderAndAdvance} disabled={!folder} type="button">Import Replays</button>
                 </div>
               </motion.div>
             )}
 
             {step === 3 && (
-              <motion.div
-                key="step-3"
-                variants={stepVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={stepTransition}
-                style={styles.panelContent}
-              >
-                <div style={styles.stepTag}>Step 4 of 4</div>
-                <h2 style={styles.heading}>
-                  {importDone ? "All Set" : importing ? "Importing..." : "Import Replays"}
-                </h2>
-
+              <motion.div key="step-3" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={stepTransition} style={styles.panelContent}>
+                <div style={styles.stepTag}>Step 4 of 5</div>
+                <h2 style={styles.heading}>{importDone ? "Import Complete" : "Importing..."}</h2>
                 <div style={styles.importStatus}>
-                  {importing && (
-                    <>
-                      <p style={styles.description}>
-                        Scanning replay folder and importing game data.
-                        This may take a moment depending on your library size.
-                      </p>
-                      <div style={styles.progressContainer}>
-                        <motion.div
-                          style={{
-                            ...styles.progressBar,
-                            width: "70%",
-                          }}
-                          animate={{ width: ["10%", "45%", "70%", "85%"] }}
-                          transition={{ duration: 8, ease: "linear" }}
-                        />
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div className="spinner" />
-                        <span style={styles.statusText}>
-                          Processing replays...
-                        </span>
-                      </div>
-                    </>
-                  )}
-
-                  {importResult && (
-                    <>
-                      <p style={styles.resultText}>{importResult}</p>
-                      <p style={styles.description}>
-                        Your replay data has been loaded. MAGI is ready to provide
-                        analysis and coaching feedback.
-                      </p>
-                    </>
-                  )}
-
-                  {importError && (
-                    <>
-                      <p style={styles.errorText}>Error: {importError}</p>
-                      <p style={styles.description}>
-                        The import encountered an issue. You can retry or configure
-                        settings manually later.
-                      </p>
-                    </>
-                  )}
-
-                  <div style={{ ...styles.actions, marginTop: 16 }}>
-                    {!importing && !importDone && (
-                      <button className="btn" onClick={goBack} type="button">
-                        Back
-                      </button>
-                    )}
-                    {importDone && (
-                      <button className="btn btn-primary" onClick={onComplete} type="button">
-                        Launch Dashboard
-                      </button>
-                    )}
-                    {importError && !importing && (
-                      <>
-                        <button className="btn" onClick={runImport} type="button">
-                          Retry Import
-                        </button>
-                        <button className="btn" onClick={onSkip} type="button">
-                          Configure Later
-                        </button>
-                      </>
-                    )}
+                  {importing && <div className="spinner" />}
+                  {importResult && <p style={styles.resultText}>{importResult}</p>}
+                  {importError && <p style={styles.errorText}>Error: {importError}</p>}
+                  <div style={styles.actions}>
+                    {!importing && !importDone && <button className="btn" onClick={goBack} type="button">Back</button>}
+                    {importDone && <button className="btn btn-primary" onClick={advance} type="button">Next: Personalize</button>}
                   </div>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 4 && (
+              <motion.div key="step-4" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={stepTransition} style={styles.panelContent}>
+                <div style={styles.stepTag}>Step 5 of 5</div>
+                <h2 style={styles.heading}>Pick Your Main</h2>
+                <p style={styles.description}>Select your character to apply a matching theme.</p>
+                <div style={styles.charGrid} className="custom-scrollbar">
+                  {CHARACTERS.map((char) => (
+                    <div key={char.id} style={styles.charCard(selectedChar === char.id)} onClick={() => handleCharSelect(char.id)}>
+                      <CharacterImage char={char} />
+                      <div style={styles.charOverlay(selectedChar === char.id)}>
+                        <div style={styles.charName}>{char.name}</div>
+                      </div>
+                      {selectedChar === char.id && (
+                        <div style={{ position: 'absolute', top: 8, right: 8, width: 20, height: 20, borderRadius: '50%', background: 'var(--accent)', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                          <Check />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div style={styles.actions}>
+                  <button className="btn" onClick={goBack} type="button">Back</button>
+                  <button className="btn btn-primary" onClick={handleFinish} type="button">Finish Setup</button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-
-        {/* Subtle top edge accent line */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 1,
-            background: "linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.15) 30%, rgba(var(--accent-rgb), 0.3) 50%, rgba(var(--accent-rgb), 0.15) 70%, transparent)",
-          }}
-        />
       </motion.div>
     </div>
   );

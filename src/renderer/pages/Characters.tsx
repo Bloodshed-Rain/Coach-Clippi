@@ -10,6 +10,7 @@ import {
   useCharacterGameStats,
 } from "../hooks/queries";
 import { Tooltip } from "../components/Tooltip";
+import { CoachingModal } from "../components/CoachingModal";
 
 // Character card art imports (MAGI-branded cards)
 import foxCard from "../assets/characters/fox.jpg";
@@ -340,6 +341,7 @@ function aggregateSignatureStats(rawStats: any[], characterName?: string): Signa
 
 export function Characters({ refreshKey }: { refreshKey: number }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [isCoachingOpen, setIsCoachingOpen] = useState(false);
 
   const { data: characters = [], isLoading: loading, refetch: refetchList } = useCharacterList();
   const { data: rawMatchups = [], isFetching: muLoading, refetch: refetchMu } = useCharacterMatchups(selected);
@@ -458,6 +460,13 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
       {/* Detail mode */}
       {selected && selectedChar && (
         <div className="char-detail" style={{ "--char-color": meta.color, "--char-glow": meta.glowColor } as React.CSSProperties}>
+          <CoachingModal 
+            isOpen={isCoachingOpen} 
+            onClose={() => setIsCoachingOpen(false)} 
+            scope="character" 
+            id={selected} 
+            title={`${selected} Matchup Analysis`}
+          />
           <motion.button
             className="char-back-btn"
             onClick={() => setSelected(null)}
@@ -489,6 +498,26 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
                 <div className="char-hero-card-meta">
                   {selectedChar.gamesPlayed} games &middot; {pct(selectedChar.winRate)} win rate
                 </div>
+
+                <button 
+                  className="btn btn-primary w-full mt-6"
+                  onClick={() => setIsCoachingOpen(true)}
+                  style={{ 
+                    background: meta.color, 
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    fontWeight: 700
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12L2.1 12.1"/><path d="M12 12L19 19"/><path d="M12 12V22"/>
+                  </svg>
+                  Analyze Matchup
+                </button>
+
                 <div className="char-hero-stats">
                   <div className="char-hero-stat">
                     <div className="char-hero-stat-value">{pct(selectedChar.avgNeutralWinRate)}</div>

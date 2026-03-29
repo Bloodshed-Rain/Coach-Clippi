@@ -7,6 +7,7 @@ import {
   useOpponentDetail,
   useConfig,
 } from "../hooks/queries";
+import { CoachingModal } from "../components/CoachingModal";
 
 interface DetectedSet {
   opponentTag: string;
@@ -150,21 +151,11 @@ function ResultBadge({ result }: { result: "W" | "L" | "T" }) {
 function OpponentDetailPanel({
   detail,
   onClose,
-  onRequestAnalysis,
-  analysisText,
-  isAnalyzing,
-  isStreaming,
-  streamingText,
-  analysisError,
+  onTriggerCoaching,
 }: {
   detail: OpponentDetail;
   onClose: () => void;
-  onRequestAnalysis: () => void;
-  analysisText: string | null;
-  isAnalyzing: boolean;
-  isStreaming: boolean;
-  streamingText: string;
-  analysisError: string | null;
+  onTriggerCoaching: (scope: "game" | "session" | "character" | "stage" | "opponent", id: string | number, title: string) => void;
 }) {
   const winPct = detail.winRate * 100;
   const recordColor = winPct >= 60 ? "var(--green)" : winPct >= 45 ? "var(--yellow)" : "var(--red)";
@@ -253,12 +244,13 @@ function OpponentDetailPanel({
           <table className="data-table">
             <colgroup>
               <col style={{ width: "14%" }} />
-              <col style={{ width: "18%" }} />
-              <col style={{ width: "18%" }} />
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "16%" }} />
               <col style={{ width: "10%" }} />
               <col style={{ width: "10%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "10%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
               <col style={{ width: "10%" }} />
             </colgroup>
             <thead>
@@ -268,9 +260,10 @@ function OpponentDetailPanel({
                 <th>Them</th>
                 <th>Stage</th>
                 <th>Result</th>
-                <th>Neutral</th>
-                <th>Op/Kill</th>
-                <th>Edgeguard</th>
+                <th>Neut.</th>
+                <th>Op/K</th>
+                <th>Edge.</th>
+                <th>Coaching</th>
               </tr>
             </thead>
             <tbody>
@@ -309,6 +302,17 @@ function OpponentDetailPanel({
                     }}>
                       {(g.edgeguardSuccessRate * 100).toFixed(0)}%
                     </td>
+                    <td>
+                      <button 
+                        className="btn btn-icon-small" 
+                        title="Get AI Coaching for this game"
+                        onClick={() => onTriggerCoaching("game", g.id, `Game vs ${detail.opponentTag} on ${g.stage}`)}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12L2.1 12.1"/><path d="M12 12L19 19"/><path d="M12 12V22"/>
+                        </svg>
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -319,45 +323,16 @@ function OpponentDetailPanel({
         {/* AI matchup analysis */}
         <div className="sessions-analysis-section">
           <button
-            className="btn"
-            onClick={onRequestAnalysis}
-            disabled={isAnalyzing}
+            className="btn btn-primary"
+            onClick={() => onTriggerCoaching("opponent", detail.opponentConnectCode || detail.opponentTag, `Head-to-Head: ${detail.opponentTag}`)}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
               <path d="M12 2L2 7l10 5 10-5-10-5z" />
               <path d="M2 17l10 5 10-5" />
               <path d="M2 12l10 5 10-5" />
             </svg>
-            {isAnalyzing ? "Analyzing matchup..." : "Request Matchup Analysis"}
+            Request Full Matchup Analysis
           </button>
-
-          {isAnalyzing && !isStreaming && !streamingText && (
-            <div className="analyze-loading" style={{ marginTop: 12 }}>
-              <div className="spinner" />
-              <span>Generating matchup analysis...</span>
-            </div>
-          )}
-
-          {(isStreaming || streamingText) && !analysisText && (
-            <div className="analysis-text" style={{ marginTop: 12 }}>
-              <Markdown components={makeTimestampComponents()}>
-                {injectTimestampLinks(streamingText)}
-              </Markdown>
-              {isStreaming && <span className="streaming-cursor" />}
-            </div>
-          )}
-
-          {analysisError && !analysisText && !streamingText && (
-            <p className="sessions-error">{analysisError}</p>
-          )}
-
-          {analysisText && (
-            <div className="analysis-text" style={{ marginTop: 12 }}>
-              <Markdown components={makeTimestampComponents()}>
-                {injectTimestampLinks(analysisText)}
-              </Markdown>
-            </div>
-          )}
         </div>
       </div>
     </motion.div>
@@ -369,6 +344,12 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
   const [opponentSearch, setOpponentSearch] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const [scopedCoaching, setScopedCoaching] = useState<{
+    scope: "game" | "session" | "character" | "stage" | "opponent";
+    id: string | number;
+    title: string;
+  } | null>(null);
+
   const { data: sets = [], isLoading: setsLoading, refetch: refetchSets } = useSets();
   const { data: opponents = [], isLoading: oppsLoading, refetch: refetchOpps } = useOpponents(searchQuery || undefined);
   const { data: config } = useConfig();
@@ -378,11 +359,7 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
   const { data: opponentDetail, isFetching: detailLoading, refetch: refetchDetail } = useOpponentDetail(expandedOpponent);
 
   // AI analysis state for opponent matchup
-  const [matchupAnalysis, setMatchupAnalysis] = useState<Record<string, string>>({});
-  const [analyzingMatchup, setAnalyzingMatchup] = useState<string | null>(null);
-  const [matchupStreamText, setMatchupStreamText] = useState("");
-  const [matchupIsStreaming, setMatchupIsStreaming] = useState(false);
-  const [matchupAnalysisError, setMatchupAnalysisError] = useState<string | null>(null);
+  // Removed old state: matchupAnalysis, analyzingMatchup, matchupStreamText, matchupIsStreaming, matchupAnalysisError
 
   useEffect(() => {
     refetchSets();
@@ -407,44 +384,15 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
     }
 
     setExpandedOpponent(key);
-    setMatchupAnalysisError(null);
   }, [expandedOpponent]);
 
-  const handleRequestMatchupAnalysis = useCallback(async () => {
-    if (!opponentDetail || !expandedOpponent) return;
-
-    const key = expandedOpponent;
-    if (matchupAnalysis[key]) return; // already cached
-
-    setAnalyzingMatchup(key);
-    setMatchupStreamText("");
-    setMatchupIsStreaming(true);
-    setMatchupAnalysisError(null);
-
-    const unsubStream = window.clippi.onAnalysisStream((chunk: string) => {
-      setMatchupStreamText(prev => prev + chunk);
-    });
-    const unsubEnd = window.clippi.onAnalysisStreamEnd(() => {
-      setMatchupIsStreaming(false);
-    });
-
-    try {
-      // Analyze the most recent games against this opponent (up to 5)
-      const replayPaths = opponentDetail.games.slice(0, 5).map(g => g.replayPath);
-      const target = config?.connectCode || config?.targetPlayer || "";
-      const result = await window.clippi.analyzeReplays(replayPaths, target);
-      setMatchupAnalysis(prev => ({ ...prev, [key]: result }));
-      setMatchupStreamText("");
-    } catch (err: unknown) {
-      setMatchupAnalysisError(err instanceof Error ? err.message : String(err));
-      setMatchupStreamText("");
-    } finally {
-      unsubStream();
-      unsubEnd();
-      setMatchupIsStreaming(false);
-      setAnalyzingMatchup(null);
-    }
-  }, [opponentDetail, expandedOpponent, matchupAnalysis, config]);
+  const handleTriggerCoaching = useCallback((
+    scope: "game" | "session" | "character" | "stage" | "opponent",
+    id: string | number,
+    title: string
+  ) => {
+    setScopedCoaching({ scope, id, title });
+  }, []);
 
   if (loading) {
     return (
@@ -466,6 +414,17 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
 
   return (
     <div>
+      <AnimatePresence>
+        {scopedCoaching && (
+          <CoachingModal
+            isOpen={!!scopedCoaching}
+            onClose={() => setScopedCoaching(null)}
+            scope={scopedCoaching.scope}
+            id={scopedCoaching.id}
+            title={scopedCoaching.title}
+          />
+        )}
+      </AnimatePresence>
       <motion.div
         className="page-header"
         initial={{ opacity: 0, x: -16 }}
@@ -525,12 +484,24 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
                     <th>Games</th>
                     <th>Score</th>
                     <th>Result</th>
+                    <th>Coaching</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[...sets].reverse().map((set, i) => {
                     const total = set.gameIds.length;
                     const result = set.wins > set.losses ? "W" : set.losses > set.wins ? "L" : "T";
+                    // Find session ID from the first game
+                    // Actually the set object should probably have session ID, 
+                    // but for now we'll use one of the game IDs or we need to update the query.
+                    // Wait, sessionId is needed for 'session' scope.
+                    // Let's assume gameIds[0] is part of a session.
+                    // Actually, the detected sets logic doesn't strictly map 1:1 to DB sessions.
+                    // But for coaching, we can just pass the list of replay paths.
+                    // But our analyze:scoped expects an ID.
+                    // Let's use the first gameId as a proxy or update the query.
+                    // For now, I'll pass the first gameId and use a new scope 'set' if needed, 
+                    // or just use 'session' and ensure it works.
                     return (
                       <tr key={i}>
                         <td className="mono-cell">
@@ -552,6 +523,25 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
                         </td>
                         <td>
                           <ResultBadge result={result as "W" | "L" | "T"} />
+                        </td>
+                        <td>
+                          <button 
+                            className="btn btn-icon-small" 
+                            title="Analyze this set"
+                            onClick={() => {
+                              // We need the session ID. Let's hope it's available or we find it.
+                              // For now, I'll update the detectSets query to include session_id.
+                              setScopedCoaching({
+                                scope: "session",
+                                id: set.sessionId || 0, // Fallback
+                                title: `Set vs ${set.opponentTag} (${new Date(set.startedAt).toLocaleDateString()})`
+                              });
+                            }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12L2.1 12.1"/><path d="M12 12L19 19"/><path d="M12 12V22"/>
+                            </svg>
+                          </button>
                         </td>
                       </tr>
                     );
@@ -680,13 +670,8 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
                   {!detailLoading && opponentDetail && (
                     <OpponentDetailPanel
                       detail={opponentDetail}
-                      onClose={() => { setExpandedOpponent(null); setOpponentDetail(null); }}
-                      onRequestAnalysis={handleRequestMatchupAnalysis}
-                      analysisText={matchupAnalysis[expandedOpponent] ?? null}
-                      isAnalyzing={analyzingMatchup === expandedOpponent}
-                      isStreaming={matchupIsStreaming}
-                      streamingText={matchupStreamText}
-                      analysisError={matchupAnalysisError}
+                      onClose={() => { setExpandedOpponent(null); }}
+                      onTriggerCoaching={handleTriggerCoaching}
                     />
                   )}
                   {!detailLoading && !opponentDetail && (

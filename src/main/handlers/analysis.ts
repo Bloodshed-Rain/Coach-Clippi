@@ -1,10 +1,16 @@
 import crypto from "crypto";
 import fs from "fs";
 import { loadConfig } from "../../config.js";
-import { getDb, insertCoachingAnalysis, getPlayerHistory } from "../../db.js";
+import { 
+  getDb, insertCoachingAnalysis, getPlayerHistory, 
+  getGamesBySession, getGameById, getAggregateStats,
+  getDeepInsightsData
+} from "../../db.js";
 import {
   processGame, computeAdaptationSignals, findPlayerIdx,
   assembleUserPrompt, SYSTEM_PROMPT,
+  assembleAggregatePrompt, SYSTEM_PROMPT_AGGREGATE,
+  assembleDiscoveryPrompt, SYSTEM_PROMPT_DISCOVERY,
   type GameResult,
 } from "../../pipeline/index.js";
 import { callLLM, callLLMStream, LLM_DEFAULTS, type LLMConfig } from "../../llm.js";
@@ -116,6 +122,111 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
 
     insertCoachingAnalysis(null, null, llmConfig.modelId, analysis);
 
+    return analysis;
+  });
+
+  // Unified scoped analysis handler
+  safeHandle("analyze:scoped", async (_e, scope: string, id: any, targetPlayer?: string) => {
+    const llmConfig = resolveLLMConfig();
+    const win = getMainWindow();
+    const db = getDb();
+
+    let systemPrompt = SYSTEM_PROMPT;
+    let userPrompt = "";
+    let gameIdForCache: number | null = null;
+    let sessionIdForCache: number | null = null;
+
+    if (scope === "game") {
+      const game = getGameById(Number(id));
+      if (!game) throw new Error("Game not found");
+      
+      // Check cache
+      const cached = db.prepare(
+        "SELECT analysis_text FROM coaching_analyses WHERE game_id = ? AND model_used = ? ORDER BY created_at DESC LIMIT 1"
+      ).get(game.id, llmConfig.modelId) as { analysis_text: string } | undefined;
+      if (cached) return cached.analysis_text;
+
+      const result = processGame(game.replay_path, 1);
+      const playerHistory = getPlayerHistory(targetPlayer || game.player_tag) ?? undefined;
+      userPrompt = assembleUserPrompt([result], targetPlayer || game.player_tag, playerHistory);
+      gameIdForCache = game.id;
+    } 
+    else if (scope === "session") {
+      const sessionId = Number(id);
+      
+      // Check cache
+      const cached = db.prepare(
+        "SELECT analysis_text FROM coaching_analyses WHERE session_id = ? AND model_used = ? ORDER BY created_at DESC LIMIT 1"
+      ).get(sessionId, llmConfig.modelId) as { analysis_text: string } | undefined;
+      if (cached) return cached.analysis_text;
+
+      const games = getGamesBySession(sessionId);
+      if (games.length === 0) throw new Error("No games found for session");
+      
+      const gameResults = games.map((g, i) => processGame(g.replay_path, i + 1));
+      const { userPrompt: prompt } = runMultiGameAnalysis(gameResults, targetPlayer || "");
+      userPrompt = prompt;
+      sessionIdForCache = sessionId;
+    }
+    else if (["character", "stage", "opponent", "career"].includes(scope)) {
+      const filters: any = {};
+      if (scope === "character") filters.character = String(id);
+      if (scope === "stage") filters.stage = String(id);
+      if (scope === "opponent") filters.opponentKey = String(id);
+      // 'career' scope uses empty filters to aggregate everything
+
+      const stats = getAggregateStats(filters);
+      if (!stats) throw new Error("No data found for this scope");
+
+      const playerHistory = getPlayerHistory(targetPlayer || "") ?? undefined;
+      systemPrompt = SYSTEM_PROMPT_AGGREGATE;
+      userPrompt = assembleAggregatePrompt(stats, scope as any, scope === "career" ? "Lifetime" : String(id), playerHistory);
+    }
+    else {
+      throw new Error(`Invalid analysis scope: ${scope}`);
+    }
+
+    const analysis = await llmQueue.enqueue(() =>
+      callLLMStream(
+        { systemPrompt, userPrompt, config: llmConfig },
+        (chunk) => {
+          try {
+            win?.webContents.send("analyze:stream", chunk);
+          } catch { }
+        }
+      )
+    );
+
+    try { win?.webContents.send("analyze:stream-end"); } catch { }
+
+    insertCoachingAnalysis(gameIdForCache, sessionIdForCache, llmConfig.modelId, analysis);
+    return analysis;
+  });
+
+  // Deep Pattern Discovery — MAGI finds hidden correlations across your whole career
+  safeHandle("analyze:discovery", async () => {
+    const llmConfig = resolveLLMConfig();
+    const win = getMainWindow();
+    const dbData = getDeepInsightsData();
+    const playerHistory = getPlayerHistory("") ?? undefined;
+
+    const systemPrompt = SYSTEM_PROMPT_DISCOVERY;
+    const userPrompt = assembleDiscoveryPrompt(dbData, playerHistory);
+
+    const analysis = await llmQueue.enqueue(() =>
+      callLLMStream(
+        { systemPrompt, userPrompt, config: llmConfig },
+        (chunk) => {
+          try {
+            win?.webContents.send("analyze:stream", chunk);
+          } catch { }
+        }
+      )
+    );
+
+    try { win?.webContents.send("analyze:stream-end"); } catch { }
+    
+    // For now, let's just return it.
     return analysis;
   });
 

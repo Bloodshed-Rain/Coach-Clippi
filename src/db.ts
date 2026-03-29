@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import os from "os";
 import fs from "fs";
+import type { AggregateStats, PlayerHistory } from "./pipeline/index.js";
 
 // ── Database path ────────────────────────────────────────────────────
 
@@ -502,6 +503,230 @@ export interface TrendPoint {
   value: number;
 }
 
+export interface AggregateStatsParams {
+  character?: string;
+  opponentCharacter?: string;
+  stage?: string;
+  opponentKey?: string;
+}
+
+/**
+ * Retrieve aggregate stats across a filtered scope.
+ */
+export function getAggregateStats(filters: AggregateStatsParams): AggregateStats | null {
+  const db = getDb();
+  const conditions: string[] = [];
+  const params: string[] = [];
+
+  if (filters.character) {
+    conditions.push("g.player_character = ?");
+    params.push(filters.character);
+  }
+  if (filters.opponentCharacter) {
+    conditions.push("g.opponent_character = ?");
+    params.push(filters.opponentCharacter);
+  }
+  if (filters.stage) {
+    conditions.push("g.stage = ?");
+    params.push(filters.stage);
+  }
+  if (filters.opponentKey) {
+    conditions.push("(g.opponent_tag = ? OR g.opponent_connect_code = ?)");
+    params.push(filters.opponentKey, filters.opponentKey);
+  }
+
+  const where = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
+
+  // 1. Core aggregates
+  const stats = db.prepare(`
+    SELECT
+      COUNT(*) as gamesPlayed,
+      SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) as wins,
+      SUM(CASE WHEN g.result = 'loss' THEN 1 ELSE 0 END) as losses,
+      ROUND(AVG(gs.neutral_win_rate), 4) as avgNeutralWinRate,
+      ROUND(AVG(gs.conversion_rate), 4) as avgConversionRate,
+      ROUND(AVG(gs.l_cancel_rate), 4) as avgLCancelRate,
+      ROUND(AVG(gs.openings_per_kill), 2) as avgOpeningsPerKill,
+      ROUND(AVG(gs.avg_damage_per_opening), 2) as avgDamagePerOpening,
+      ROUND(AVG(gs.avg_death_percent), 0) as avgDeathPercent,
+      ROUND(AVG(gs.recovery_success_rate), 4) as avgRecoverySuccessRate,
+      ROUND(AVG(gs.edgeguard_success_rate), 4) as avgEdgeguardSuccessRate,
+      ROUND(AVG(gs.power_shield_count), 2) as avgPowerShieldCount,
+      ROUND(AVG(gs.shield_pressure_sequences), 2) as avgShieldPressureSequences,
+      ROUND(AVG(gs.shield_pressure_avg_damage), 2) as avgShieldPressureDamage,
+      ROUND(AVG(gs.shield_poke_rate), 4) as avgShieldPokeRate,
+      ROUND(AVG(gs.di_survival_score), 4) as avgDISurvivalScore,
+      ROUND(AVG(gs.di_combo_score), 4) as avgDIComboScore
+    FROM games g
+    JOIN game_stats gs ON gs.game_id = g.id
+    ${where}
+  `).get(...params) as any;
+
+  if (!stats || stats.gamesPlayed === 0) return null;
+
+  // 2. Distributions
+  const characterDistribution = db.prepare(`
+    SELECT player_character as character, COUNT(*) as count
+    FROM games g ${where}
+    GROUP BY player_character ORDER BY count DESC
+  `).all(...params) as { character: string; count: number }[];
+
+  const opponentDistribution = db.prepare(`
+    SELECT opponent_tag as opponentTag, COUNT(*) as count
+    FROM games g ${where}
+    GROUP BY opponent_tag ORDER BY count DESC
+  `).all(...params) as { opponentTag: string; count: number }[];
+
+  const stageDistribution = db.prepare(`
+    SELECT stage, COUNT(*) as count
+    FROM games g ${where}
+    GROUP BY stage ORDER BY count DESC
+  `).all(...params) as { stage: string; count: number }[];
+
+  // 3. Signature aggregates (if character filtered)
+  let signatureAggregates: any = null;
+  if (filters.character) {
+    signatureAggregates = getCharacterSignatureAggregates(filters.character);
+    // Average them? For now we just return the list of JSONs or a summary
+    // Let's just return the list, the prompt assembly can handle it.
+  }
+
+  return {
+    ...stats,
+    winRate: stats.gamesPlayed > 0 ? stats.wins / stats.gamesPlayed : 0,
+    characterDistribution,
+    opponentDistribution,
+    stageDistribution,
+    signatureAggregates
+  };
+}
+
+export function getCharacterSignatureAggregates(character: string): any[] {
+  return getDb().prepare(`
+    SELECT css.signature_json
+    FROM character_signature_stats css
+    JOIN games g ON g.id = css.game_id
+    WHERE g.player_character = ?
+  `).all(character).map((row: any) => JSON.parse(row.signature_json));
+}
+
+export function getGamesBySession(sessionId: number): { id: number; replay_path: string }[] {
+  return getDb().prepare(`
+    SELECT id, replay_path FROM games
+    WHERE session_id = ?
+    ORDER BY game_number ASC
+  `).all(sessionId) as { id: number; replay_path: string }[];
+}
+
+export function getGameById(gameId: number): { id: number; replay_path: string; player_tag: string } | undefined {
+  return getDb().prepare(`
+    SELECT id, replay_path, player_tag FROM games
+    WHERE id = ?
+  `).get(gameId) as { id: number; replay_path: string; player_tag: string } | undefined;
+}
+
+/** Deep insights data for AI pattern recognition */
+export interface DeepInsightsData {
+  correlations: { metricA: string; metricB: string; coefficient: number }[];
+  situationalAverages: {
+    label: string;
+    metrics: Record<string, number>;
+  }[];
+  winLossDiffs: Record<string, number>;
+}
+
+export function getDeepInsightsData(): DeepInsightsData {
+  const db = getDb();
+  
+  // 1. Fetch raw data for correlation calculation
+  const rows = db.prepare(`
+    SELECT 
+      gs.neutral_win_rate, gs.l_cancel_rate, gs.conversion_rate, 
+      gs.openings_per_kill, gs.avg_damage_per_opening,
+      gs.recovery_success_rate, gs.edgeguard_success_rate,
+      g.duration_seconds,
+      CASE WHEN g.result = 'win' THEN 1 ELSE 0 END as is_win
+    FROM game_stats gs
+    JOIN games g ON gs.game_id = g.id
+  `).all() as any[];
+
+  if (rows.length < 5) {
+    throw new Error("Insufficient data for deep pattern analysis (minimum 5 games required).");
+  }
+
+  const metrics = [
+    "neutral_win_rate", "l_cancel_rate", "conversion_rate", 
+    "openings_per_kill", "avg_damage_per_opening", 
+    "recovery_success_rate", "edgeguard_success_rate",
+    "duration_seconds", "is_win"
+  ];
+
+  const calculatePearson = (data: any[], keyA: string, keyB: string): number => {
+    const n = data.length;
+    let sumA = 0, sumB = 0, sumAB = 0, sumA2 = 0, sumB2 = 0;
+    for (const row of data) {
+      const a = row[keyA];
+      const b = row[keyB];
+      sumA += a;
+      sumB += b;
+      sumAB += a * b;
+      sumA2 += a * a;
+      sumB2 += b * b;
+    }
+    const num = n * sumAB - sumA * sumB;
+    const den = Math.sqrt((n * sumA2 - sumA * sumA) * (n * sumB2 - sumB * sumB));
+    return den === 0 ? 0 : num / den;
+  };
+
+  const correlations = [
+    { metricA: "Game Duration", metricB: "L-Cancel Rate", coefficient: calculatePearson(rows, "duration_seconds", "l_cancel_rate") },
+    { metricA: "Neutral Win Rate", metricB: "Win/Loss", coefficient: calculatePearson(rows, "neutral_win_rate", "is_win") },
+    { metricA: "Conversion Rate", metricB: "Win/Loss", coefficient: calculatePearson(rows, "conversion_rate", "is_win") },
+    { metricA: "Openings/Kill", metricB: "Win/Loss", coefficient: calculatePearson(rows, "openings_per_kill", "is_win") },
+    { metricA: "Game Duration", metricB: "Neutral Win Rate", coefficient: calculatePearson(rows, "duration_seconds", "neutral_win_rate") },
+  ];
+
+  // 2. Situational: Short vs Long games (Fatigue check)
+  const medianDuration = rows.sort((a, b) => a.duration_seconds - b.duration_seconds)[Math.floor(rows.length / 2)].duration_seconds;
+  const shortGames = rows.filter(r => r.duration_seconds <= medianDuration);
+  const longGames = rows.filter(r => r.duration_seconds > medianDuration);
+
+  const avg = (arr: any[], key: string) => arr.reduce((s, r) => s + r[key], 0) / (arr.length || 1);
+
+  const situationalAverages = [
+    {
+      label: "Short Games (\u2264 " + Math.round(medianDuration) + "s)",
+      metrics: {
+        lCancelRate: avg(shortGames, "l_cancel_rate"),
+        neutralWinRate: avg(shortGames, "neutral_win_rate"),
+        conversionRate: avg(shortGames, "conversion_rate"),
+      }
+    },
+    {
+      label: "Long Games (> " + Math.round(medianDuration) + "s)",
+      metrics: {
+        lCancelRate: avg(longGames, "l_cancel_rate"),
+        neutralWinRate: avg(longGames, "neutral_win_rate"),
+        conversionRate: avg(longGames, "conversion_rate"),
+      }
+    }
+  ];
+
+  // 3. Wins vs Losses (The "What Matters" check)
+  const wins = rows.filter(r => r.is_win === 1);
+  const losses = rows.filter(r => r.is_win === 0);
+
+  const winLossDiffs: Record<string, number> = {};
+  for (const m of metrics) {
+    if (m === "is_win") continue;
+    const winAvg = avg(wins, m);
+    const lossAvg = avg(losses, m);
+    winLossDiffs[m] = winAvg - lossAvg;
+  }
+
+  return { correlations, situationalAverages, winLossDiffs };
+}
+
 export function getStatTrend(
   statColumn: string,
   options?: {
@@ -769,6 +994,7 @@ export interface DetectedSet {
   opponentTag: string;
   opponentCharacter: string;
   gameIds: number[];
+  sessionId: number | null;
   startedAt: string;
   wins: number;
   losses: number;
@@ -782,13 +1008,14 @@ export interface DetectedSet {
 export function detectSets(gapMinutes: number = 15): DetectedSet[] {
   const games = getDb().prepare(`
     SELECT
-      id, opponent_tag, opponent_connect_code, opponent_character,
+      id, session_id, opponent_tag, opponent_connect_code, opponent_character,
       result, played_at
     FROM games
     WHERE played_at IS NOT NULL
     ORDER BY played_at ASC
   `).all() as {
     id: number;
+    session_id: number | null;
     opponent_tag: string;
     opponent_connect_code: string | null;
     opponent_character: string;
@@ -804,6 +1031,7 @@ export function detectSets(gapMinutes: number = 15): DetectedSet[] {
     opponentTag: games[0]!.opponent_tag,
     opponentCharacter: games[0]!.opponent_character,
     gameIds: [games[0]!.id],
+    sessionId: games[0]!.session_id,
     startedAt: games[0]!.played_at,
     wins: games[0]!.result === "win" ? 1 : 0,
     losses: games[0]!.result === "loss" ? 1 : 0,
@@ -835,6 +1063,7 @@ export function detectSets(gapMinutes: number = 15): DetectedSet[] {
         opponentTag: game.opponent_tag,
         opponentCharacter: game.opponent_character,
         gameIds: [game.id],
+        sessionId: game.session_id,
         startedAt: game.played_at,
         wins: game.result === "win" ? 1 : 0,
         losses: game.result === "loss" ? 1 : 0,
@@ -1094,17 +1323,6 @@ export function insertSignatureStats(gameId: number, signatureJson: string): voi
   `).run(gameId, signatureJson);
 }
 
-export function getCharacterSignatureAggregates(character: string): any {
-  const rows = getDb().prepare(`
-    SELECT css.signature_json
-    FROM character_signature_stats css
-    JOIN games g ON css.game_id = g.id
-    WHERE g.player_character = ?
-  `).all(character) as { signature_json: string }[];
-
-  return rows.map(r => JSON.parse(r.signature_json));
-}
-
 // ── Per-character game stats (for radar chart) ──────────────────────
 
 export interface CharacterGameStat {
@@ -1139,11 +1357,6 @@ export function getCharacterGameStats(character: string): CharacterGameStat[] {
     ORDER BY g.played_at DESC
   `).all(character) as CharacterGameStat[];
 }
-
-// ── Player history for coaching context ──────────────────────────────
-
-import type { PlayerHistory } from "./pipeline/types.js";
-export type { PlayerHistory } from "./pipeline/types.js";
 
 /**
  * Retrieve historical player context for LLM coaching prompts.

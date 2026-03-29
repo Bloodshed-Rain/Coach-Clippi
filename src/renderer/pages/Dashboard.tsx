@@ -128,6 +128,11 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
   const { data: config } = useConfig();
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
+  // Discovery / Oracle state
+  const [discovery, setDiscovery] = useState<string | null>(null);
+  const [isDiscovering, setIsDiscovering] = useState(false);
+  const [discoveryStream, setDiscoveryStream] = useState("");
+
   // Per-game analysis state
   const [expandedGame, setExpandedGame] = useState<number | null>(null);
   const [analysisCache, setAnalysisCache] = useState<Record<number, string>>({});
@@ -196,6 +201,31 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
     }
   };
 
+  const handleRunDiscovery = async () => {
+    setIsDiscovering(true);
+    setDiscoveryStream("");
+    setDiscovery(null);
+
+    const unsubStream = window.clippi.onAnalysisStream((chunk: string) => {
+      setDiscoveryStream((prev) => prev + chunk);
+    });
+    const unsubEnd = window.clippi.onAnalysisStreamEnd(() => {
+      setIsDiscovering(false);
+    });
+
+    try {
+      const result = await window.clippi.analyzeDiscovery();
+      setDiscovery(result);
+      setDiscoveryStream("");
+    } catch (err) {
+      console.error("Discovery failed:", err);
+    } finally {
+      unsubStream();
+      unsubEnd();
+      setIsDiscovering(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -247,6 +277,86 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
       </motion.div>
 
       <SessionPulse games={games} />
+
+      {/* MAGI Discovery (The Oracle) */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1, duration: 0.5 }}
+        style={{ marginBottom: 32 }}
+      >
+        <div className="card discovery-card" style={{ 
+          background: 'linear-gradient(135deg, rgba(var(--accent-rgb), 0.08) 0%, rgba(var(--accent-rgb), 0.02) 100%)',
+          border: '1px solid rgba(var(--accent-rgb), 0.2)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <div style={{ 
+                width: '42px', 
+                height: '42px', 
+                borderRadius: '10px', 
+                background: 'rgba(var(--accent-rgb), 0.1)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                color: 'var(--accent)',
+                boxShadow: '0 0 20px rgba(var(--accent-rgb), 0.2)'
+              }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12L2.1 12.1"/><path d="M12 12L19 19"/><path d="M12 12V22"/>
+                </svg>
+              </div>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent)', marginBottom: '4px' }}>Deep Discovery</h2>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '400px' }}>
+                  MAGI is mining your entire career for hidden mathematical truths and non-obvious win conditions.
+                </p>
+              </div>
+            </div>
+            {!discovery && !isDiscovering && (
+              <button 
+                className="btn btn-primary" 
+                onClick={handleRunDiscovery}
+                style={{ 
+                  padding: '10px 20px', 
+                  fontSize: '13px', 
+                  fontWeight: 700,
+                  boxShadow: '0 0 15px rgba(var(--accent-rgb), 0.3)'
+                }}
+              >
+                Synthesize Career Narrative
+              </button>
+            )}
+          </div>
+
+          {(isDiscovering || discovery || discoveryStream) && (
+            <div style={{ marginTop: '24px', padding: '20px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid rgba(var(--accent-rgb), 0.1)' }}>
+              {isDiscovering && !discoveryStream && (
+                <div className="flex items-center gap-3">
+                  <div className="spinner" />
+                  <span className="text-sm text-dim animate-pulse">Running correlation matrix and situational anomaly filters...</span>
+                </div>
+              )}
+              <div className="analysis-text prose prose-invert max-w-none" style={{ fontSize: '14px', lineHeight: '1.6' }}>
+                <Markdown>{discovery || discoveryStream}</Markdown>
+                {isDiscovering && <span className="streaming-cursor" />}
+              </div>
+              {discovery && !isDiscovering && (
+                <button className="btn btn-sm mt-4" onClick={handleRunDiscovery}>Refresh Discovery</button>
+              )}
+            </div>
+          )}
+          
+          {/* Decorative elements */}
+          <div style={{ position: 'absolute', top: '-20px', right: '-20px', opacity: 0.05, pointerEvents: 'none' }}>
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="var(--accent)">
+              <path d="M12 2a10 10 0 1 0 10 10H12V2z"/>
+            </svg>
+          </div>
+        </div>
+      </motion.div>
 
       <div className="game-list">
         {games.map((game, index) => {

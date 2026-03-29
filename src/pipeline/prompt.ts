@@ -263,6 +263,94 @@ blunt — players want to hear what they need to fix.`;
 
 // ── Prompt assembly ───────────────────────────────────────────────────
 
+// ── Aggregate analysis prompts ─────────────────────────────────────────
+
+export const SYSTEM_PROMPT_AGGREGATE = `You are MAGI (Melee Analysis through Generative Intelligence), an expert Super Smash Bros. Melee statistical analyst and performance coach.
+You are reviewing a player's AGGREGATE performance data across a specific scope (Character Matchup, Stage Performance, or Opponent History).
+
+CORE RULES:
+- Focus on patterns, averages, and statistical "leaks."
+- Look for non-obvious correlations (e.g., "Your neutral win rate is high, but your conversion rate is low, suggesting you win neutral but don't capitalize").
+- Compare the current scope's stats against the player's lifetime averages if provided.
+- Use Melee terminology naturally.
+- Be blunt about weaknesses but provide a path to improvement.
+
+ANALYSIS STRUCTURE:
+1. Executive Summary (High-level vibcheck)
+2. Statistical Highlights & Lowlights
+3. Matchup/Stage/Opponent Strategy
+4. Specific Recommendations (What to change in the approach)`;
+
+export function assembleAggregatePrompt(
+  stats: any,
+  scopeType: "character" | "stage" | "opponent",
+  identifier: string,
+  playerHistory?: any,
+): string {
+  const lines: string[] = [];
+
+  if (playerHistory) {
+    lines.push(assemblePlayerContext(playerHistory));
+    lines.push("");
+  }
+
+  lines.push(`I'd like you to analyze my aggregate performance for the following scope: ${scopeType.toUpperCase()} - ${identifier}`);
+  lines.push("");
+  lines.push("=== AGGREGATE DATA ===");
+  lines.push(JSON.stringify(stripNulls(stats), null, 2));
+  lines.push("");
+  lines.push("Provide a coaching analysis based on this statistical profile. Identify my habits and leaks in this specific context.");
+
+  return lines.join("\n");
+}
+
+// ── Discovery (Deep Pattern) prompts ───────────────────────────────────
+
+export const SYSTEM_PROMPT_DISCOVERY = `You are MAGI, a superhuman Melee data scientist.
+Your goal is to perform DEEP PATTERN RECOGNITION across a large dataset of match results and metrics.
+
+You are not here to give basic tips. You are here to find the hidden "Why" behind the player's performance.
+You have been provided with:
+1. Pearson Correlation Coefficients between various metrics.
+2. Situational Averages (e.g., Short vs. Long games).
+3. The delta between winning games and losing games.
+
+CORE OBJECTIVES:
+- Identify "The Fatigue Factor": Does tech skill or neutral success drop as games get longer?
+- Identify "The Determinant": Which stat is MOST correlated with winning? Is it L-canceling, or is it actually something else like Edgeguarding?
+- Identify "The Pressure Leak": Does the player perform differently in high-stakes situations (simulated by statistical anomalies)?
+- Provide 3 "Priceless Insights" that are not obvious from a simple win/loss count.
+
+TONE:
+Analytical, visionary, slightly "Matrix-esque" but still focused on practical Melee. Use terminology like "statistical leak," "performance drift," and "win-condition correlation."`;
+
+export function assembleDiscoveryPrompt(
+  discoveryData: any,
+  playerHistory?: any,
+): string {
+  const lines: string[] = [];
+
+  if (playerHistory) {
+    lines.push(assemblePlayerContext(playerHistory));
+    lines.push("");
+  }
+
+  lines.push("Perform a Deep Pattern Discovery analysis on the following career data:");
+  lines.push("");
+  lines.push("=== CORRELATION MATRIX ===");
+  lines.push(JSON.stringify(discoveryData.correlations, null, 2));
+  lines.push("");
+  lines.push("=== SITUATIONAL PERFORMANCE ===");
+  lines.push(JSON.stringify(discoveryData.situationalAverages, null, 2));
+  lines.push("");
+  lines.push("=== WIN/LOSS DETERMINANTS (Delta between Wins and Losses) ===");
+  lines.push(JSON.stringify(discoveryData.winLossDiffs, null, 2));
+  lines.push("");
+  lines.push("Synthesize these hidden narratives. What is the one truth in these numbers the player hasn't seen?");
+
+  return lines.join("\n");
+}
+
 /** Strip null/undefined values and empty arrays from an object for cleaner LLM input */
 function stripNulls(obj: unknown): unknown {
   if (obj === null || obj === undefined) return undefined;

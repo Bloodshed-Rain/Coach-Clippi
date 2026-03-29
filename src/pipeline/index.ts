@@ -4,7 +4,11 @@
 export { processGame } from "./processGame.js";
 export { buildDerivedInsights } from "./derivedInsights.js";
 export { computeAdaptationSignals, findPlayerIdx } from "./adaptation.js";
-export { assembleUserPrompt, assemblePlayerContext, SYSTEM_PROMPT } from "./prompt.js";
+export { 
+  assembleUserPrompt, assemblePlayerContext, SYSTEM_PROMPT,
+  assembleAggregatePrompt, SYSTEM_PROMPT_AGGREGATE,
+  assembleDiscoveryPrompt, SYSTEM_PROMPT_DISCOVERY
+} from "./prompt.js";
 
 export type {
   PlayerSummary,
@@ -42,4 +46,5 @@ export type {
   DkSignatureStats,
   PichuSignatureStats,
   PlayerHistory,
+  AggregateStats,
 } from "./types.js";
