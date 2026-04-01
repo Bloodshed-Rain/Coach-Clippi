@@ -194,18 +194,21 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
     // Fetch queue status for progress feedback
     window.clippi.getQueueStatus().then(setQueueStatus).catch(() => {});
 
-    // Subscribe to streaming chunks
-    const unsubStream = window.clippi.onAnalysisStream((chunk: string) => {
+    // Subscribe to streaming chunks (scoped by streamId to prevent cross-listener collision)
+    const streamId = crypto.randomUUID();
+    const unsubStream = window.clippi.onAnalysisStream((chunk: string, sid?: string) => {
+      if (sid !== undefined && sid !== streamId) return;
       setIsStreaming(true);
       setStreamingText((prev) => prev + chunk);
     });
-    const unsubEnd = window.clippi.onAnalysisStreamEnd(() => {
+    const unsubEnd = window.clippi.onAnalysisStreamEnd((sid?: string) => {
+      if (sid !== undefined && sid !== streamId) return;
       setIsStreaming(false);
     });
 
     try {
       const target = config?.connectCode || config?.targetPlayer || "";
-      const result = await window.clippi.analyzeReplays([game.replayPath], target);
+      const result = await window.clippi.analyzeReplays([game.replayPath], target, streamId);
       // Cache the final complete text (from the invoke return value)
       setAnalysisCache((prev) => ({ ...prev, [game.id]: result }));
       setStreamingText("");
@@ -227,15 +230,18 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
     setDiscovery(null);
     setDiscoveryError(null);
 
-    const unsubStream = window.clippi.onAnalysisStream((chunk: string) => {
+    const discoveryStreamId = crypto.randomUUID();
+    const unsubStream = window.clippi.onAnalysisStream((chunk: string, sid?: string) => {
+      if (sid !== undefined && sid !== discoveryStreamId) return;
       setDiscoveryStream((prev) => prev + chunk);
     });
-    const unsubEnd = window.clippi.onAnalysisStreamEnd(() => {
+    const unsubEnd = window.clippi.onAnalysisStreamEnd((sid?: string) => {
+      if (sid !== undefined && sid !== discoveryStreamId) return;
       setIsDiscovering(false);
     });
 
     try {
-      const result = await window.clippi.analyzeDiscovery();
+      const result = await window.clippi.analyzeDiscovery(discoveryStreamId);
       setDiscovery(result);
       setDiscoveryStream("");
     } catch (err) {
@@ -312,7 +318,7 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
         transition={{ delay: 0.1, duration: 0.5 }}
         style={{ marginBottom: 32 }}
       >
-        <div className="card discovery-card" style={{ 
+        <div className="card" style={{ 
           background: 'linear-gradient(135deg, rgba(var(--accent-rgb), 0.08) 0%, rgba(var(--accent-rgb), 0.02) 100%)',
           border: '1px solid rgba(var(--accent-rgb), 0.2)',
           position: 'relative',
@@ -367,17 +373,17 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
           {(isDiscovering || discovery || discoveryStream) && (
             <div style={{ marginTop: '24px', padding: '20px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid rgba(var(--accent-rgb), 0.1)' }}>
               {isDiscovering && !discoveryStream && (
-                <div className="flex items-center gap-3">
+                <div className="analyze-loading">
                   <div className="spinner" />
-                  <span className="text-sm text-dim animate-pulse">Running correlation matrix and situational anomaly filters...</span>
+                  <span>Running correlation matrix and situational anomaly filters...</span>
                 </div>
               )}
-              <div className="analysis-text prose prose-invert max-w-none" style={{ fontSize: '14px', lineHeight: '1.6' }}>
+              <div className="analysis-text" style={{ fontSize: '14px', lineHeight: '1.6' }}>
                 <Markdown>{discovery || discoveryStream}</Markdown>
                 {isDiscovering && <span className="streaming-cursor" />}
               </div>
               {discovery && !isDiscovering && (
-                <button className="btn btn-sm mt-4" onClick={handleRunDiscovery}>Refresh Discovery</button>
+                <button className="btn" style={{ marginTop: 16 }} onClick={handleRunDiscovery}>Refresh Discovery</button>
               )}
             </div>
           )}

@@ -47,23 +47,37 @@ For each game in the set, provide:
 1. **Game Overview** (2-3 sentences)
    Who won, what the key dynamic was, what the turning point was.
 
-2. **Biggest Improvement Opportunity** (the single most impactful thing to fix)
+2. **Best Moment(s)** (1-3 highlights)
+   The player's cleanest plays — big conversions, clutch kills, smart reads.
+   ALWAYS cite the timestamp: "At [1:23], you read the ledge getup with a
+   tipper fsmash for the kill at 87% — that's the kind of patient spacing
+   that wins games." Use bestConversion and keyMoments data. Make it vivid —
+   the player should want to clip these.
+
+3. **Worst Misplay(s)** (1-3 lowlights)
+   Costly mistakes — dropped combos, bad DI deaths, missed edgeguards, punishable
+   habits. ALWAYS cite the timestamp: "At [2:45], you had Fox at 142% offstage
+   and went for a risky dair instead of covering ledge — that stock should have
+   been over." Use worstMissedPunish and keyMoments data. Be specific about what
+   the correct play was and why it matters.
+
+4. **Biggest Improvement Opportunity** (the single most impactful thing to fix)
    Identify the ONE habit or weakness that, if corrected, would have the largest
    impact on the player's results. Support with specific numbers from the data.
 
-3. **Neutral Game Assessment**
+5. **Neutral Game Assessment**
    - Stage control and positioning tendencies
    - Approach patterns and their success rates
    - Defensive habits (shield, dash back, jump) and exploitability
    - Option entropy: are they mixing up or predictable?
 
-4. **Punish Game Assessment**
+6. **Punish Game Assessment**
    - Conversion efficiency (openings per kill, average damage per opening)
    - Are they optimizing combos for the matchup at this percent range?
    - Missed kill opportunities (e.g., had an opening at 120% and only got 15%)
    - Edgeguard success and strategy
 
-5. **Defense & Recovery Assessment**
+7. **Defense & Recovery Assessment**
    - DI quality: use diQuality.comboDIScore (0-1 scale, higher = better combo escape DI)
      and diQuality.survivalDIScore (0-1 scale, higher = surviving to higher percents).
      Compare avgComboLengthReceived vs avgComboLengthDealt for context — if the player
@@ -72,7 +86,7 @@ For each game in the set, provide:
    - Ledge option distribution and entropy
    - Tech option distribution when knocked down
 
-6. **Shield Pressure Assessment**
+8. **Shield Pressure Assessment**
    - shieldPressure.sequenceCount = how many shield pressure sequences the player initiated.
      A "sequence" is consecutive attacks on the opponent's shield.
    - shieldPressure.avgShieldDamage = average shield health removed per sequence (out of 60
@@ -86,12 +100,12 @@ For each game in the set, provide:
 
 For a multi-game SET, also provide:
 
-7. **Set-Level Analysis**
+9. **Set-Level Analysis**
    - Did either player adapt between games? Show the data.
    - What changed on counterpick stages?
    - Overall set narrative: who had momentum, when did it shift, why?
 
-8. **Practice Plan** (3 specific drills)
+10. **Practice Plan** (3 specific drills)
    Based on the weaknesses identified, recommend exactly 3 things to practice.
    Each drill should be:
    - Specific (not "practice neutral" — instead "practice reacting to Fox
@@ -99,7 +113,7 @@ For a multi-game SET, also provide:
    - Measurable (how do they know they're improving?)
    - Ranked by impact
 
-9. **Coach's Wisdom** (1 paragraph)
+11. **Coach's Wisdom** (1 paragraph)
    This is where you earn your keep. Step back from the numbers and deliver
    ONE golden insight — something that connects the dots across the data in
    a way the player wouldn't see on their own. Maybe it's a subtle correlation

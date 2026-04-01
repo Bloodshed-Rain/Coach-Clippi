@@ -500,11 +500,13 @@ export function Characters({ refreshKey }: { refreshKey: number }) {
                 </div>
 
                 <button 
-                  className="btn btn-primary w-full mt-6"
+                  className="btn btn-primary"
                   onClick={() => setIsCoachingOpen(true)}
-                  style={{ 
-                    background: meta.color, 
+                  style={{
+                    background: meta.color,
                     border: 'none',
+                    width: '100%',
+                    marginTop: '24px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',

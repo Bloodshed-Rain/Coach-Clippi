@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-// Themes are now controlled by the sidebar dark/light toggle
+import { THEMES, THEME_ORDER, applyTheme, getResolvedTheme, type ColorMode } from "../themes";
+import { useGlobalStore } from "../stores/useGlobalStore";
 
 interface Config {
   targetPlayer: string | null;
@@ -15,16 +16,26 @@ interface Config {
   localEndpoint: string | null;
 }
 
-interface ModelOption {
+interface FetchedModel {
   id: string;
   label: string;
-  description: string;
+  provider: string;
 }
 
-const MODELS: ModelOption[] = [
-  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", description: "Default \u2014 free API key from Google AI Studio" },
-  { id: "deepseek/deepseek-chat", label: "DeepSeek V3", description: "Best cost/quality ratio (requires OpenRouter key)" },
-  { id: "openai/gpt-4o-mini", label: "GPT-4o Mini", description: "Reliable and efficient (requires OpenAI key)" },
+const PROVIDER_LABELS: Record<string, string> = {
+  gemini: "Google Gemini",
+  openrouter: "OpenRouter",
+  anthropic: "Anthropic",
+  openai: "OpenAI",
+  local: "Local",
+};
+
+const STATIC_MODELS: FetchedModel[] = [
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "gemini" },
+  { id: "deepseek/deepseek-chat", label: "DeepSeek V3", provider: "openrouter" },
+  { id: "gpt-4o", label: "GPT-4o", provider: "openai" },
+  { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4", provider: "anthropic" },
+  { id: "local", label: "Local Model (Ollama / LM Studio)", provider: "local" },
 ];
 
 const DEFAULT_MODEL_ID = "gemini-2.5-flash";
@@ -35,7 +46,12 @@ interface SettingsProps {
   onImport: () => void;
 }
 
+const BASE_THEMES = THEME_ORDER.filter((t) => !t.startsWith("char-"));
+const CHAR_THEMES = THEME_ORDER.filter((t) => t.startsWith("char-"));
+
 export function Settings({ onImport }: SettingsProps) {
+  const colorMode = useGlobalStore((state) => state.colorMode);
+  const setColorMode = useGlobalStore((state) => state.setColorMode);
   const [config, setConfig] = useState<Config>({
     targetPlayer: null,
     connectCode: null,
@@ -66,6 +82,9 @@ export function Settings({ onImport }: SettingsProps) {
     lastFileStatus: "imported" | "skipped" | "error";
   } | null>(null);
   const [watching, setWatching] = useState(false);
+  const [dynamicModels, setDynamicModels] = useState<Record<string, FetchedModel[]> | null>(null);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [customModelInput, setCustomModelInput] = useState(false);
 
   // Load user config
   useEffect(() => {
@@ -79,6 +98,21 @@ export function Settings({ onImport }: SettingsProps) {
     }
     load();
   }, []);
+
+  // Fetch available models from configured providers
+  const fetchModels = useCallback(async () => {
+    setModelsLoading(true);
+    try {
+      const result = await window.clippi.fetchAllModels();
+      setDynamicModels(result);
+    } catch {
+      setDynamicModels(null);
+    } finally {
+      setModelsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchModels(); }, [fetchModels]);
 
   // Import progress events
   useEffect(() => {
@@ -111,6 +145,15 @@ export function Settings({ onImport }: SettingsProps) {
   }, [watching, onImport]);
 
   const selectedModel = config.llmModelId || DEFAULT_MODEL_ID;
+
+  const handleThemeChange = useCallback((themeId: string) => {
+    const mode = themeId as ColorMode;
+    setColorMode(mode);
+    applyTheme(getResolvedTheme(mode, mode));
+    window.clippi.loadConfig().then((c: any) => {
+      window.clippi.saveConfig({ ...c, colorMode: mode });
+    });
+  }, [setColorMode]);
 
   const handleSave = useCallback(async () => {
     try {
@@ -360,23 +403,64 @@ export function Settings({ onImport }: SettingsProps) {
 
       {/* AI Model */}
       <div className="card">
-        <div className="card-title">AI Model</div>
-        <div className="settings-field">
-          <label>Model</label>
-          <select
-            className="model-select"
-            value={selectedModel}
-            onChange={(e) => setConfig({ ...config, llmModelId: e.target.value })}
-          >
-            {MODELS.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+        <div className="card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>AI Model</span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              className="btn"
+              style={{ padding: "3px 8px", fontSize: 10 }}
+              onClick={() => setCustomModelInput(!customModelInput)}
+            >
+              {customModelInput ? "Dropdown" : "Custom ID"}
+            </button>
+            <button
+              className="btn"
+              style={{ padding: "3px 8px", fontSize: 10 }}
+              onClick={fetchModels}
+              disabled={modelsLoading}
+            >
+              {modelsLoading ? "Fetching..." : "Refresh"}
+            </button>
+          </div>
         </div>
-        <p style={{ color: "var(--text-dim)", fontSize: 12, margin: "4px 0 0" }}>
-          {MODELS.find((m) => m.id === selectedModel)?.description ?? ""}
+        <div className="settings-field">
+          <label>Model {modelsLoading && <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>(loading models...)</span>}</label>
+          {customModelInput ? (
+            <input
+              value={selectedModel}
+              onChange={(e) => setConfig({ ...config, llmModelId: e.target.value || null })}
+              placeholder="e.g. gemini-2.5-flash or anthropic/claude-sonnet-4"
+            />
+          ) : (
+            <select
+              className="model-select"
+              value={selectedModel}
+              onChange={(e) => setConfig({ ...config, llmModelId: e.target.value })}
+            >
+              {dynamicModels ? (
+                Object.entries(dynamicModels)
+                  .filter(([, models]) => models.length > 0)
+                  .map(([provider, models]) => (
+                    <optgroup key={provider} label={PROVIDER_LABELS[provider] ?? provider}>
+                      {models.map((m) => (
+                        <option key={`${provider}-${m.id}`} value={m.id}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))
+              ) : (
+                STATIC_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))
+              )}
+            </select>
+          )}
+        </div>
+        <p style={{ color: "var(--text-muted)", fontSize: 11, margin: "4px 0 0", fontFamily: "var(--font-mono)" }}>
+          Current: {selectedModel}
         </p>
       </div>
 
@@ -437,6 +521,37 @@ export function Settings({ onImport }: SettingsProps) {
             placeholder="http://localhost:1234/v1"
           />
         </div>
+      </div>
+
+      {/* Theme */}
+      <div className="card">
+        <div className="card-title">Theme</div>
+        <div className="settings-field">
+          <label>Color Theme</label>
+          <select
+            value={colorMode}
+            onChange={(e) => handleThemeChange(e.target.value)}
+          >
+            <optgroup label="Base Themes">
+              {BASE_THEMES.map((id) => (
+                <option key={id} value={id}>{THEMES[id]?.name ?? id}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Character Themes">
+              {CHAR_THEMES.map((id) => (
+                <option key={id} value={id}>{THEMES[id]?.name ?? id}</option>
+              ))}
+            </optgroup>
+          </select>
+        </div>
+        <div
+          style={{
+            marginTop: 8,
+            height: 6,
+            borderRadius: 3,
+            background: `linear-gradient(90deg, ${THEMES[colorMode]?.accent ?? 'var(--accent)'}, ${THEMES[colorMode]?.accentHover ?? 'var(--accent-hover)'})`,
+          }}
+        />
       </div>
 
       <button className="btn btn-primary" onClick={handleSave}>

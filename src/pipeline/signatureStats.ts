@@ -227,7 +227,7 @@ export function detectSignatureStats(
         // Stomp to knee: dair → fair
         if (hasSequence(moves, MOVE_DAIR, MOVE_FAIR)) stompKnees++;
         // Upthrow → knee kill: starts with uthrow, ends with fair kill
-        if (moves[0]!.moveId === MOVE_UTHROW && lastMove.moveId === MOVE_FAIR && conv.didKill) upthrowKnees++;
+        if (moves.some(m => m.moveId === MOVE_UTHROW) && lastMove.moveId === MOVE_FAIR && conv.didKill) upthrowKnees++;
         // Tech chase grabs: starts with grab and opponent was in tech/down state
         if (moves[0]!.moveId !== MOVE_GRAB) continue;
 

@@ -15,21 +15,22 @@ const api = {
     ipcRenderer.invoke("import:analyze", filePaths, targetPlayer),
 
   // Analysis
-  analyzeReplays: (replayPaths: string[], targetPlayer: string) =>
-    ipcRenderer.invoke("analyze:run", replayPaths, targetPlayer),
-  analyzeRecent: (count: number, targetPlayer: string) =>
-    ipcRenderer.invoke("analyze:recent", count, targetPlayer),
+  analyzeReplays: (replayPaths: string[], targetPlayer: string, streamId?: string) =>
+    ipcRenderer.invoke("analyze:run", replayPaths, targetPlayer, streamId),
+  analyzeRecent: (count: number, targetPlayer: string, streamId?: string) =>
+    ipcRenderer.invoke("analyze:recent", count, targetPlayer, streamId),
   analyzeTrends: (trendSummary: string) =>
     ipcRenderer.invoke("analyze:trends", trendSummary),
-  analyzeScoped: (scope: string, id: string | number, targetPlayer?: string) =>
-    ipcRenderer.invoke("analyze:scoped", scope, id, targetPlayer),
-  analyzeDiscovery: () =>
-    ipcRenderer.invoke("analyze:discovery"),
+  analyzeScoped: (scope: string, id: string | number, targetPlayer?: string, streamId?: string) =>
+    ipcRenderer.invoke("analyze:scoped", scope, id, targetPlayer, streamId),
+  analyzeDiscovery: (streamId?: string) =>
+    ipcRenderer.invoke("analyze:discovery", streamId),
 
   // LLM
   getLLMModels: () => ipcRenderer.invoke("llm:models"),
   getCurrentModel: () => ipcRenderer.invoke("llm:currentModel"),
   fetchOpenRouterModels: () => ipcRenderer.invoke("openrouter:models"),
+  fetchAllModels: () => ipcRenderer.invoke("llm:fetch-all-models"),
 
   // Stats
   getOverallRecord: () => ipcRenderer.invoke("stats:overall"),
@@ -106,13 +107,13 @@ const api = {
     ipcRenderer.on("import:progress", listener);
     return () => ipcRenderer.removeListener("import:progress", listener);
   },
-  onAnalysisStream: (callback: (chunk: string) => void) => {
-    const listener = (_event: unknown, chunk: string) => callback(chunk);
+  onAnalysisStream: (callback: (chunk: string, streamId?: string) => void) => {
+    const listener = (_event: unknown, chunk: string, streamId?: string) => callback(chunk, streamId);
     ipcRenderer.on("analyze:stream", listener);
     return () => ipcRenderer.removeListener("analyze:stream", listener);
   },
-  onAnalysisStreamEnd: (callback: () => void) => {
-    const listener = () => callback();
+  onAnalysisStreamEnd: (callback: (streamId?: string) => void) => {
+    const listener = (_event: unknown, streamId?: string) => callback(streamId);
     ipcRenderer.on("analyze:stream-end", listener);
     return () => ipcRenderer.removeListener("analyze:stream-end", listener);
   },

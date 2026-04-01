@@ -129,6 +129,21 @@
 }
 .btn-danger:hover { opacity: 0.9; }
 
+.btn-icon-small {
+  padding: 4px 6px;
+  min-width: unset;
+  line-height: 1;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────── */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
 /* ── Data Tables — Accent header rule ──────────────────────────── */
 .data-table-wrap { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; table-layout: fixed; }

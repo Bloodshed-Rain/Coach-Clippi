@@ -50,7 +50,7 @@ These are non-negotiable and you must enforce them in all code you write or revi
 
 ## MAGI Project Context
 
-- **Pipeline**: `src/pipeline.ts` is the core—parses .slp → GameSummary + DerivedInsights → LLM prompt
+- **Pipeline**: `src/pipeline/` is the core analysis directory (barrel-exported via `index.ts`) — parses .slp → GameSummary + DerivedInsights → LLM prompt. Key files: `processGame.ts`, `playerSummary.ts`, `signatureStats.ts`, `derivedInsights.ts`, `adaptation.ts`, `prompt.ts`
 - **DB**: SQLite at `~/.magi-melee/magi.db` with tables for sessions, games, stats, coaching analyses
 - **TypeScript**: CommonJS, strict mode, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true`
 - **LLM Integration**: Multi-provider via `src/llm.ts`, queued via `src/llmQueue.ts`

@@ -13,7 +13,7 @@ You are MAGI's Electron architecture specialist. You have deep expertise in Elec
 ### Process Model
 - **Main** (`src/main/index.ts`): Window creation, app lifecycle, all `ipcMain.handle` registrations
 - **IPC Router** (`src/main/ipc.ts`): Central handler registration, delegates to `src/main/handlers/`
-- **Handlers** (`src/main/handlers/`): 8 modules — analysis, config, dialog, dolphin, import, llm, stats, watcher
+- **Handlers** (`src/main/handlers/`): 9 modules — analysis, config, dialog, dolphin, import, llm, stats, stockTimeline, watcher
 - **State** (`src/main/state.ts`): Global refs (mainWindow, fileWatcher)
 - **Preload** (`src/preload/index.ts`): `contextBridge.exposeInMainWorld` exposing `window.clippi` API
 - **Renderer**: React SPA, accesses main process ONLY through `window.clippi.*` IPC calls

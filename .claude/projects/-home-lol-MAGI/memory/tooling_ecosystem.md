@@ -20,4 +20,4 @@ Custom MCP server at `src/mcp-server.ts` registered in `.mcp.json` as "magi".
 - Settings include broad Bash permissions for git, npm, gh, and filesystem operations
 
 ## Agents (pre-existing)
-7 agents: electron-architect, llm-orchestrator, melee-coach-analyst, sentinel, slippi-analyst, ui-visionary, vanguard-ui-architect
+6 agents: electron-architect, llm-orchestrator, melee-coach-analyst, sentinel, slippi-analyst, ui-visionary

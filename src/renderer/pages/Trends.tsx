@@ -390,7 +390,7 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.05, duration: 0.3 }}
               >
-                <div className="card stage-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, fontSize: 16 }}>{s.stage}</span>
                     <span style={{ 
@@ -406,8 +406,8 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
                     {s.wins}W - {s.losses}L ({s.totalGames} games)
                   </div>
                   <button 
-                    className="btn btn-primary btn-sm" 
-                    style={{ width: '100%', marginTop: '8px' }}
+                    className="btn btn-primary"
+                    style={{ width: '100%', marginTop: '8px', padding: '5px 10px', fontSize: '11px' }}
                     onClick={() => setScopedCoaching({
                       scope: 'stage',
                       id: s.stage,

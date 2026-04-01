@@ -55,7 +55,8 @@ export function registerImportHandlers(safeHandle: SafeHandleFn): void {
   });
 
   safeHandle("import:analyze", async (_e, filePaths: string[], targetPlayer: string) => {
+    const safePaths = filePaths.map(validatePath);
     const onProgress = createProgressSender();
-    return importAndAnalyze(filePaths, targetPlayer, onProgress);
+    return importAndAnalyze(safePaths, targetPlayer, onProgress);
   });
 }

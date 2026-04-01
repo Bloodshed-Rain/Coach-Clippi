@@ -1,10 +1,11 @@
 import crypto from "crypto";
 import fs from "fs";
 import { loadConfig } from "../../config.js";
-import { 
-  getDb, insertCoachingAnalysis, getPlayerHistory, 
+import {
+  getDb, insertCoachingAnalysis, getPlayerHistory,
   getGamesBySession, getGameById, getAggregateStats,
-  getDeepInsightsData
+  getDeepInsightsData, insertGame, insertGameStats,
+  insertSignatureStats
 } from "../../db.js";
 import {
   processGame, computeAdaptationSignals, findPlayerIdx,
@@ -15,6 +16,7 @@ import {
 } from "../../pipeline/index.js";
 import { callLLM, callLLMStream, LLM_DEFAULTS, type LLMConfig } from "../../llm.js";
 import { llmQueue } from "../../llmQueue.js";
+import { buildInsertGameParams, buildInsertGameStatsParams } from "../../replayAnalyzer.js";
 import { type SafeHandleFn, validatePath } from "../ipc.js";
 import { getMainWindow } from "../state.js";
 
@@ -63,7 +65,7 @@ function runMultiGameAnalysis(
 export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
   // Analyze — deduplicated. Returns cached analysis if already exists.
   // Streams LLM chunks to the renderer via "analyze:stream" IPC events when possible.
-  safeHandle("analyze:run", async (_e, replayPaths: string[], targetPlayer: string) => {
+  safeHandle("analyze:run", async (_e, replayPaths: string[], targetPlayer: string, streamId?: string) => {
     const safePaths = replayPaths.map(validatePath);
     const llmConfig = resolveLLMConfig();
     const win = getMainWindow();
@@ -97,7 +99,7 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
       throw new Error("No games to analyze.");
     }
 
-    const { userPrompt } = runMultiGameAnalysis(gameResults, targetPlayer);
+    const { targetTag, userPrompt } = runMultiGameAnalysis(gameResults, targetPlayer);
 
     // Use streaming when a window is available to receive chunks
     const analysis = await llmQueue.enqueue(() =>
@@ -105,7 +107,7 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
         { systemPrompt: SYSTEM_PROMPT, userPrompt, config: llmConfig },
         (chunk) => {
           try {
-            win?.webContents.send("analyze:stream", chunk);
+            win?.webContents.send("analyze:stream", chunk, streamId);
           } catch {
             // Window may have been closed during streaming — ignore
           }
@@ -115,18 +117,45 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
 
     // Signal streaming is done
     try {
-      win?.webContents.send("analyze:stream-end");
+      win?.webContents.send("analyze:stream-end", streamId);
     } catch {
       // ignore
     }
 
-    insertCoachingAnalysis(null, null, llmConfig.modelId, analysis);
+    // Persist game data for each replay so stats/trends/dedup work
+    const db = getDb();
+    const gameIds: number[] = [];
+    for (let i = 0; i < gameResults.length; i++) {
+      const gameResult = gameResults[i]!;
+      const filePath = safePaths[i]!;
+      const fileHash = crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+
+      const existing = db.prepare(
+        "SELECT id FROM games WHERE replay_hash = ?",
+      ).get(fileHash) as { id: number } | undefined;
+
+      if (existing) {
+        gameIds.push(existing.id);
+      } else {
+        const gameParams = buildInsertGameParams(gameResult, targetTag, filePath, fileHash, null);
+        const gameId = insertGame(gameParams);
+        insertGameStats(buildInsertGameStatsParams(gameId, gameResult, targetTag));
+        const playerIdx = findPlayerIdx(gameResult.gameSummary, targetTag);
+        const player = gameResult.gameSummary.players[playerIdx];
+        if (player.signatureStats) {
+          insertSignatureStats(gameId, JSON.stringify(player.signatureStats));
+        }
+        gameIds.push(gameId);
+      }
+    }
+
+    insertCoachingAnalysis(gameIds[0] ?? null, null, llmConfig.modelId, analysis);
 
     return analysis;
   });
 
   // Unified scoped analysis handler
-  safeHandle("analyze:scoped", async (_e, scope: string, id: any, targetPlayer?: string) => {
+  safeHandle("analyze:scoped", async (_e, scope: string, id: any, targetPlayer?: string, streamId?: string) => {
     const llmConfig = resolveLLMConfig();
     const win = getMainWindow();
     const db = getDb();
@@ -191,20 +220,20 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
         { systemPrompt, userPrompt, config: llmConfig },
         (chunk) => {
           try {
-            win?.webContents.send("analyze:stream", chunk);
+            win?.webContents.send("analyze:stream", chunk, streamId);
           } catch { }
         }
       )
     );
 
-    try { win?.webContents.send("analyze:stream-end"); } catch { }
+    try { win?.webContents.send("analyze:stream-end", streamId); } catch { }
 
     insertCoachingAnalysis(gameIdForCache, sessionIdForCache, llmConfig.modelId, analysis);
     return analysis;
   });
 
   // Deep Pattern Discovery — MAGI finds hidden correlations across your whole career
-  safeHandle("analyze:discovery", async () => {
+  safeHandle("analyze:discovery", async (_e, streamId?: string) => {
     const llmConfig = resolveLLMConfig();
     const win = getMainWindow();
     const dbData = getDeepInsightsData();
@@ -218,33 +247,33 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
         { systemPrompt, userPrompt, config: llmConfig },
         (chunk) => {
           try {
-            win?.webContents.send("analyze:stream", chunk);
+            win?.webContents.send("analyze:stream", chunk, streamId);
           } catch { }
         }
       )
     );
 
-    try { win?.webContents.send("analyze:stream-end"); } catch { }
-    
-    // For now, let's just return it.
+    try { win?.webContents.send("analyze:stream-end", streamId); } catch { }
+
     return analysis;
   });
 
   // Analyze recent games from the DB (by replay paths)
-  safeHandle("analyze:recent", async (_e, count: number, targetPlayer: string) => {
+  safeHandle("analyze:recent", async (_e, count: number, targetPlayer: string, streamId?: string) => {
     const games = getDb().prepare(`
-      SELECT replay_path FROM games
+      SELECT id, replay_path FROM games
       WHERE played_at IS NOT NULL
       ORDER BY played_at DESC
       LIMIT ?
-    `).all(count) as { replay_path: string }[];
+    `).all(count) as { id: number; replay_path: string }[];
 
     if (games.length === 0) {
       throw new Error("No games in database to analyze.");
     }
 
     // Reverse to chronological order
-    const paths = games.reverse().map((g) => g.replay_path);
+    games.reverse();
+    const paths = games.map((g) => g.replay_path);
 
     const llmConfig = resolveLLMConfig();
 
@@ -260,7 +289,7 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
         { systemPrompt: SYSTEM_PROMPT, userPrompt, config: llmConfig },
         (chunk) => {
           try {
-            win?.webContents.send("analyze:stream", chunk);
+            win?.webContents.send("analyze:stream", chunk, streamId);
           } catch {
             // ignore
           }
@@ -268,11 +297,11 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
       ),
     );
     try {
-      win?.webContents.send("analyze:stream-end");
+      win?.webContents.send("analyze:stream-end", streamId);
     } catch {
       // ignore
     }
-    insertCoachingAnalysis(null, null, llmConfig.modelId, analysis);
+    insertCoachingAnalysis(games[0]?.id ?? null, null, llmConfig.modelId, analysis);
 
     return analysis;
   });

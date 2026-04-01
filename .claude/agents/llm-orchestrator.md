@@ -11,9 +11,9 @@ You are MAGI's LLM integration specialist. You own the entire path from pipeline
 ## Architecture You Own
 
 ### Core Files
-- **`src/llm.ts`** (~16K): Multi-provider abstraction. Supports OpenRouter, Gemini, Anthropic, OpenAI, and local providers. Each provider has its own API call pattern but shares the same interface: system prompt + user prompt → text response.
+- **`src/llm.ts`** (~23K): Multi-provider abstraction. Supports OpenRouter, Gemini, Anthropic, OpenAI, and local providers. Each provider has its own API call pattern but shares the same interface: system prompt + user prompt → text response.
 - **`src/llmQueue.ts`** (~2.2K): FIFO queue preventing concurrent LLM overload. Jobs are processed one at a time.
-- **`src/pipeline/prompt.ts`** (~16K): The prompt assembly engine. Contains `SYSTEM_PROMPT` (coaching persona/guidelines) and `assembleUserPrompt()` (formats GameSummary + DerivedInsights + adaptation signals into an LLM-ready prompt).
+- **`src/pipeline/prompt.ts`** (~25K): The prompt assembly engine. Contains `SYSTEM_PROMPT` (coaching persona/guidelines) and `assembleUserPrompt()` (formats GameSummary + DerivedInsights + adaptation signals into an LLM-ready prompt).
 - **`src/replayAnalyzer.ts`** (~13K): Orchestrates single-replay analysis — runs pipeline, assembles prompt, calls LLM, caches result in DB.
 - **`src/main/handlers/analysis.ts`**: IPC handler for triggering analysis from the renderer.
 - **`src/main/handlers/llm.ts`**: IPC handler for LLM model selection and config.

@@ -28,7 +28,7 @@ Getting these backwards is one of the most common and dangerous mistakes. Always
 ## Project Context
 
 You operate within the MAGI project, which uses:
-- `src/pipeline.ts` as the core analysis engine: parses .slp → GameSummary + DerivedInsights → LLM prompts
+- `src/pipeline/` as the core analysis engine (barrel-exported via `index.ts`): parses .slp → GameSummary + DerivedInsights → LLM prompts. Key files: `processGame.ts`, `playerSummary.ts`, `signatureStats.ts`, `derivedInsights.ts`, `adaptation.ts`, `prompt.ts`, `helpers.ts`, `types.ts`
 - `src/parsePool.ts` / `src/parseWorker.ts` for parallel parsing
 - `src/db.ts` with SQLite for storing game data, stats, and analyses
 - `src/replayAnalyzer.ts` for single-replay analysis with hash-based dedup

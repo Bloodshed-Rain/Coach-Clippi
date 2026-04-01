@@ -23,8 +23,8 @@ MAGI (Melee Analysis through Generative Intelligence) is an Electron + React des
 Three processes communicate via IPC:
 
 - **Main** (`src/main/index.ts`): Electron main process. IPC handlers split into `src/main/handlers/` (llm, stats, dolphin, config, import, analysis, dialog, watcher, stockTimeline). Shared state in `src/main/state.ts`.
-- **Preload** (`src/preload/index.ts`): Bridges main↔renderer via `contextBridge`. Exposes `window.api` with typed IPC invoke wrappers.
-- **Renderer** (`src/renderer/`): React SPA built with Vite. Pages in `src/renderer/pages/`, components in `src/renderer/components/`. Uses state-based page switching (no router library).
+- **Preload** (`src/preload/index.ts`): Bridges main↔renderer via `contextBridge`. Exposes `window.clippi` with typed IPC invoke wrappers.
+- **Renderer** (`src/renderer/`): React SPA built with Vite. Pages in `src/renderer/pages/`, components in `src/renderer/components/`. Uses `react-router-dom` for routing.
 
 ### Data Pipeline
 

@@ -29,6 +29,8 @@ Import your `.slp` files, get personalized coaching analysis from an LLM, track 
 - **Deep Discovery** — AI pattern mining across your entire history for hidden insights and win conditions
 - **Streaming AI coaching** — real-time text generation with blinking cursor, no waiting for a full response
 - **Player history context** — coaching references your historical trends, improvement areas, and recurring habits
+- **Best Moments / Worst Misplays** — coaching highlights your cleanest plays and costliest mistakes with clickable timestamps
+- **Dynamic model selection** — Settings dropdown fetches live model lists from all configured providers (Gemini, OpenRouter, Anthropic, OpenAI) with custom model ID support
 - **Multi-LLM provider** — Gemini (default/free), OpenRouter (100+ models), Anthropic, OpenAI, DeepSeek, or local via Ollama/LM Studio
 - **Analysis caching** — coaching results stored in the database; clicking the same game twice costs $0
 - **Queue management** — LLM calls processed sequentially with queue position feedback, 429 rate-limit handling, and exponential backoff
@@ -171,6 +173,8 @@ Key modules:
 - [x] Dolphin replay playback with clickable timestamps
 - [x] 31 themes (5 base + 26 character skins)
 - [x] Parallel import pipeline with queue management
+- [x] Dynamic model fetching from all LLM providers
+- [x] Best Moments / Worst Misplays timestamp highlights in coaching
 - [ ] Complete character card art (all 26 characters)
 - [ ] Dolphin HUD mode (wrap around the emulator window)
 - [ ] Practice plan tracking with progress indicators

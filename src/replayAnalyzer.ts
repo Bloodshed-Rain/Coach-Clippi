@@ -114,7 +114,7 @@ export function setAnalysisGenerator(fn: AnalysisGenerator): void {
 
 // ── Helpers to extract DB params from game data ─────────────────────
 
-function buildInsertGameParams(
+export function buildInsertGameParams(
   gameResult: AnalysisGeneratorResult["gameResult"],
   targetPlayer: string,
   filePath: string,
@@ -160,7 +160,7 @@ function buildInsertGameParams(
   };
 }
 
-function buildInsertGameStatsParams(
+export function buildInsertGameStatsParams(
   gameId: number,
   gameResult: AnalysisGeneratorResult["gameResult"],
   targetPlayer: string,
