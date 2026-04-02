@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import magiLogo from "../assets/magi-logo.png";
+import magiLogo from "../assets/magi-controller.png";
 import { useGlobalStore } from "../stores/useGlobalStore";
 import { ColorMode, THEMES, applyTheme } from "../themes";
 

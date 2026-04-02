@@ -425,7 +425,7 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
               key={game.id}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.03, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ delay: Math.min(index * 0.02, 0.12), duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             >
               <div className={`game-card ${isExpanded ? "expanded" : ""} ${game.result === "win" ? "game-card-win" : "game-card-loss"}`}>
                 <div className="game-card-header" role="button" tabIndex={0} onClick={() => handleGameClick(game)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleGameClick(game); } }}>

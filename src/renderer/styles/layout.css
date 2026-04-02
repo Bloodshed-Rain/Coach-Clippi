@@ -7,9 +7,10 @@
   position: relative;
 }
 
-/* ── Sidebar — 64px icon rail ────────────────────────────────── */
+/* ── Sidebar — fixed 64px icon rail ──────────────────────────── */
 
 .sidebar {
+  position: relative;
   width: var(--rail-width);
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
@@ -20,38 +21,36 @@
   -webkit-app-region: drag;
   z-index: 10;
   flex-shrink: 0;
-  transition: width 0.3s var(--ease-spring);
-  overflow: visible;
-}
-.sidebar:hover {
-  width: 160px;
-}
-.sidebar:hover .nav-item {
-  width: 100%;
-  justify-content: flex-start;
-  padding: 0 14px;
-  gap: 10px;
-}
-.sidebar:hover .nav-label {
-  position: static;
-  transform: none;
-  opacity: 1;
-  background: none;
-  box-shadow: none;
-  padding: 0;
-  font-size: 11px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.5px;
-  white-space: nowrap;
+  overflow: hidden;
 }
 
-/* ── Navigation — icon-only, 40x40 squares ───────────────────── */
+/* ── Sidebar Sword (vertical background emblem) ──────────────── */
+
+.sidebar-sword {
+  position: absolute;
+  left: 65%;
+  top: 70%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  width: 75vh;
+  height: auto;
+  opacity: 0.18;
+  filter: grayscale(0.5);
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 0.4s ease, filter 0.4s ease;
+}
+.sidebar:hover .sidebar-sword {
+  opacity: 0.14;
+  filter: grayscale(0.2);
+}
+
+/* ── Navigation — icon-only, 44x44 squares ───────────────────── */
 
 .sidebar-nav {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   padding: 16px 0 12px;
   flex: 1;
   -webkit-app-region: no-drag;
@@ -62,8 +61,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: none;
   border-radius: var(--radius-md);
@@ -73,7 +72,7 @@
   font-size: 13px;
   font-weight: 500;
   font-family: var(--font-sans);
-  transition: color 0.5s ease, background-color 0.5s ease, width 0.3s var(--ease-spring), justify-content 0.3s ease, padding 0.3s ease;
+  transition: color 0.15s ease, background-color 0.15s ease;
   overflow: hidden;
 }
 
@@ -85,26 +84,19 @@
 .nav-item.active {
   background: var(--sidebar-active-bg);
   color: var(--accent);
+  box-shadow: inset 0 0 12px -6px rgba(var(--accent-rgb), 0.15);
 }
 
-/* Active indicator — left bar */
+/* Active indicator — steady left bar */
 .nav-item.active::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 25%;
-  height: 50%;
-  width: 3px;
-  border-radius: 0 2px 2px 0;
+  top: 20%;
+  height: 60%;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
   background: var(--accent);
-  animation: nav-pulse 2s ease-in-out infinite;
-}
-
-.nav-item.active::after { display: none; }
-
-@keyframes nav-pulse {
-  0%, 100% { height: 50%; opacity: 1; box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.3); }
-  50% { height: 65%; opacity: 0.8; box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.15); }
 }
 
 .nav-item:focus-visible {
@@ -153,42 +145,6 @@
 .nav-item:hover .nav-icon { opacity: 0.85; }
 .nav-item.active .nav-icon { opacity: 1; }
 
-/* ── Sidebar Footer ──────────────────────────────────────────── */
-
-.sidebar-footer {
-  padding: 0 0 12px;
-  -webkit-app-region: no-drag;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
-/* ── Theme Toggle ────────────────────────────────────────────── */
-
-.theme-toggle {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: var(--radius-md);
-  background: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-
-.theme-toggle:hover {
-  color: var(--text);
-  background: var(--sidebar-hover);
-}
-
-.theme-toggle:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 /* ── Main Content ─────────────────────────────────────────────── */
 
 .main-content {
@@ -198,7 +154,7 @@
   z-index: 1;
   position: relative;
   background: var(--bg);
-  transition: background-color 0.5s ease;
+  transition: background-color 0.15s ease;
 }
 
 /* Subtle dot-grid background texture */

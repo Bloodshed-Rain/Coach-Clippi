@@ -315,7 +315,7 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
           key={m.key}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 + index * 0.03, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ delay: Math.min(index * 0.02, 0.12), duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="card">
             <ChartHeader
@@ -388,7 +388,7 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
                 key={s.stage}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.05, duration: 0.3 }}
+                transition={{ delay: Math.min(index * 0.02, 0.1), duration: 0.2 }}
               >
                 <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

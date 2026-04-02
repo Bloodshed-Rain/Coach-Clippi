@@ -16,7 +16,6 @@ interface CommandItem {
 
 interface CommandPaletteProps {
   navigateTo: (page: Page) => void;
-  onToggleTheme: () => void;
   onImport: () => void;
 }
 
@@ -91,7 +90,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 // ── Component ────────────────────────────────────────────────────────
 
-export function CommandPalette({ navigateTo, onToggleTheme, onImport }: CommandPaletteProps) {
+export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -203,8 +202,8 @@ export function CommandPalette({ navigateTo, onToggleTheme, onImport }: CommandP
   const actionCommands: CommandItem[] = useMemo(() => [
     { id: "action-import", label: "Import Replays", category: "action", icon: <ActionIcon />, action: () => { onImport(); close(); } },
     { id: "action-clear", label: "Clear All Data", category: "action", icon: <ActionIcon />, action: () => { if (confirm("This will delete all imported game data. Are you sure?")) { window.clippi.clearAllGames(); } close(); } },
-    { id: "action-theme", label: "Toggle Theme", category: "action", icon: <ActionIcon />, action: () => { onToggleTheme(); close(); } },
-  ], [onToggleTheme, onImport, close]);
+    { id: "action-settings", label: "Open Settings", category: "action", icon: <ActionIcon />, action: () => { navigateTo("settings"); close(); } },
+  ], [navigateTo, onImport, close]);
 
   const opponentCommands: CommandItem[] = useMemo(() =>
     opponents.map((opp) => ({

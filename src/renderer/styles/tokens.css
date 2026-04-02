@@ -103,7 +103,7 @@
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
 
   /* Layout */
-  --rail-width: 64px;
+  --rail-width: 80px;
 
   /* Sidebar — darker green-charcoal to create depth channel */
   --sidebar-bg: #131916;
