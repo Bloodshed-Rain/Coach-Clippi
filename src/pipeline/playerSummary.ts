@@ -18,6 +18,9 @@ import {
   SHIELD_BREAK_FLY, FULL_SHIELD_SIZE, SHIELD_POKE_THRESHOLD,
 } from "./helpers.js";
 import { detectSignatureStats } from "./signatureStats.js";
+import {
+  getCharacterData, computeComboDIScore, computeSurvivalDIScore, getComboGameStrength,
+} from "./characterData.js";
 
 // ── Ken combo detection (Marth only) ─────────────────────────────────
 
@@ -101,6 +104,7 @@ export function buildPlayerSummary(
   lastFrame: number,
   stageId: number,
   opponentIndex: number,
+  opponentCharacterId: number | undefined,
 ): PlayerSummary {
   const tag = getPlayerTag(player);
   const connectCode = player.connectCode || "";
@@ -636,7 +640,7 @@ export function buildPlayerSummary(
     shieldPokeRate: totalShieldHits > 0 ? ratio(shieldPokeHits, totalShieldHits) : 0,
   };
 
-  // ── DI quality estimation ─────────────────────────────────────────
+  // ── DI quality estimation (matchup-aware) ─────────────────────────
   // conversion.playerIndex = VICTIM. So:
   //   conversions where I am the victim: c.playerIndex === playerIndex
   //   conversions where opponent is the victim: c.playerIndex !== playerIndex (= myConversions)
@@ -660,52 +664,41 @@ export function buildPlayerSummary(
       ) / 100
     : 0;
 
-  // comboDIScore: how effectively this player escapes combos via DI.
-  // Heuristic: compare received combo length against dealt combo length.
-  // If you receive shorter combos than you deal, your DI is relatively good.
-  // Baseline expectation: avgComboLengthReceived ~ avgComboLengthDealt.
-  // Score 0.5 = average DI, >0.5 = good DI (escaping early), <0.5 = poor DI.
-  // Uses a sigmoid-like mapping centered on the ratio.
+  // Character-aware DI scoring using physics data and opponent combo strength
+  const opponentCharacter = getCharacterName(opponentCharacterId);
+  const playerPhysics = getCharacterData(character);
+  const opponentStrength = getComboGameStrength(opponentCharacter);
+
   let comboDIScore = 0.5;
-  if (avgComboLengthDealt > 0 && avgComboLengthReceived > 0) {
-    // ratio < 1 = you escape faster than opponent (good DI)
-    // ratio > 1 = you get comboed harder than opponent (bad DI)
-    const comboRatio = avgComboLengthReceived / avgComboLengthDealt;
-    // Map: ratio 0.5 → 1.0, ratio 1.0 → 0.5, ratio 2.0 → 0.0
-    // Using clamped linear: score = 1 - (comboRatio - 0.5) / 1.5
-    comboDIScore = Math.max(0, Math.min(1,
-      Math.round((1 - (comboRatio - 0.5) / 1.5) * 100) / 100,
-    ));
+  if (avgComboLengthReceived > 0) {
+    comboDIScore = computeComboDIScore(character, avgComboLengthReceived, opponentCharacter);
   } else if (conversionsReceived.length === 0 && myConversionsWithMoves.length > 0) {
-    // Never got comboed — perfect DI score
     comboDIScore = 1;
   }
 
-  // survivalDIScore: how long the player survives before dying.
-  // Higher average death percent relative to a baseline = better survival DI.
-  // Baseline depends on character weight class, but we use a universal heuristic:
-  //   - Typical death percent range: 60% (very light / poor DI) to 160% (heavy / great DI)
-  //   - Map avgDeathPercent into 0..1 within that range
-  // Only counts actual deaths (avgDeathPercent > 0 means deaths occurred).
   let survivalDIScore = 0.5;
   if (avgDeathPercent > 0) {
-    const DEATH_PCT_LOW = 60;   // poor survival baseline
-    const DEATH_PCT_HIGH = 160; // excellent survival baseline
-    survivalDIScore = Math.max(0, Math.min(1,
-      Math.round(
-        ((avgDeathPercent - DEATH_PCT_LOW) / (DEATH_PCT_HIGH - DEATH_PCT_LOW)) * 100,
-      ) / 100,
-    ));
+    survivalDIScore = computeSurvivalDIScore(character, avgDeathPercent);
   } else if (deaths.length === 0) {
-    // Never died — perfect survival DI
     survivalDIScore = 1;
   }
 
+  // Compute adjusted expected combo length for context
+  const rawExpected = playerPhysics?.expectedComboLength[0] ?? 3.0;
+  const expectedComboLength = Math.round(rawExpected * opponentStrength * 100) / 100;
+
   const diQuality = {
-    survivalDIScore,
     comboDIScore,
+    survivalDIScore,
     avgComboLengthReceived,
     avgComboLengthDealt,
+    expectedComboLength,
+    comboSusceptibility: (playerPhysics?.comboSusceptibility ?? 3) as 1 | 2 | 3 | 4 | 5,
+    expectedDeathPercentRange: {
+      low: playerPhysics?.expectedKillPercent[0] ?? 70,
+      high: playerPhysics?.expectedKillPercent[1] ?? 150,
+    },
+    opponentComboStrength: opponentStrength,
   };
 
   return {

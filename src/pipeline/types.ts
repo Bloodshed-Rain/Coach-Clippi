@@ -55,12 +55,24 @@ export interface PlayerSummary {
     shieldBreaks: number;
     shieldPokeRate: number;
   };
-  /** DI quality estimation based on conversion and stock data */
+  /** DI quality estimation — matchup-aware, character-adjusted */
   diQuality: {
-    survivalDIScore: number;
+    /** 0-1: combo escape quality relative to character baseline vs this opponent. 0.5 = expected. */
     comboDIScore: number;
+    /** 0-1: survival relative to character-specific expected death percent range. 0.5 = expected. */
+    survivalDIScore: number;
+    /** Average moves in conversions received */
     avgComboLengthReceived: number;
+    /** Average moves in conversions dealt */
     avgComboLengthDealt: number;
+    /** Expected combo length baseline adjusted for opponent combo strength */
+    expectedComboLength: number;
+    /** Character's combo susceptibility tier (1=very low, 5=extreme combo food) */
+    comboSusceptibility: 1 | 2 | 3 | 4 | 5;
+    /** Character-specific expected death percent range */
+    expectedDeathPercentRange: { low: number; high: number };
+    /** Opponent's combo game strength multiplier (>1 = strong combos) */
+    opponentComboStrength: number;
   };
   /** Character-specific signature stats. Null for unsupported characters. */
   signatureStats: CharacterSignatureStats | null;

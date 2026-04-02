@@ -251,7 +251,8 @@ function runMigrations(db: Database.Database): void {
   });
 
   migrate();
-  console.log(`[db] Migrations complete. Schema version: ${pending[pending.length - 1]!.version}`);
+  const lastPending = pending[pending.length - 1];
+  if (lastPending) console.log(`[db] Migrations complete. Schema version: ${lastPending.version}`);
 }
 
 // ── Database instance ────────────────────────────────────────────────
@@ -625,6 +626,31 @@ export function getGameById(gameId: number): { id: number; replay_path: string; 
   `).get(gameId) as { id: number; replay_path: string; player_tag: string } | undefined;
 }
 
+/** Row shape returned by the deep insights SQL query */
+interface DeepInsightsRow {
+  neutral_win_rate: number;
+  l_cancel_rate: number;
+  conversion_rate: number;
+  openings_per_kill: number;
+  avg_damage_per_opening: number;
+  recovery_success_rate: number;
+  edgeguard_success_rate: number;
+  power_shield_count: number;
+  wavedash_count: number;
+  shield_pressure_sequences: number;
+  shield_pressure_avg_damage: number;
+  shield_poke_rate: number;
+  di_survival_score: number;
+  di_combo_score: number;
+  avg_death_percent: number;
+  total_damage_dealt: number;
+  ledge_entropy: number;
+  knockdown_entropy: number;
+  shield_pressure_entropy: number;
+  duration_seconds: number;
+  is_win: number;
+}
+
 /** Deep insights data for AI pattern recognition */
 export interface DeepInsightsData {
   correlations: { metricA: string; metricB: string; coefficient: number }[];
@@ -638,30 +664,56 @@ export interface DeepInsightsData {
 export function getDeepInsightsData(): DeepInsightsData {
   const db = getDb();
   
-  // 1. Fetch raw data for correlation calculation
+  // 1. Fetch raw data — pull all meaningful stat columns for pairwise correlation
   const rows = db.prepare(`
-    SELECT 
-      gs.neutral_win_rate, gs.l_cancel_rate, gs.conversion_rate, 
+    SELECT
+      gs.neutral_win_rate, gs.l_cancel_rate, gs.conversion_rate,
       gs.openings_per_kill, gs.avg_damage_per_opening,
       gs.recovery_success_rate, gs.edgeguard_success_rate,
+      gs.power_shield_count, gs.wavedash_count,
+      gs.shield_pressure_sequences, gs.shield_pressure_avg_damage, gs.shield_poke_rate,
+      gs.di_survival_score, gs.di_combo_score,
+      gs.avg_death_percent, gs.total_damage_dealt,
+      gs.ledge_entropy, gs.knockdown_entropy, gs.shield_pressure_entropy,
       g.duration_seconds,
       CASE WHEN g.result = 'win' THEN 1 ELSE 0 END as is_win
     FROM game_stats gs
     JOIN games g ON gs.game_id = g.id
-  `).all() as any[];
+  `).all() as DeepInsightsRow[];
 
   if (rows.length < 5) {
     throw new Error("Insufficient data for deep pattern analysis (minimum 5 games required).");
   }
 
-  const metrics = [
-    "neutral_win_rate", "l_cancel_rate", "conversion_rate", 
-    "openings_per_kill", "avg_damage_per_opening", 
-    "recovery_success_rate", "edgeguard_success_rate",
-    "duration_seconds", "is_win"
+  // Metric definitions: typed key → human-readable label
+  const metricDefs: { key: keyof DeepInsightsRow; label: string }[] = [
+    { key: "neutral_win_rate", label: "Neutral Win Rate" },
+    { key: "l_cancel_rate", label: "L-Cancel Rate" },
+    { key: "conversion_rate", label: "Conversion Rate" },
+    { key: "openings_per_kill", label: "Openings/Kill" },
+    { key: "avg_damage_per_opening", label: "Avg Damage/Opening" },
+    { key: "recovery_success_rate", label: "Recovery Success" },
+    { key: "edgeguard_success_rate", label: "Edgeguard Success" },
+    { key: "power_shield_count", label: "Power Shields" },
+    { key: "wavedash_count", label: "Wavedash Count" },
+    { key: "shield_pressure_sequences", label: "Shield Pressure Sequences" },
+    { key: "shield_pressure_avg_damage", label: "Shield Pressure Damage" },
+    { key: "shield_poke_rate", label: "Shield Poke Rate" },
+    { key: "di_survival_score", label: "Survival DI" },
+    { key: "di_combo_score", label: "Combo DI" },
+    { key: "avg_death_percent", label: "Avg Death %" },
+    { key: "total_damage_dealt", label: "Total Damage Dealt" },
+    { key: "ledge_entropy", label: "Ledge Option Entropy" },
+    { key: "knockdown_entropy", label: "Knockdown Option Entropy" },
+    { key: "shield_pressure_entropy", label: "Shield Pressure Entropy" },
+    { key: "duration_seconds", label: "Game Duration" },
+    { key: "is_win", label: "Win/Loss" },
   ];
 
-  const calculatePearson = (data: any[], keyA: string, keyB: string): number => {
+  const metricKeys = metricDefs.map(m => m.key);
+  const keyToLabel = new Map(metricDefs.map(m => [m.key, m.label]));
+
+  const calculatePearson = (data: DeepInsightsRow[], keyA: keyof DeepInsightsRow, keyB: keyof DeepInsightsRow): number => {
     const n = data.length;
     let sumA = 0, sumB = 0, sumAB = 0, sumA2 = 0, sumB2 = 0;
     for (const row of data) {
@@ -678,20 +730,41 @@ export function getDeepInsightsData(): DeepInsightsData {
     return den === 0 ? 0 : num / den;
   };
 
-  const correlations = [
-    { metricA: "Game Duration", metricB: "L-Cancel Rate", coefficient: calculatePearson(rows, "duration_seconds", "l_cancel_rate") },
-    { metricA: "Neutral Win Rate", metricB: "Win/Loss", coefficient: calculatePearson(rows, "neutral_win_rate", "is_win") },
-    { metricA: "Conversion Rate", metricB: "Win/Loss", coefficient: calculatePearson(rows, "conversion_rate", "is_win") },
-    { metricA: "Openings/Kill", metricB: "Win/Loss", coefficient: calculatePearson(rows, "openings_per_kill", "is_win") },
-    { metricA: "Game Duration", metricB: "Neutral Win Rate", coefficient: calculatePearson(rows, "duration_seconds", "neutral_win_rate") },
-  ];
+  // Run ALL pairwise correlations, keep those with |r| >= 0.15 (weak+ signal)
+  const allCorrelations: { metricA: string; metricB: string; coefficient: number }[] = [];
+  for (let i = 0; i < metricDefs.length; i++) {
+    const defA = metricDefs[i];
+    if (!defA) continue;
+    for (let j = i + 1; j < metricDefs.length; j++) {
+      const defB = metricDefs[j];
+      if (!defB) continue;
+      const r = calculatePearson(rows, defA.key, defB.key);
+      if (Math.abs(r) >= 0.15) {
+        allCorrelations.push({
+          metricA: defA.label,
+          metricB: defB.label,
+          coefficient: Math.round(r * 10000) / 10000,
+        });
+      }
+    }
+  }
+
+  // Sort by absolute strength descending — strongest relationships first
+  allCorrelations.sort((a, b) => Math.abs(b.coefficient) - Math.abs(a.coefficient));
+
+  // Cap at 25 to keep prompt size reasonable
+  const correlations = allCorrelations.slice(0, 25);
 
   // 2. Situational: Short vs Long games (Fatigue check)
-  const medianDuration = rows.sort((a, b) => a.duration_seconds - b.duration_seconds)[Math.floor(rows.length / 2)].duration_seconds;
+  const sorted = [...rows].sort((a, b) => a.duration_seconds - b.duration_seconds);
+  const medianRow = sorted[Math.floor(sorted.length / 2)];
+  if (!medianRow) throw new Error("No rows for median calculation");
+  const medianDuration = medianRow.duration_seconds;
   const shortGames = rows.filter(r => r.duration_seconds <= medianDuration);
   const longGames = rows.filter(r => r.duration_seconds > medianDuration);
 
-  const avg = (arr: any[], key: string) => arr.reduce((s, r) => s + r[key], 0) / (arr.length || 1);
+  const avg = (arr: DeepInsightsRow[], key: keyof DeepInsightsRow) =>
+    arr.reduce((s, r) => s + r[key], 0) / (arr.length || 1);
 
   const situationalAverages = [
     {
@@ -700,6 +773,9 @@ export function getDeepInsightsData(): DeepInsightsData {
         lCancelRate: avg(shortGames, "l_cancel_rate"),
         neutralWinRate: avg(shortGames, "neutral_win_rate"),
         conversionRate: avg(shortGames, "conversion_rate"),
+        edgeguardSuccess: avg(shortGames, "edgeguard_success_rate"),
+        comboDI: avg(shortGames, "di_combo_score"),
+        survivalDI: avg(shortGames, "di_survival_score"),
       }
     },
     {
@@ -708,6 +784,9 @@ export function getDeepInsightsData(): DeepInsightsData {
         lCancelRate: avg(longGames, "l_cancel_rate"),
         neutralWinRate: avg(longGames, "neutral_win_rate"),
         conversionRate: avg(longGames, "conversion_rate"),
+        edgeguardSuccess: avg(longGames, "edgeguard_success_rate"),
+        comboDI: avg(longGames, "di_combo_score"),
+        survivalDI: avg(longGames, "di_survival_score"),
       }
     }
   ];
@@ -717,11 +796,10 @@ export function getDeepInsightsData(): DeepInsightsData {
   const losses = rows.filter(r => r.is_win === 0);
 
   const winLossDiffs: Record<string, number> = {};
-  for (const m of metrics) {
-    if (m === "is_win") continue;
-    const winAvg = avg(wins, m);
-    const lossAvg = avg(losses, m);
-    winLossDiffs[m] = winAvg - lossAvg;
+  for (const key of metricKeys) {
+    if (key === "is_win") continue;
+    const label = keyToLabel.get(key);
+    if (label) winLossDiffs[label] = Math.round((avg(wins, key) - avg(losses, key)) * 10000) / 10000;
   }
 
   return { correlations, situationalAverages, winLossDiffs };
@@ -1027,20 +1105,23 @@ export function detectSets(gapMinutes: number = 15): DetectedSet[] {
 
   const gapMs = gapMinutes * 60 * 1000;
   const sets: DetectedSet[] = [];
+  const firstGame = games[0];
+  if (!firstGame) return [];
   let currentSet: DetectedSet = {
-    opponentTag: games[0]!.opponent_tag,
-    opponentCharacter: games[0]!.opponent_character,
-    gameIds: [games[0]!.id],
-    sessionId: games[0]!.session_id,
-    startedAt: games[0]!.played_at,
-    wins: games[0]!.result === "win" ? 1 : 0,
-    losses: games[0]!.result === "loss" ? 1 : 0,
-    draws: games[0]!.result === "draw" ? 1 : 0,
+    opponentTag: firstGame.opponent_tag,
+    opponentCharacter: firstGame.opponent_character,
+    gameIds: [firstGame.id],
+    sessionId: firstGame.session_id,
+    startedAt: firstGame.played_at,
+    wins: firstGame.result === "win" ? 1 : 0,
+    losses: firstGame.result === "loss" ? 1 : 0,
+    draws: firstGame.result === "draw" ? 1 : 0,
   };
 
   for (let i = 1; i < games.length; i++) {
-    const game = games[i]!;
-    const prev = games[i - 1]!;
+    const game = games[i];
+    const prev = games[i - 1];
+    if (!game || !prev) continue;
     const prevTime = new Date(prev.played_at).getTime();
     const currTime = new Date(game.played_at).getTime();
     const sameOpponent =
@@ -1459,7 +1540,7 @@ export function getPlayerHistory(targetPlayer: string, recentLimit: number = 10)
 
   let currentStreak: PlayerHistory["currentStreak"] = null;
   if (recentResults.length > 0) {
-    const firstResult = recentResults[0]!.result;
+    const firstResult = recentResults[0]?.result;
     if (firstResult === "win" || firstResult === "loss") {
       let count = 0;
       for (const row of recentResults) {

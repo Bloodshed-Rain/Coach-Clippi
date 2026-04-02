@@ -12,7 +12,7 @@ Import your `.slp` files, get personalized coaching analysis from an LLM, track 
 
 **Analyze at any scope.** Get coaching for a single game, an entire set, a character matchup, a stage, a specific opponent, or your full career. Every scope assembles the right stats and asks the right questions.
 
-**Deep Discovery.** MAGI mines your entire game history for hidden patterns — stat correlations, situational win conditions, and non-obvious tendencies you'd never spot manually. Requires 5+ imported games.
+**Deep Discovery.** MAGI mines your entire game history for hidden patterns — running full pairwise correlations across 21 metrics to surface non-obvious relationships, situational win conditions, and tendencies you'd never spot manually. Requires 5+ imported games.
 
 **Track your trajectory.** Every game you import gets stored locally. Over time, MAGI shows you trends: is your neutral game improving? Are your ledge options getting predictable? Are you performing worse in game 3 of a set? Line charts, rolling averages, and AI commentary on your trajectory.
 
@@ -26,7 +26,7 @@ Import your `.slp` files, get personalized coaching analysis from an LLM, track 
 
 ### AI Coaching
 - **Multi-scope analysis** — coaching for games, sets, characters, stages, opponents, or your full career
-- **Deep Discovery** — AI pattern mining across your entire history for hidden insights and win conditions
+- **Deep Discovery** — full pairwise correlation matrix (21 metrics, top 25 by strength) with AI pattern mining for hidden insights and win conditions
 - **Streaming AI coaching** — real-time text generation with blinking cursor, no waiting for a full response
 - **Player history context** — coaching references your historical trends, improvement areas, and recurring habits
 - **Best Moments / Worst Misplays** — coaching highlights your cleanest plays and costliest mistakes with clickable timestamps
@@ -40,7 +40,7 @@ Import your `.slp` files, get personalized coaching analysis from an LLM, track 
 - **Per-game stats** — neutral win rate, L-cancel rate, openings per kill, damage per opening, conversion rate, recovery success, death percent, and more
 - **26-character signature stats** — character-specific tech tracking (Fox waveshines, Falco pillars, Marth Ken combos, Sheik tech chases, Falcon knees, Puff rests, Peach turnips, and more)
 - **Shield pressure tracking** — shield damage, shield breaks, and shield poke rate
-- **DI quality estimation** — survival DI and combo DI scoring
+- **DI quality estimation** — matchup-aware combo DI and survival DI scoring using character physics (weight, fall speed, combo susceptibility) and opponent combo game strength
 - **Player archetype detection** — six-axis radar (Neutral, Punish, Tech Skill, Defense, Edgeguard, Consistency) with dynamic archetype labels
 - **Habit entropy analysis** — detects predictable patterns in recovery, ledge, tech roll, shield drop, and neutral DI options
 
@@ -154,7 +154,7 @@ Three Electron processes communicate via IPC:
 - **Renderer** (`src/renderer/`) — React SPA with Vite, pages and components
 
 Key modules:
-- `src/pipeline/` — replay parsing, stat computation, habit detection, signature stats, prompt assembly
+- `src/pipeline/` — replay parsing, stat computation, habit detection, signature stats, character physics data, prompt assembly
 - `src/llm.ts` — multi-provider LLM abstraction with streaming, retry, and rate-limit handling
 - `src/db.ts` — SQLite schema, migrations, queries, trend/matchup/opponent data
 - `src/importer.ts` — parallel batch import with SHA-256 dedup and progress reporting

@@ -78,10 +78,25 @@ For each game in the set, provide:
    - Edgeguard success and strategy
 
 7. **Defense & Recovery Assessment**
-   - DI quality: use diQuality.comboDIScore (0-1 scale, higher = better combo escape DI)
-     and diQuality.survivalDIScore (0-1 scale, higher = surviving to higher percents).
-     Compare avgComboLengthReceived vs avgComboLengthDealt for context — if the player
-     receives longer combos than they deal, their DI needs work.
+   - DI quality scores are CHARACTER-AWARE and MATCHUP-AWARE:
+     * comboDIScore (0-1): measures combo escape quality relative to what's expected
+       for this player's character against this specific opponent. 0.5 = expected baseline.
+       The score accounts for the opponent's combo game strength (opponentComboStrength
+       multiplier) and the player's character combo susceptibility (comboSusceptibility,
+       1-5 scale where 5 = extreme combo food like Fox/Falcon).
+       Compare avgComboLengthReceived vs expectedComboLength for raw context.
+     * survivalDIScore (0-1): measures survival relative to this character's expected
+       death percent range (expectedDeathPercentRange). 0.5 = dying at their midpoint.
+       A Puff dying at 90% (score ~0.55) is normal; a Bowser dying at 90% (score ~0.12)
+       is catastrophic.
+   - IMPORTANT CAVEATS — communicate these to the player when relevant:
+     * These scores CANNOT distinguish good DI from dropped combos. A high comboDIScore
+       may mean the opponent dropped combos, not that DI was excellent. Cross-reference
+       with the opponent's conversion rate and openings per kill.
+     * Actual stick inputs (DI direction, SDI) are not observable from this data.
+       These are statistical estimates based on combo length and death percent outcomes.
+     * Small sample sizes (fewer than ~5 conversions received) make comboDIScore
+       unreliable. Note this when applicable.
    - Recovery patterns and predictability
    - Ledge option distribution and entropy
    - Tech option distribution when knocked down
@@ -330,10 +345,11 @@ You have been provided with:
 3. The delta between winning games and losing games.
 
 CORE OBJECTIVES:
-- Identify "The Fatigue Factor": Does tech skill or neutral success drop as games get longer?
-- Identify "The Determinant": Which stat is MOST correlated with winning? Is it L-canceling, or is it actually something else like Edgeguarding?
+- Identify "The Fatigue Factor": Does tech skill, DI quality, or neutral success drop as games get longer? Check the situational split for drift.
+- Identify "The Determinant": Which stat is MOST correlated with winning? The correlation matrix is full pairwise across 20+ metrics — look beyond the obvious (neutral win rate) for surprising win-condition drivers like edgeguarding, DI, or shield pressure.
+- Identify "The Hidden Link": Find the strongest non-obvious correlation between two metrics that aren't commonly associated. Why might they be linked? What does it reveal about the player's style?
 - Identify "The Pressure Leak": Does the player perform differently in high-stakes situations (simulated by statistical anomalies)?
-- Provide 3 "Priceless Insights" that are not obvious from a simple win/loss count.
+- Provide 3 "Priceless Insights" that are not obvious from a simple win/loss count. The expanded correlation data gives you far more signal — use it.
 
 TONE:
 Analytical, visionary, slightly "Matrix-esque" but still focused on practical Melee. Use terminology like "statistical leak," "performance drift," and "win-condition correlation."`;
@@ -462,7 +478,8 @@ export function assembleUserPrompt(
   targetPlayerTag: string,
   playerHistory?: PlayerHistory | undefined,
 ): string {
-  const first = gameResults[0]!;
+  const first = gameResults[0];
+  if (!first) throw new Error("assembleUserPrompt called with empty gameResults");
   const p1 = first.gameSummary.players[0];
   const p2 = first.gameSummary.players[1];
 
