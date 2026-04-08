@@ -160,9 +160,10 @@ out/
 test-replays/
 *.slp
 
-# User config (contains API keys)
+# Secrets (never commit)
 .coach-clippi/
 key.env
+build.env
 
 # Native module rebuilds
 build/

@@ -132,14 +132,14 @@ const APP_VERSION: string = (() => {
 
 /**
  * HMAC shared secret for proxy request signing.
- * Must match the HMAC_SECRET set on the Cloudflare Worker via `wrangler secret put HMAC_SECRET`.
+ * Must match the HMAC_SECRET set on the Cloudflare Worker.
  *
- * This lives in the binary — a determined reverse-engineer CAN extract it.
- * But combined with rate limiting and model restriction, it prevents casual abuse.
- * Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+ * Loaded from MAGI_HMAC_SECRET env var (set in key.env for dev, injected
+ * at build time for releases). Never hardcoded in source — the repo is public.
+ * A determined reverse-engineer CAN extract it from the binary, but combined
+ * with rate limiting and model restriction it prevents casual abuse.
  */
-const HMAC_SECRET: string =
-  "353e54f8ff2e861f104c02bfc778b3375c9859e0a1e80112a307a3208e0a6643";
+const HMAC_SECRET: string = process.env["MAGI_HMAC_SECRET"] ?? "";
 
 /** Sign a request body with HMAC-SHA256 for the proxy */
 async function signRequest(body: string): Promise<{ timestamp: string; signature: string }> {

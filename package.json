@@ -47,6 +47,10 @@
       {
         "from": "build/icon.png",
         "to": "."
+      },
+      {
+        "from": "build.env",
+        "to": "."
       }
     ],
     "win": {

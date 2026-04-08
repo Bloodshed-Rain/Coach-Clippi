@@ -2,10 +2,12 @@ import { app, BrowserWindow } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 
-// Load key.env from project root (dev only — production keys live on the proxy server)
+// Load env files: build.env (HMAC secret, bundled in releases) + key.env (dev only)
 function loadEnvFile(): void {
   const candidates = [
-    path.join(__dirname, "../../key.env"),                 // dev
+    path.join(process.resourcesPath ?? "", "build.env"),   // production (HMAC secret)
+    path.join(__dirname, "../../build.env"),                // dev fallback
+    path.join(__dirname, "../../key.env"),                  // dev (provider keys)
   ];
   for (const envPath of candidates) {
     if (fs.existsSync(envPath)) {
@@ -19,7 +21,7 @@ function loadEnvFile(): void {
           if (!process.env[key]) process.env[key] = value;
         }
       }
-      break;
+      // Don't break — load all matching env files
     }
   }
 }
