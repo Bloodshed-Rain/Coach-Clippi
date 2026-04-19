@@ -26,6 +26,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { Win98Shell } from "./components/Win98Shell";
 import { LiquidShell, type NavItem as LiquidNavItem } from "./components/LiquidShell";
 import { TweaksPanel } from "./components/TweaksPanel";
+import { GameDrawer } from "./components/GameDrawer";
 import { useGlobalStore, type Density } from "./stores/useGlobalStore";
 
 type Page = "dashboard" | "sessions" | "coaching" | "library" | "trends" | "profile" | "characters" | "settings";
@@ -171,6 +172,7 @@ export function App() {
         {routes}
       </LiquidShell>
       <TweaksPanel />
+      <GameDrawer />
     </>
   );
 }
