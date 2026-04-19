@@ -10,6 +10,7 @@ import { Tooltip } from "../components/Tooltip";
 import { useRecentGames, useOverallRecord, useDashboardHighlights, useRecentHighlights } from "../hooks/queries";
 import { HighlightCards } from "../components/HighlightCards";
 import { formatGameDate } from "../hooks";
+import { useGlobalStore } from "../stores/useGlobalStore";
 
 /** Returns a CSS color variable based on thresholds: good (green), ok (yellow), bad (red) */
 function statColor(value: number, goodAbove: number, okAbove?: number): string {
@@ -43,7 +44,11 @@ function TrendArrow({ delta, invert }: { delta: number; invert?: boolean }) {
   const declining = invert ? delta > threshold : delta < -threshold;
 
   if (!improving && !declining) {
-    return <span className="trend-arrow trend-flat" title="Stable">&mdash;</span>;
+    return (
+      <span className="trend-arrow trend-flat" title="Stable">
+        &mdash;
+      </span>
+    );
   }
 
   return improving ? (
@@ -78,7 +83,9 @@ function PulseStat({ value, label, color, index, tip, delta, invertDelta }: Puls
       className="stat-box"
     >
       <div className="stat-value-row">
-        <span className="stat-value" style={{ color }}>{value}</span>
+        <span className="stat-value" style={{ color }}>
+          {value}
+        </span>
         {delta !== undefined && <TrendArrow delta={delta} invert={invertDelta} />}
       </div>
       {tip ? (
@@ -94,7 +101,14 @@ function PulseStat({ value, label, color, index, tip, delta, invertDelta }: Puls
 
 // ── Highlight Card ───────────────────────────────────────────────────
 
-function HighlightCard({ title, value, sub, color, icon, index }: {
+function HighlightCard({
+  title,
+  value,
+  sub,
+  color,
+  icon,
+  index,
+}: {
   title: string;
   value: string;
   sub: string;
@@ -109,10 +123,14 @@ function HighlightCard({ title, value, sub, color, icon, index }: {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 + index * 0.06, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
     >
-      <div className="dash-highlight-icon" style={{ color }}>{icon}</div>
+      <div className="dash-highlight-icon" style={{ color }}>
+        {icon}
+      </div>
       <div className="dash-highlight-body">
         <div className="dash-highlight-title">{title}</div>
-        <div className="dash-highlight-value" style={{ color }}>{value}</div>
+        <div className="dash-highlight-value" style={{ color }}>
+          {value}
+        </div>
         <div className="dash-highlight-sub">{sub}</div>
       </div>
     </motion.div>
@@ -123,12 +141,11 @@ function HighlightCard({ title, value, sub, color, icon, index }: {
 
 /** Build a compact stat summary for the LLM from recent games */
 function buildRecentSummary(games: RecentGame[]): string {
-  const wins = games.filter(g => g.result === "win").length;
-  const losses = games.filter(g => g.result === "loss").length;
-  const avg = (fn: (g: RecentGame) => number) =>
-    (games.reduce((s, g) => s + fn(g), 0) / games.length);
+  const wins = games.filter((g) => g.result === "win").length;
+  const losses = games.filter((g) => g.result === "loss").length;
+  const avg = (fn: (g: RecentGame) => number) => games.reduce((s, g) => s + fn(g), 0) / games.length;
 
-  const matchups = games.map(g => `${g.playerCharacter} vs ${g.opponentCharacter} (${g.result})`).join(", ");
+  const matchups = games.map((g) => `${g.playerCharacter} vs ${g.opponentCharacter} (${g.result})`).join(", ");
 
   return [
     `Last ${games.length} games summary:`,
@@ -136,14 +153,15 @@ function buildRecentSummary(games: RecentGame[]): string {
     `Matchups played: ${matchups}`,
     "",
     "Average stats across these games:",
-    `- Neutral win rate: ${(avg(g => g.neutralWinRate) * 100).toFixed(1)}%`,
-    `- L-cancel rate: ${(avg(g => g.lCancelRate) * 100).toFixed(1)}%`,
-    `- Edgeguard success: ${(avg(g => g.edgeguardSuccessRate) * 100).toFixed(1)}%`,
-    `- Openings per kill: ${avg(g => g.openingsPerKill).toFixed(1)}`,
+    `- Neutral win rate: ${(avg((g) => g.neutralWinRate) * 100).toFixed(1)}%`,
+    `- L-cancel rate: ${(avg((g) => g.lCancelRate) * 100).toFixed(1)}%`,
+    `- Edgeguard success: ${(avg((g) => g.edgeguardSuccessRate) * 100).toFixed(1)}%`,
+    `- Openings per kill: ${avg((g) => g.openingsPerKill).toFixed(1)}`,
     "",
     "Individual game results:",
-    ...games.map((g, i) =>
-      `  Game ${i + 1}: ${g.playerCharacter} vs ${g.opponentCharacter} (${g.opponentTag}) on ${g.stage} — ${g.result.toUpperCase()} ${g.playerFinalStocks}-${g.opponentFinalStocks} | Neutral ${(g.neutralWinRate * 100).toFixed(0)}%, L-Cancel ${(g.lCancelRate * 100).toFixed(0)}%, Edge ${(g.edgeguardSuccessRate * 100).toFixed(0)}%`
+    ...games.map(
+      (g, i) =>
+        `  Game ${i + 1}: ${g.playerCharacter} vs ${g.opponentCharacter} (${g.opponentTag}) on ${g.stage} — ${g.result.toUpperCase()} ${g.playerFinalStocks}-${g.opponentFinalStocks} | Neutral ${(g.neutralWinRate * 100).toFixed(0)}%, L-Cancel ${(g.lCancelRate * 100).toFixed(0)}%, Edge ${(g.edgeguardSuccessRate * 100).toFixed(0)}%`,
     ),
     "",
     "Give a concise dashboard summary: overall trajectory, what's working, what needs work, and one thing to focus on next session. Do NOT analyze each game individually — synthesize across all of them.",
@@ -158,7 +176,7 @@ function RecentInsight({ games }: { games: RecentGame[] }) {
   const runningRef = useRef(false);
 
   const recentFive = useMemo(() => games.slice(0, 5), [games]);
-  const gameKey = useMemo(() => recentFive.map(g => g.id).join(","), [recentFive]);
+  const gameKey = useMemo(() => recentFive.map((g) => g.id).join(","), [recentFive]);
 
   const runInsight = useCallback(async () => {
     if (recentFive.length < 3 || runningRef.current) return;
@@ -205,7 +223,9 @@ function RecentInsight({ games }: { games: RecentGame[] }) {
             <div className="dash-insight-sub">Last {recentFive.length} games</div>
           </div>
           {insight && !loading && (
-            <button className="btn dash-insight-refresh" onClick={runInsight}>Refresh</button>
+            <button className="btn dash-insight-refresh" onClick={runInsight}>
+              Refresh
+            </button>
           )}
         </div>
 
@@ -217,7 +237,9 @@ function RecentInsight({ games }: { games: RecentGame[] }) {
         )}
 
         {error && (
-          <p className="coaching-error" style={{ margin: "12px 0 0" }}>{error}</p>
+          <p className="coaching-error" style={{ margin: "12px 0 0" }}>
+            {error}
+          </p>
         )}
 
         {insight && (
@@ -239,7 +261,12 @@ function CompactGameRow({ game, index, onClick }: { game: RecentGame; index: num
       role="button"
       tabIndex={0}
       onClick={onClick}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: Math.min(index * 0.02, 0.12), duration: 0.2 }}
@@ -247,7 +274,9 @@ function CompactGameRow({ game, index, onClick }: { game: RecentGame; index: num
       <span className={`result-badge ${game.result === "win" ? "win" : game.result === "loss" ? "loss" : "draw"}`}>
         {game.result === "win" ? "W" : game.result === "loss" ? "L" : "D"}
       </span>
-      <span className="dash-game-stocks">{game.playerFinalStocks}-{game.opponentFinalStocks}</span>
+      <span className="dash-game-stocks">
+        {game.playerFinalStocks}-{game.opponentFinalStocks}
+      </span>
       <span className="dash-game-matchup">
         {game.playerCharacter} <span className="dash-game-vs">vs</span> {game.opponentCharacter}
       </span>
@@ -278,6 +307,7 @@ const UserIcon = <User size={18} />;
 
 export function Dashboard({ refreshKey }: { refreshKey: number }) {
   const navigate = useNavigate();
+  const openDrawer = useGlobalStore((s) => s.openDrawer);
   const { data: games = [], isLoading: loading, refetch } = useRecentGames(100);
   const { data: record, refetch: refetchRecord } = useOverallRecord();
   const { data: highlights, refetch: refetchHighlights } = useDashboardHighlights();
@@ -293,9 +323,18 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
     refetchHighlights();
   }, [refreshKey, refetch, refetchRecord, refetchHighlights]);
 
-  const avgNeutral = useMemo(() => games.length ? games.reduce((s, g) => s + g.neutralWinRate, 0) / games.length : 0, [games]);
-  const avgLCancel = useMemo(() => games.length ? games.reduce((s, g) => s + g.lCancelRate, 0) / games.length : 0, [games]);
-  const avgEdgeguard = useMemo(() => games.length ? games.reduce((s, g) => s + g.edgeguardSuccessRate, 0) / games.length : 0, [games]);
+  const avgNeutral = useMemo(
+    () => (games.length ? games.reduce((s, g) => s + g.neutralWinRate, 0) / games.length : 0),
+    [games],
+  );
+  const avgLCancel = useMemo(
+    () => (games.length ? games.reduce((s, g) => s + g.lCancelRate, 0) / games.length : 0),
+    [games],
+  );
+  const avgEdgeguard = useMemo(
+    () => (games.length ? games.reduce((s, g) => s + g.edgeguardSuccessRate, 0) / games.length : 0),
+    [games],
+  );
 
   if (loading) {
     return (
@@ -352,8 +391,7 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
               ? highlights.streak > 0
                 ? ` \u00B7 ${highlights.streak} game win streak`
                 : ` \u00B7 ${Math.abs(highlights.streak)} game losing streak`
-              : ""
-            }
+              : ""}
           </p>
         </div>
       </motion.div>
@@ -468,18 +506,19 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
             <span>Matchup</span>
             <span>Opponent</span>
             <span>Stage</span>
-            <Tooltip text="Neutral win rate — first hit in an exchange. Above 50% = winning neutral." position="bottom"><span className="dash-col-right">Neut</span></Tooltip>
-            <Tooltip text="L-cancel success rate. Target: above 90% for consistent tech skill." position="bottom"><span className="dash-col-right">L-C</span></Tooltip>
-            <Tooltip text="Edgeguard rate — how often offstage attempts result in a kill." position="bottom"><span className="dash-col-right">Edge</span></Tooltip>
+            <Tooltip text="Neutral win rate — first hit in an exchange. Above 50% = winning neutral." position="bottom">
+              <span className="dash-col-right">Neut</span>
+            </Tooltip>
+            <Tooltip text="L-cancel success rate. Target: above 90% for consistent tech skill." position="bottom">
+              <span className="dash-col-right">L-C</span>
+            </Tooltip>
+            <Tooltip text="Edgeguard rate — how often offstage attempts result in a kill." position="bottom">
+              <span className="dash-col-right">Edge</span>
+            </Tooltip>
             <span className="dash-col-right">Date</span>
           </div>
           {(showAll ? games : games.slice(0, INITIAL_COUNT)).map((game, index) => (
-            <CompactGameRow
-              key={game.id}
-              game={game}
-              index={index}
-              onClick={() => navigate(`/game/${game.id}`)}
-            />
+            <CompactGameRow key={game.id} game={game} index={index} onClick={() => openDrawer(game.id)} />
           ))}
           {!showAll && games.length > INITIAL_COUNT && (
             <div className="dash-show-more">
