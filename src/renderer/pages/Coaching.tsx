@@ -31,10 +31,7 @@ const SCOPE_COLORS: Record<string, string> = {
 function ScopeBadge({ scope }: { scope: string }) {
   const color = SCOPE_COLORS[scope] ?? "var(--text-dim)";
   return (
-    <span
-      className="history-scope-badge"
-      style={{ color, borderColor: color }}
-    >
+    <span className="history-scope-badge" style={{ color, borderColor: color }}>
       {scope}
     </span>
   );
@@ -67,11 +64,14 @@ function getDisplayTitle(entry: AnalysisEntry): string {
 }
 
 function getPreview(text: string, maxLen: number = 120): string {
-  const clean = text.replace(/[#*_[\]]/g, "").replace(/\n/g, " ").trim();
+  const clean = text
+    .replace(/[#*_[\]]/g, "")
+    .replace(/\n/g, " ")
+    .trim();
   return clean.length > maxLen ? clean.slice(0, maxLen) + "..." : clean;
 }
 
-export function History({ refreshKey: _refreshKey }: { refreshKey: number }) {
+export function Coaching({ refreshKey: _refreshKey }: { refreshKey: number }) {
   const navigate = useNavigate();
   const [scopeFilter, setScopeFilter] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(0);
@@ -118,11 +118,7 @@ export function History({ refreshKey: _refreshKey }: { refreshKey: number }) {
     }
   };
 
-  const { data: analyses = [], isLoading } = useAnalysisHistory(
-    PAGE_SIZE,
-    page * PAGE_SIZE,
-    scopeFilter,
-  );
+  const { data: analyses = [], isLoading } = useAnalysisHistory(PAGE_SIZE, page * PAGE_SIZE, scopeFilter);
 
   const handleToggle = useCallback((id: number) => {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -145,7 +141,7 @@ export function History({ refreshKey: _refreshKey }: { refreshKey: number }) {
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="page-header">
-          <h1>Analysis History</h1>
+          <h1>Coaching</h1>
           <p>Browse past MAGI coaching analyses</p>
         </div>
       </motion.div>
@@ -193,9 +189,7 @@ export function History({ refreshKey: _refreshKey }: { refreshKey: number }) {
             )}
           </div>
 
-          {discoveryError && (
-            <div className="discovery-error">{discoveryError}</div>
-          )}
+          {discoveryError && <div className="discovery-error">{discoveryError}</div>}
 
           {(isDiscovering || discovery || discoveryStream) && (
             <div className="discovery-body">
@@ -206,13 +200,12 @@ export function History({ refreshKey: _refreshKey }: { refreshKey: number }) {
                 </div>
               )}
               <div className="analysis-text">
-                <CoachingCards
-                  text={discovery || discoveryStream}
-                  isStreaming={isDiscovering && !!discoveryStream}
-                />
+                <CoachingCards text={discovery || discoveryStream} isStreaming={isDiscovering && !!discoveryStream} />
               </div>
               {discovery && !isDiscovering && (
-                <button className="btn" style={{ marginTop: 12 }} onClick={handleRunDiscovery}>Refresh Discovery</button>
+                <button className="btn" style={{ marginTop: 12 }} onClick={handleRunDiscovery}>
+                  Refresh Discovery
+                </button>
               )}
             </div>
           )}
@@ -243,17 +236,12 @@ export function History({ refreshKey: _refreshKey }: { refreshKey: number }) {
                 transition={{ delay: Math.min(index * 0.02, 0.1), duration: 0.2 }}
               >
                 <div className={`history-entry ${isExpanded ? "history-entry-expanded" : ""}`}>
-                  <button
-                    className="history-entry-header"
-                    onClick={() => handleToggle(entry.id)}
-                  >
+                  <button className="history-entry-header" onClick={() => handleToggle(entry.id)}>
                     <div className="history-entry-left">
                       <ScopeBadge scope={entry.scope} />
                       <div className="history-entry-info">
                         <div className="history-entry-title">{title}</div>
-                        {!isExpanded && (
-                          <div className="history-entry-preview">{getPreview(entry.analysisText)}</div>
-                        )}
+                        {!isExpanded && <div className="history-entry-preview">{getPreview(entry.analysisText)}</div>}
                       </div>
                     </div>
                     <div className="history-entry-right">
@@ -261,13 +249,18 @@ export function History({ refreshKey: _refreshKey }: { refreshKey: number }) {
                         <button
                           className="btn btn-icon-small"
                           title="View game detail"
-                          onClick={(e) => { e.stopPropagation(); navigate(`/game/${entry.gameId}`); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/game/${entry.gameId}`);
+                          }}
                         >
                           <ExternalLink size={12} />
                         </button>
                       )}
                       {entry.result && (
-                        <span className={`result-badge ${entry.result === "win" ? "win" : entry.result === "loss" ? "loss" : "draw"}`}>
+                        <span
+                          className={`result-badge ${entry.result === "win" ? "win" : entry.result === "loss" ? "loss" : "draw"}`}
+                        >
                           {entry.result === "win" ? "W" : entry.result === "loss" ? "L" : "D"}
                         </span>
                       )}
@@ -306,18 +299,11 @@ export function History({ refreshKey: _refreshKey }: { refreshKey: number }) {
       {/* Pagination */}
       {analyses.length >= PAGE_SIZE && (
         <div className="history-pagination">
-          <button
-            className="btn"
-            disabled={page === 0}
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-          >
+          <button className="btn" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
             Previous
           </button>
           <span className="history-page-num">Page {page + 1}</span>
-          <button
-            className="btn"
-            onClick={() => setPage((p) => p + 1)}
-          >
+          <button className="btn" onClick={() => setPage((p) => p + 1)}>
             Next
           </button>
         </div>

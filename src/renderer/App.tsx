@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
 const Sessions = lazy(() => import("./pages/Sessions").then((m) => ({ default: m.Sessions })));
-const History = lazy(() => import("./pages/History").then((m) => ({ default: m.History })));
+const Coaching = lazy(() => import("./pages/Coaching").then((m) => ({ default: m.Coaching })));
 const Trends = lazy(() => import("./pages/Trends").then((m) => ({ default: m.Trends })));
 const Profile = lazy(() => import("./pages/Profile").then((m) => ({ default: m.Profile })));
 const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m.Settings })));
@@ -25,7 +25,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { Win98Shell } from "./components/Win98Shell";
 import { useGlobalStore, type Density } from "./stores/useGlobalStore";
 
-type Page = "dashboard" | "sessions" | "history" | "trends" | "profile" | "characters" | "settings";
+type Page = "dashboard" | "sessions" | "coaching" | "library" | "trends" | "profile" | "characters" | "settings";
 
 interface NavItem {
   id: Page;
@@ -37,7 +37,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: "dashboard", label: "Dashboard", path: "/dashboard", Icon: CoachingIcon },
   { id: "sessions", label: "Sessions", path: "/sessions", Icon: SessionsIcon },
-  { id: "history", label: "History", path: "/history", Icon: HistoryIcon },
+  { id: "coaching", label: "Coaching", path: "/coaching", Icon: HistoryIcon },
   { id: "trends", label: "Trends", path: "/trends", Icon: TrendsIcon },
   { id: "profile", label: "Profile", path: "/profile", Icon: ProfileIcon },
   { id: "characters", label: "Characters", path: "/characters", Icon: CharactersIcon },
@@ -137,7 +137,8 @@ export function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard refreshKey={refreshKey} />} />
           <Route path="/sessions" element={<Sessions refreshKey={refreshKey} />} />
-          <Route path="/history" element={<History refreshKey={refreshKey} />} />
+          <Route path="/history" element={<Navigate to="/coaching" replace />} />
+          <Route path="/coaching" element={<Coaching refreshKey={refreshKey} />} />
           <Route path="/trends" element={<Trends refreshKey={refreshKey} />} />
           <Route path="/profile" element={<Profile refreshKey={refreshKey} />} />
           <Route path="/characters" element={<Characters refreshKey={refreshKey} />} />
