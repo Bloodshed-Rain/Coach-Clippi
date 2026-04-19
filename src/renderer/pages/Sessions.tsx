@@ -2,14 +2,11 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Layers } from "lucide-react";
-import {
-  useSets,
-  useOpponents,
-  useOpponentDetail,
-} from "../hooks/queries";
+import { useSets, useOpponents, useOpponentDetail } from "../hooks/queries";
 import { CoachingModal } from "../components/CoachingModal";
 import { Tooltip } from "../components/Tooltip";
 import { formatGameDate } from "../hooks";
+import { useGlobalStore } from "../stores/useGlobalStore";
 
 type View = "sets" | "opponents";
 
@@ -97,13 +94,14 @@ function BreakdownBar({ wins, losses, label }: { wins: number; losses: number; l
     <div className="sessions-breakdown-row">
       <span className="sessions-breakdown-label">{label}</span>
       <div className="sessions-breakdown-track">
-        <div
-          className="sessions-breakdown-fill"
-          style={{ width: `${pct}%`, background: color }}
-        />
+        <div className="sessions-breakdown-fill" style={{ width: `${pct}%`, background: color }} />
       </div>
-      <span className="sessions-breakdown-pct" style={{ color }}>{pct.toFixed(0)}%</span>
-      <span className="sessions-breakdown-record">{wins}W-{losses}L</span>
+      <span className="sessions-breakdown-pct" style={{ color }}>
+        {pct.toFixed(0)}%
+      </span>
+      <span className="sessions-breakdown-record">
+        {wins}W-{losses}L
+      </span>
     </div>
   );
 }
@@ -112,10 +110,7 @@ function ResultBadge({ result }: { result: "W" | "L" | "T" }) {
   const colorMap = { W: "var(--green)", L: "var(--red)", T: "var(--text-dim)" };
   const bgMap = { W: "rgba(var(--green-rgb), 0.1)", L: "rgba(var(--red-rgb), 0.1)", T: "var(--bg-hover)" };
   return (
-    <span
-      className="sessions-result-badge"
-      style={{ color: colorMap[result], background: bgMap[result] }}
-    >
+    <span className="sessions-result-badge" style={{ color: colorMap[result], background: bgMap[result] }}>
       {result}
     </span>
   );
@@ -130,7 +125,12 @@ function OpponentDetailPanel({
 }: {
   detail: OpponentDetail;
   onClose: () => void;
-  onTriggerCoaching: (scope: "game" | "session" | "character" | "stage" | "opponent", id: string | number, title: string, replayPath?: string) => void;
+  onTriggerCoaching: (
+    scope: "game" | "session" | "character" | "stage" | "opponent",
+    id: string | number,
+    title: string,
+    replayPath?: string,
+  ) => void;
   onViewGame: (gameId: number) => void;
 }) {
   const winPct = detail.winRate * 100;
@@ -149,15 +149,9 @@ function OpponentDetailPanel({
         <div className="sessions-detail-header">
           <div className="sessions-detail-title-group">
             <h3 className="sessions-detail-title">vs {detail.opponentTag}</h3>
-            {detail.opponentConnectCode && (
-              <span className="sessions-detail-code">{detail.opponentConnectCode}</span>
-            )}
+            {detail.opponentConnectCode && <span className="sessions-detail-code">{detail.opponentConnectCode}</span>}
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close opponent detail"
-            className="btn sessions-close-btn"
-          >
+          <button onClick={onClose} aria-label="Close opponent detail" className="btn sessions-close-btn">
             Close
           </button>
         </div>
@@ -198,7 +192,7 @@ function OpponentDetailPanel({
           {detail.stageBreakdown.length > 0 && (
             <div>
               <div className="sessions-section-label">Stages</div>
-              {detail.stageBreakdown.map(s => (
+              {detail.stageBreakdown.map((s) => (
                 <BreakdownBar key={s.stage} wins={s.wins} losses={s.losses} label={s.stage} />
               ))}
             </div>
@@ -207,7 +201,7 @@ function OpponentDetailPanel({
           {detail.characterBreakdown.length > 1 && (
             <div>
               <div className="sessions-section-label">vs Character</div>
-              {detail.characterBreakdown.map(c => (
+              {detail.characterBreakdown.map((c) => (
                 <BreakdownBar key={c.opponentCharacter} wins={c.wins} losses={c.losses} label={c.opponentCharacter} />
               ))}
             </div>
@@ -236,20 +230,40 @@ function OpponentDetailPanel({
                 <th>Them</th>
                 <th>Stage</th>
                 <th>Result</th>
-                <th><Tooltip text="Neutral win rate — how often you win the first hit in an exchange. Above 50% means you're winning neutral." position="bottom"><span>Neut.</span></Tooltip></th>
-                <th><Tooltip text="Openings per kill — how many neutral wins it takes you to get a stock. Lower is better (3-4 is strong)." position="bottom"><span>Op/K</span></Tooltip></th>
-                <th><Tooltip text="Edgeguard success rate — how often your offstage attempts result in a stock taken." position="bottom"><span>Edge.</span></Tooltip></th>
+                <th>
+                  <Tooltip
+                    text="Neutral win rate — how often you win the first hit in an exchange. Above 50% means you're winning neutral."
+                    position="bottom"
+                  >
+                    <span>Neut.</span>
+                  </Tooltip>
+                </th>
+                <th>
+                  <Tooltip
+                    text="Openings per kill — how many neutral wins it takes you to get a stock. Lower is better (3-4 is strong)."
+                    position="bottom"
+                  >
+                    <span>Op/K</span>
+                  </Tooltip>
+                </th>
+                <th>
+                  <Tooltip
+                    text="Edgeguard success rate — how often your offstage attempts result in a stock taken."
+                    position="bottom"
+                  >
+                    <span>Edge.</span>
+                  </Tooltip>
+                </th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {detail.games.map(g => {
-                const badge = g.result === "win" ? "W" as const : g.result === "loss" ? "L" as const : "T" as const;
+              {detail.games.map((g) => {
+                const badge =
+                  g.result === "win" ? ("W" as const) : g.result === "loss" ? ("L" as const) : ("T" as const);
                 return (
                   <tr key={g.id} className="clickable-row" onClick={() => onViewGame(g.id)}>
-                    <td className="mono-cell">
-                      {formatGameDate(g.playedAt)}
-                    </td>
+                    <td className="mono-cell">{formatGameDate(g.playedAt)}</td>
                     <td className="mono-cell">{g.playerCharacter}</td>
                     <td className="mono-cell">{g.opponentCharacter}</td>
                     <td className="mono-cell dim">{g.stage}</td>
@@ -259,30 +273,48 @@ function OpponentDetailPanel({
                         {g.playerFinalStocks}-{g.opponentFinalStocks}
                       </span>
                     </td>
-                    <td className="mono-cell" style={{
-                      color: g.neutralWinRate > 0.5 ? "var(--green)" : "var(--red)",
-                    }}>
+                    <td
+                      className="mono-cell"
+                      style={{
+                        color: g.neutralWinRate > 0.5 ? "var(--green)" : "var(--red)",
+                      }}
+                    >
                       {(g.neutralWinRate * 100).toFixed(0)}%
                     </td>
-                    <td className="mono-cell" style={{
-                      color: Number.isFinite(g.openingsPerKill) && g.openingsPerKill <= 4
-                        ? "var(--green)"
-                        : g.openingsPerKill <= 7
-                          ? "var(--yellow)"
-                          : "var(--red)",
-                    }}>
+                    <td
+                      className="mono-cell"
+                      style={{
+                        color:
+                          Number.isFinite(g.openingsPerKill) && g.openingsPerKill <= 4
+                            ? "var(--green)"
+                            : g.openingsPerKill <= 7
+                              ? "var(--yellow)"
+                              : "var(--red)",
+                      }}
+                    >
                       {Number.isFinite(g.openingsPerKill) ? g.openingsPerKill.toFixed(1) : "\u2014"}
                     </td>
-                    <td className="mono-cell" style={{
-                      color: g.edgeguardSuccessRate > 0.6 ? "var(--green)" : g.edgeguardSuccessRate > 0.3 ? "var(--yellow)" : "var(--red)",
-                    }}>
+                    <td
+                      className="mono-cell"
+                      style={{
+                        color:
+                          g.edgeguardSuccessRate > 0.6
+                            ? "var(--green)"
+                            : g.edgeguardSuccessRate > 0.3
+                              ? "var(--yellow)"
+                              : "var(--red)",
+                      }}
+                    >
                       {(g.edgeguardSuccessRate * 100).toFixed(0)}%
                     </td>
                     <td>
                       <button
                         className="btn btn-icon-small"
                         title="Get AI Coaching for this game"
-                        onClick={(e) => { e.stopPropagation(); onTriggerCoaching("game", g.id, `Game vs ${detail.opponentTag} on ${g.stage}`, g.replayPath); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onTriggerCoaching("game", g.id, `Game vs ${detail.opponentTag} on ${g.stage}`, g.replayPath);
+                        }}
                       >
                         <PieChart size={12} />
                       </button>
@@ -298,7 +330,13 @@ function OpponentDetailPanel({
         <div className="sessions-analysis-section">
           <button
             className="btn btn-primary"
-            onClick={() => onTriggerCoaching("opponent", detail.opponentConnectCode || detail.opponentTag, `Head-to-Head: ${detail.opponentTag}`)}
+            onClick={() =>
+              onTriggerCoaching(
+                "opponent",
+                detail.opponentConnectCode || detail.opponentTag,
+                `Head-to-Head: ${detail.opponentTag}`,
+              )
+            }
           >
             <Layers size={14} style={{ marginRight: 8 }} />
             Request Full Matchup Analysis
@@ -311,6 +349,7 @@ function OpponentDetailPanel({
 
 export function Sessions({ refreshKey }: { refreshKey: number }) {
   const navigate = useNavigate();
+  const openDrawer = useGlobalStore((s) => s.openDrawer);
   const [view, setView] = useState<View>("sets");
   const [opponentSearch, setOpponentSearch] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -327,7 +366,11 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
 
   // Opponent detail state
   const [expandedOpponent, setExpandedOpponent] = useState<string | null>(null);
-  const { data: opponentDetail, isFetching: detailLoading, refetch: refetchDetail } = useOpponentDetail(expandedOpponent);
+  const {
+    data: opponentDetail,
+    isFetching: detailLoading,
+    refetch: refetchDetail,
+  } = useOpponentDetail(expandedOpponent);
 
   // AI analysis state for opponent matchup
   // Removed old state: matchupAnalysis, analyzingMatchup, matchupStreamText, matchupIsStreaming, matchupAnalysisError
@@ -346,25 +389,31 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
     setSearchQuery(opponentSearch.trim());
   };
 
-  const handleOpponentClick = useCallback(async (opponent: OpponentRecord) => {
-    const key = opponent.opponentConnectCode ?? opponent.opponentTag;
+  const handleOpponentClick = useCallback(
+    async (opponent: OpponentRecord) => {
+      const key = opponent.opponentConnectCode ?? opponent.opponentTag;
 
-    if (expandedOpponent === key) {
-      setExpandedOpponent(null);
-      return;
-    }
+      if (expandedOpponent === key) {
+        setExpandedOpponent(null);
+        return;
+      }
 
-    setExpandedOpponent(key);
-  }, [expandedOpponent]);
+      setExpandedOpponent(key);
+    },
+    [expandedOpponent],
+  );
 
-  const handleTriggerCoaching = useCallback((
-    scope: "game" | "session" | "character" | "stage" | "opponent",
-    id: string | number,
-    title: string,
-    replayPath?: string,
-  ) => {
-    setScopedCoaching({ scope, id, title, replayPath });
-  }, []);
+  const handleTriggerCoaching = useCallback(
+    (
+      scope: "game" | "session" | "character" | "stage" | "opponent",
+      id: string | number,
+      title: string,
+      replayPath?: string,
+    ) => {
+      setScopedCoaching({ scope, id, title, replayPath });
+    },
+    [],
+  );
 
   if (loading) {
     return (
@@ -440,85 +489,83 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
               <p className="sessions-empty-msg">No sets detected yet.</p>
             ) : (
               <div className="data-table-wrap">
-              <table className="data-table">
-                <colgroup>
-                  <col style={{ width: "16%" }} />
-                  <col style={{ width: "24%" }} />
-                  <col style={{ width: "18%" }} />
-                  <col style={{ width: "12%" }} />
-                  <col style={{ width: "16%" }} />
-                  <col style={{ width: "14%" }} />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Opponent</th>
-                    <th>Character</th>
-                    <th>Games</th>
-                    <th>Score</th>
-                    <th>Result</th>
-                    <th>Coaching</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...sets].reverse().map((set, i) => {
-                    const total = set.gameIds.length;
-                    const result = set.wins > set.losses ? "W" : set.losses > set.wins ? "L" : "T";
-                    // Find session ID from the first game
-                    // Actually the set object should probably have session ID, 
-                    // but for now we'll use one of the game IDs or we need to update the query.
-                    // Wait, sessionId is needed for 'session' scope.
-                    // Let's assume gameIds[0] is part of a session.
-                    // Actually, the detected sets logic doesn't strictly map 1:1 to DB sessions.
-                    // But for coaching, we can just pass the list of replay paths.
-                    // But our analyze:scoped expects an ID.
-                    // Let's use the first gameId as a proxy or update the query.
-                    // For now, I'll pass the first gameId and use a new scope 'set' if needed, 
-                    // or just use 'session' and ensure it works.
-                    return (
-                      <tr key={i}>
-                        <td className="mono-cell">
-                          {formatGameDate(set.startedAt)}
-                        </td>
-                        <td style={{ fontWeight: 600 }}>{set.opponentTag}</td>
-                        <td className="mono-cell">{set.opponentCharacter}</td>
-                        <td className="mono-cell">{total}</td>
-                        <td>
-                          <span className="record-win">{set.wins}</span>
-                          {" - "}
-                          <span className="record-loss">{set.losses}</span>
-                          {set.draws > 0 && (
-                            <>
-                              {" - "}
-                              <span style={{ color: "var(--text-dim)" }}>{set.draws}</span>
-                            </>
-                          )}
-                        </td>
-                        <td>
-                          <ResultBadge result={result as "W" | "L" | "T"} />
-                        </td>
-                        <td>
-                          <button 
-                            className="btn btn-icon-small" 
-                            title="Analyze this set"
-                            onClick={() => {
-                              // We need the session ID. Let's hope it's available or we find it.
-                              // For now, I'll update the detectSets query to include session_id.
-                              setScopedCoaching({
-                                scope: "session",
-                                id: set.sessionId || 0, // Fallback
-                                title: `Set vs ${set.opponentTag} (${formatGameDate(set.startedAt)})`
-                              });
-                            }}
-                          >
-                            <PieChart size={12} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                <table className="data-table">
+                  <colgroup>
+                    <col style={{ width: "16%" }} />
+                    <col style={{ width: "24%" }} />
+                    <col style={{ width: "18%" }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "16%" }} />
+                    <col style={{ width: "14%" }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Opponent</th>
+                      <th>Character</th>
+                      <th>Games</th>
+                      <th>Score</th>
+                      <th>Result</th>
+                      <th>Coaching</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...sets].reverse().map((set, i) => {
+                      const total = set.gameIds.length;
+                      const result = set.wins > set.losses ? "W" : set.losses > set.wins ? "L" : "T";
+                      // Find session ID from the first game
+                      // Actually the set object should probably have session ID,
+                      // but for now we'll use one of the game IDs or we need to update the query.
+                      // Wait, sessionId is needed for 'session' scope.
+                      // Let's assume gameIds[0] is part of a session.
+                      // Actually, the detected sets logic doesn't strictly map 1:1 to DB sessions.
+                      // But for coaching, we can just pass the list of replay paths.
+                      // But our analyze:scoped expects an ID.
+                      // Let's use the first gameId as a proxy or update the query.
+                      // For now, I'll pass the first gameId and use a new scope 'set' if needed,
+                      // or just use 'session' and ensure it works.
+                      return (
+                        <tr key={i}>
+                          <td className="mono-cell">{formatGameDate(set.startedAt)}</td>
+                          <td style={{ fontWeight: 600 }}>{set.opponentTag}</td>
+                          <td className="mono-cell">{set.opponentCharacter}</td>
+                          <td className="mono-cell">{total}</td>
+                          <td>
+                            <span className="record-win">{set.wins}</span>
+                            {" - "}
+                            <span className="record-loss">{set.losses}</span>
+                            {set.draws > 0 && (
+                              <>
+                                {" - "}
+                                <span style={{ color: "var(--text-dim)" }}>{set.draws}</span>
+                              </>
+                            )}
+                          </td>
+                          <td>
+                            <ResultBadge result={result as "W" | "L" | "T"} />
+                          </td>
+                          <td>
+                            <button
+                              className="btn btn-icon-small"
+                              title="Analyze this set"
+                              onClick={() => {
+                                // We need the session ID. Let's hope it's available or we find it.
+                                // For now, I'll update the detectSets query to include session_id.
+                                setScopedCoaching({
+                                  scope: "session",
+                                  id: set.sessionId || 0, // Fallback
+                                  title: `Set vs ${set.opponentTag} (${formatGameDate(set.startedAt)})`,
+                                });
+                              }}
+                            >
+                              <PieChart size={12} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </motion.div>
@@ -541,7 +588,9 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
                   placeholder="Search by tag or connect code..."
                   className="sessions-search-input"
                 />
-                <button className="btn" onClick={handleSearch}>Search</button>
+                <button className="btn" onClick={handleSearch}>
+                  Search
+                </button>
               </div>
             </div>
             <div className="card">
@@ -549,73 +598,76 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
                 <p className="sessions-empty-msg">No opponents found.</p>
               ) : (
                 <div className="data-table-wrap">
-                <table className="data-table">
-                  <colgroup>
-                    <col style={{ width: "20%" }} />
-                    <col style={{ width: "14%" }} />
-                    <col style={{ width: "16%" }} />
-                    <col style={{ width: "10%" }} />
-                    <col style={{ width: "14%" }} />
-                    <col style={{ width: "14%" }} />
-                    <col style={{ width: "12%" }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th>Opponent</th>
-                      <th>Code</th>
-                      <th>Characters</th>
-                      <th>Games</th>
-                      <th>Record</th>
-                      <th>Win Rate</th>
-                      <th>Last Played</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {opponents.map((o, i) => {
-                      const key = o.opponentConnectCode ?? o.opponentTag;
-                      const isExpanded = expandedOpponent === key;
-                      return (
-                        <tr
-                          key={i}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleOpponentClick(o)}
-                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleOpponentClick(o); } }}
-                          className={isExpanded ? "sessions-row-expanded" : undefined}
-                          aria-expanded={isExpanded}
-                        >
-                          <td style={{ fontWeight: 600 }}>
-                            <span className="sessions-opponent-name">
-                              <motion.span
-                                animate={{ rotate: isExpanded ? 90 : 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="sessions-chevron"
-                                style={{ color: isExpanded ? "var(--accent)" : "var(--text-dim)" }}
-                              >
-                                {"\u25B6"}
-                              </motion.span>
-                              {o.opponentTag}
-                            </span>
-                          </td>
-                          <td className="mono-cell dim">
-                            {o.opponentConnectCode ?? ""}
-                          </td>
-                          <td className="mono-cell">{o.characters}</td>
-                          <td className="mono-cell">{o.totalGames}</td>
-                          <td>
-                            <span className="record-win">{o.wins}</span>
-                            {" - "}
-                            <span className="record-loss">{o.losses}</span>
-                          </td>
-                          <td><WinRateIndicator rate={o.winRate} /></td>
-                          <td className="mono-cell dim">
-                            {formatGameDate(o.lastPlayed)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                  <table className="data-table">
+                    <colgroup>
+                      <col style={{ width: "20%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "12%" }} />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>Opponent</th>
+                        <th>Code</th>
+                        <th>Characters</th>
+                        <th>Games</th>
+                        <th>Record</th>
+                        <th>Win Rate</th>
+                        <th>Last Played</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {opponents.map((o, i) => {
+                        const key = o.opponentConnectCode ?? o.opponentTag;
+                        const isExpanded = expandedOpponent === key;
+                        return (
+                          <tr
+                            key={i}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleOpponentClick(o)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleOpponentClick(o);
+                              }
+                            }}
+                            className={isExpanded ? "sessions-row-expanded" : undefined}
+                            aria-expanded={isExpanded}
+                          >
+                            <td style={{ fontWeight: 600 }}>
+                              <span className="sessions-opponent-name">
+                                <motion.span
+                                  animate={{ rotate: isExpanded ? 90 : 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="sessions-chevron"
+                                  style={{ color: isExpanded ? "var(--accent)" : "var(--text-dim)" }}
+                                >
+                                  {"\u25B6"}
+                                </motion.span>
+                                {o.opponentTag}
+                              </span>
+                            </td>
+                            <td className="mono-cell dim">{o.opponentConnectCode ?? ""}</td>
+                            <td className="mono-cell">{o.characters}</td>
+                            <td className="mono-cell">{o.totalGames}</td>
+                            <td>
+                              <span className="record-win">{o.wins}</span>
+                              {" - "}
+                              <span className="record-loss">{o.losses}</span>
+                            </td>
+                            <td>
+                              <WinRateIndicator rate={o.winRate} />
+                            </td>
+                            <td className="mono-cell dim">{formatGameDate(o.lastPlayed)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
@@ -641,15 +693,15 @@ export function Sessions({ refreshKey }: { refreshKey: number }) {
                   {!detailLoading && opponentDetail && (
                     <OpponentDetailPanel
                       detail={opponentDetail}
-                      onClose={() => { setExpandedOpponent(null); }}
+                      onClose={() => {
+                        setExpandedOpponent(null);
+                      }}
                       onTriggerCoaching={handleTriggerCoaching}
-                      onViewGame={(gameId) => navigate(`/game/${gameId}`)}
+                      onViewGame={(gameId) => openDrawer(gameId)}
                     />
                   )}
                   {!detailLoading && !opponentDetail && (
-                    <div className="sessions-detail-loading">
-                      No data found for this opponent.
-                    </div>
+                    <div className="sessions-detail-loading">No data found for this opponent.</div>
                   )}
                 </motion.div>
               )}
