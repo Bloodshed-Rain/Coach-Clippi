@@ -23,7 +23,7 @@ import {
 } from "./components/NavIcons";
 import { CommandPalette } from "./components/CommandPalette";
 import { Win98Shell } from "./components/Win98Shell";
-import { useGlobalStore } from "./stores/useGlobalStore";
+import { useGlobalStore, type Density } from "./stores/useGlobalStore";
 
 type Page = "dashboard" | "sessions" | "history" | "trends" | "profile" | "characters" | "settings";
 
@@ -60,6 +60,8 @@ export function App() {
   const location = useLocation();
   const colorMode = useGlobalStore((state) => state.colorMode);
   const setColorMode = useGlobalStore((state) => state.setColorMode);
+  const density = useGlobalStore((state) => state.density);
+  const setDensity = useGlobalStore((state) => state.setDensity);
   const refreshKey = useGlobalStore((state) => state.refreshKey);
   const triggerRefresh = useGlobalStore((state) => state.triggerRefresh);
 
@@ -77,12 +79,18 @@ export function App() {
         if (!isValid) {
           window.clippi.saveConfig({ colorMode: "liquid" }).catch(() => {});
         }
+        const savedDensity: Density = config?.density === "compact" ? "compact" : "comfortable";
+        setDensity(savedDensity);
       } catch {
         applyTheme(getResolvedTheme("liquid", "liquid"));
       }
     }
     loadTheme();
-  }, [setColorMode]);
+  }, [setColorMode, setDensity]);
+
+  useEffect(() => {
+    document.body.setAttribute("data-density", density);
+  }, [density]);
 
   const handleCommandImport = useCallback(() => {
     navigate("/settings");
