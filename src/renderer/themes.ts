@@ -60,6 +60,46 @@ const EASE_SPRING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const EASE_OUT = "cubic-bezier(0, 0, 0.2, 1)";
 
 export const THEMES: Record<string, Theme> = {
+  /* ─── Liquid Metal — default aesthetic ─────────────────────────────── */
+  liquid: {
+    id: "liquid",
+    name: "Liquid Metal",
+    bg: "#0a0d14",
+    surface1: "rgba(255,255,255,0.04)",
+    surface2: "rgba(255,255,255,0.08)",
+    surface3: "rgba(255,255,255,0.12)",
+    border: "rgba(255,255,255,0.1)",
+    borderSubtle: "rgba(255,255,255,0.05)",
+    borderMuted: "rgba(255,255,255,0.18)",
+    text: "#f5f7fa",
+    textSecondary: "#cfd4dc",
+    textMuted: "#6a707b",
+    accent: "#c7ccd6", // chrome
+    accentHover: "#e8ebf0",
+    accentMuted: "rgba(199,204,214,0.14)",
+    win: "#7ee8c5",
+    loss: "#ff8a9e",
+    caution: "#ffd47a",
+    sidebarBg: "rgba(10,13,20,0.65)",
+    sidebarHover: "rgba(255,255,255,0.06)",
+    sidebarActiveBg: "rgba(255,255,255,0.12)",
+    sidebarAccent: "#f5f7fa",
+    shadowSm: "0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08)",
+    shadowMd: "0 20px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12)",
+    shadowLg: "0 40px 120px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.14)",
+    fontMono: FONT_MONO,
+    fontSans: "'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+    fontDisplay: "'Inter', -apple-system, 'SF Pro Display', sans-serif",
+    easeSpring: EASE_SPRING,
+    easeOut: EASE_OUT,
+    surfaceBlur: "28px",
+    chromeGlint:
+      "linear-gradient(145deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 20%, rgba(255,255,255,0) 45%, rgba(255,255,255,0.08) 70%, rgba(255,255,255,0.02) 100%)",
+    radiusXs: "10px",
+    radiusSm: "14px",
+    radiusMd: "20px",
+  },
+
   dark: {
     id: "dark",
     name: "Dark",
@@ -198,9 +238,9 @@ export const THEMES: Record<string, Theme> = {
   },
 };
 
-export const THEME_ORDER = ["dark", "light", "win98", "melee"] as const;
+export const THEME_ORDER = ["liquid", "dark", "light", "win98", "melee"] as const;
 
-export type ColorMode = "dark" | "light" | "win98" | "melee";
+export type ColorMode = "liquid" | "dark" | "light" | "win98" | "melee";
 
 /**
  * Resolve a saved theme ID to an actual Theme, falling back to dark for
@@ -290,4 +330,11 @@ export function applyTheme(theme: Theme): void {
   root.style.setProperty("--green-rgb", hexToRgb(theme.win));
   root.style.setProperty("--red-rgb", hexToRgb(theme.loss));
   root.style.setProperty("--yellow-rgb", hexToRgb(theme.caution));
+
+  // Liquid-only tokens — use explicit fallbacks so other themes stay sane.
+  root.style.setProperty("--surface-blur", theme.surfaceBlur ?? "0px");
+  root.style.setProperty("--chrome-glint", theme.chromeGlint ?? "transparent");
+  root.style.setProperty("--radius-xs", theme.radiusXs ?? "2px");
+  root.style.setProperty("--radius-sm", theme.radiusSm ?? "4px");
+  root.style.setProperty("--radius-md", theme.radiusMd ?? "6px");
 }
