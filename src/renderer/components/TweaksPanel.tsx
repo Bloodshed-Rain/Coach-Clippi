@@ -66,22 +66,16 @@ export function TweaksPanel() {
         </div>
       </div>
 
-      {colorMode !== "win98" && (
-        <div className="tweaks-group">
-          <div className="tweaks-label">Density</div>
-          <div className="tweaks-row">
-            {DENSITIES.map((d) => (
-              <button
-                key={d}
-                className={`tweaks-chip ${density === d ? "active" : ""}`}
-                onClick={() => onPickDensity(d)}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
+      <div className="tweaks-group">
+        <div className="tweaks-label">Density</div>
+        <div className="tweaks-row">
+          {DENSITIES.map((d) => (
+            <button key={d} className={`tweaks-chip ${density === d ? "active" : ""}`} onClick={() => onPickDensity(d)}>
+              {d}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }
