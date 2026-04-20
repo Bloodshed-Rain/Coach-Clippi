@@ -2561,4 +2561,30 @@ export function deletePracticePlan(planId: number): void {
   getDb().prepare("DELETE FROM practice_plans WHERE id = ?").run(planId);
 }
 
+// ── Oracle messages ─────────────────────────────────────────────────
+
+export interface OracleMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+}
+
+export function listOracleMessages(): OracleMessage[] {
+  return getDb()
+    .prepare("SELECT id, role, content, created_at as createdAt FROM oracle_messages ORDER BY created_at ASC")
+    .all() as OracleMessage[];
+}
+
+export function appendOracleMessage(role: "user" | "assistant", content: string): OracleMessage {
+  const row = getDb()
+    .prepare("INSERT INTO oracle_messages (role, content) VALUES (?, ?) RETURNING id, created_at")
+    .get(role, content) as { id: number; created_at: string };
+  return { id: row.id, role, content, createdAt: row.created_at };
+}
+
+export function clearOracleMessages(): void {
+  getDb().prepare("DELETE FROM oracle_messages").run();
+}
+
 export { DB_PATH, DATA_DIR };

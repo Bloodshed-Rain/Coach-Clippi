@@ -7,10 +7,14 @@ import {
   listPracticePlans,
   setDrillCompletion,
   deletePracticePlan,
+  listOracleMessages,
+  appendOracleMessage,
+  clearOracleMessages,
+  getRecentGames,
 } from "../../db.js";
 import { callLLM, MODELS, LLM_DEFAULTS, getModelLabel, type ProviderId } from "../../llm.js";
 import { llmQueue } from "../../llmQueue.js";
-import { SYSTEM_PROMPT_SESSION, SYSTEM_PROMPT_PRACTICE } from "../../pipeline/prompt.js";
+import { SYSTEM_PROMPT_SESSION, SYSTEM_PROMPT_PRACTICE, SYSTEM_PROMPT_ORACLE } from "../../pipeline/prompt.js";
 import type { SafeHandleFn } from "../ipc.js";
 import { resolveLLMConfig } from "./analysis.js";
 
@@ -105,6 +109,16 @@ async function fetchOpenAIModels(apiKey: string): Promise<FetchedModel[]> {
   } catch {
     return [];
   }
+}
+
+function buildOracleContext(): string {
+  const games = getRecentGames(20);
+  if (games.length === 0) return "No games in DB yet.";
+  const lines = games.map(
+    (g, i) =>
+      `${i + 1}. ${g.playerCharacter} vs ${g.opponentCharacter} (${g.opponentTag}) — ${g.result.toUpperCase()} | neutral ${(g.neutralWinRate * 100).toFixed(0)}%, l-cancel ${(g.lCancelRate * 100).toFixed(0)}%, conv ${(g.conversionRate * 100).toFixed(0)}%, dmg/op ${g.avgDamagePerOpening.toFixed(1)}, edge ${(g.edgeguardSuccessRate * 100).toFixed(0)}%`,
+  );
+  return `Recent games (newest first):\n${lines.join("\n")}`;
 }
 
 export function registerLlmHandlers(safeHandle: SafeHandleFn): void {
@@ -228,6 +242,30 @@ export function registerLlmHandlers(safeHandle: SafeHandleFn): void {
 
   safeHandle("llm:deletePracticePlan", (_e, planId: number) => {
     deletePracticePlan(planId);
+    return true;
+  });
+
+  safeHandle("llm:oracleListMessages", () => listOracleMessages());
+
+  safeHandle("llm:oracleAsk", async (_e, text: string) => {
+    const userMsg = appendOracleMessage("user", text);
+    const history = listOracleMessages();
+    const dialog = history
+      .slice(-20)
+      .map((m) => `${m.role === "user" ? "User" : "Oracle"}: ${m.content}`)
+      .join("\n\n");
+    const context = buildOracleContext();
+    const userPrompt = `${context}\n\n---\n\n${dialog}\n\nOracle:`;
+    const llmConfig = resolveLLMConfig();
+    const response = await llmQueue.enqueue(() =>
+      callLLM({ systemPrompt: SYSTEM_PROMPT_ORACLE, userPrompt, config: llmConfig }),
+    );
+    const assistantMsg = appendOracleMessage("assistant", response);
+    return { user: userMsg, assistant: assistantMsg };
+  });
+
+  safeHandle("llm:oracleClear", () => {
+    clearOracleMessages();
     return true;
   });
 }

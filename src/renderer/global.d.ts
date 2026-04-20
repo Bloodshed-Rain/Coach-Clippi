@@ -37,6 +37,12 @@ declare global {
       }>>;
       setDrillCompletion: (drillId: number, completed: boolean) => Promise<boolean>;
       deletePracticePlan: (planId: number) => Promise<boolean>;
+      oracleListMessages: () => Promise<Array<{ id: number; role: "user" | "assistant"; content: string; createdAt: string }>>;
+      oracleAsk: (text: string) => Promise<{
+        user: { id: number; role: "user"; content: string; createdAt: string };
+        assistant: { id: number; role: "assistant"; content: string; createdAt: string };
+      }>;
+      oracleClear: () => Promise<boolean>;
       getLLMModels: () => Promise<any[]>;
       getCurrentModel: () => Promise<{ modelId: string; label: string }>;
       fetchOpenRouterModels: () => Promise<any[]>;

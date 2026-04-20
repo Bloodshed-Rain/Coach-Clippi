@@ -29,6 +29,9 @@ const api = {
   setDrillCompletion: (drillId: number, completed: boolean) =>
     ipcRenderer.invoke("llm:setDrillCompletion", drillId, completed),
   deletePracticePlan: (planId: number) => ipcRenderer.invoke("llm:deletePracticePlan", planId),
+  oracleListMessages: () => ipcRenderer.invoke("llm:oracleListMessages"),
+  oracleAsk: (text: string) => ipcRenderer.invoke("llm:oracleAsk", text),
+  oracleClear: () => ipcRenderer.invoke("llm:oracleClear"),
 
   // LLM
   getLLMModels: () => ipcRenderer.invoke("llm:models"),
