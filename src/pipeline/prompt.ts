@@ -335,12 +335,16 @@ export function assembleAggregatePrompt(
     lines.push("");
   }
 
-  lines.push(`I'd like you to analyze my aggregate performance for the following scope: ${scopeType.toUpperCase()} - ${identifier}`);
+  lines.push(
+    `I'd like you to analyze my aggregate performance for the following scope: ${scopeType.toUpperCase()} - ${identifier}`,
+  );
   lines.push("");
   lines.push("=== AGGREGATE DATA ===");
   lines.push(JSON.stringify(stripNulls(stats), null, 2));
   lines.push("");
-  lines.push("Provide a coaching analysis based on this statistical profile. Identify my habits and leaks in this specific context.");
+  lines.push(
+    "Provide a coaching analysis based on this statistical profile. Identify my habits and leaks in this specific context.",
+  );
 
   return lines.join("\n");
 }
@@ -366,10 +370,7 @@ CORE OBJECTIVES:
 TONE:
 Analytical, visionary, slightly "Matrix-esque" but still focused on practical Melee. Use terminology like "statistical leak," "performance drift," and "win-condition correlation."`;
 
-export function assembleDiscoveryPrompt(
-  discoveryData: any,
-  playerHistory?: any,
-): string {
+export function assembleDiscoveryPrompt(discoveryData: any, playerHistory?: any): string {
   const lines: string[] = [];
 
   if (playerHistory) {
@@ -441,7 +442,9 @@ export function assemblePlayerContext(history: PlayerHistory): string {
     lines.push("");
     lines.push("Top matchups:");
     for (const m of history.topMatchups) {
-      lines.push(`  vs ${m.opponentCharacter}: ${m.wins}W-${m.losses}L (${(m.winRate * 100).toFixed(0)}%, ${m.totalGames} games)`);
+      lines.push(
+        `  vs ${m.opponentCharacter}: ${m.wins}W-${m.losses}L (${(m.winRate * 100).toFixed(0)}%, ${m.totalGames} games)`,
+      );
     }
   }
 
@@ -452,23 +455,44 @@ export function assemblePlayerContext(history: PlayerHistory): string {
     lines.push("");
     lines.push(`Recent trend (last ${recent.gamesCount} games vs overall ${overall.gamesCount} games):`);
 
-    const formatTrend = (label: string, recentVal: number, overallVal: number, asPercent: boolean, lowerIsBetter: boolean = false): string => {
+    const formatTrend = (
+      label: string,
+      recentVal: number,
+      overallVal: number,
+      asPercent: boolean,
+      lowerIsBetter: boolean = false,
+    ): string => {
       const diff = recentVal - overallVal;
       const absDiff = Math.abs(diff);
       if (asPercent) {
         const rStr = (recentVal * 100).toFixed(1);
         const oStr = (overallVal * 100).toFixed(1);
-        const direction = diff > 0.005 ? (lowerIsBetter ? "declining" : "improving") :
-                          diff < -0.005 ? (lowerIsBetter ? "improving" : "declining") : "stable";
+        const direction =
+          diff > 0.005
+            ? lowerIsBetter
+              ? "declining"
+              : "improving"
+            : diff < -0.005
+              ? lowerIsBetter
+                ? "improving"
+                : "declining"
+              : "stable";
         if (direction === "stable") return `  ${label}: ${rStr}% (stable)`;
         const arrow = direction === "improving" ? "^" : "v";
         return `  ${label}: ${rStr}% (${arrow} from ${oStr}% overall)`;
       }
       const rStr = recentVal.toFixed(1);
       const oStr = overallVal.toFixed(1);
-      const direction = absDiff < 0.3 ? "stable" :
-                        diff > 0 ? (lowerIsBetter ? "declining" : "improving") :
-                        (lowerIsBetter ? "improving" : "declining");
+      const direction =
+        absDiff < 0.3
+          ? "stable"
+          : diff > 0
+            ? lowerIsBetter
+              ? "declining"
+              : "improving"
+            : lowerIsBetter
+              ? "improving"
+              : "declining";
       if (direction === "stable") return `  ${label}: ${rStr} (stable)`;
       const arrow = direction === "improving" ? "^" : "v";
       return `  ${label}: ${rStr} (${arrow} from ${oStr} overall)`;
@@ -501,7 +525,9 @@ export function assembleUserPrompt(
   if (playerHistory) {
     lines.push(assemblePlayerContext(playerHistory));
     lines.push("");
-    lines.push("Use the player profile above to contextualize your analysis — reference historical trends, matchup records, and improvement trajectories where relevant. Do not simply recite the profile data.");
+    lines.push(
+      "Use the player profile above to contextualize your analysis — reference historical trends, matchup records, and improvement trajectories where relevant. Do not simply recite the profile data.",
+    );
     lines.push("");
   }
 
@@ -549,20 +575,24 @@ export function assembleUserPrompt(
 
     // Append timestamped key moments timeline
     if (allMoments.length > 0) {
-      lines.push(
-        "",
-        `--- Key Moments Timeline (use these timestamps in your analysis) ---`,
-      );
+      lines.push("", `--- Key Moments Timeline (use these timestamps in your analysis) ---`);
       for (const m of allMoments) {
         lines.push(`  [${m.timestamp}] ${m.player}: ${m.description}`);
       }
     }
   }
 
-  lines.push(
-    "",
-    "Provide your full coaching analysis following the structure defined in your instructions.",
-  );
+  lines.push("", "Provide your full coaching analysis following the structure defined in your instructions.");
 
   return lines.join("\n");
 }
+
+export const SYSTEM_PROMPT_SESSION = `You are MAGI Oracle reviewing one day of Melee play.
+
+Write exactly two paragraphs (2-4 sentences each).
+
+Paragraph 1 — What worked: reference one or two concrete numbers from the day's games and what that suggests the player was doing well.
+
+Paragraph 2 — Next focus: pick the single most valuable thing to improve next session, grounded in a number from the data. End with one concrete drill the player can do in Unclepunch or training mode.
+
+No bullet lists, no headers, no meta-commentary. Straight prose.`;
