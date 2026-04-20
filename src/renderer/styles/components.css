@@ -3032,3 +3032,18 @@ body[data-theme="liquid"] .drawer {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+
+.trends-hero-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 20px;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.trends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
