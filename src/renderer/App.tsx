@@ -10,7 +10,6 @@ const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m
 const Characters = lazy(() => import("./pages/Characters").then((m) => ({ default: m.Characters })));
 const Practice = lazy(() => import("./pages/Practice").then((m) => ({ default: m.Practice })));
 const Oracle = lazy(() => import("./pages/Oracle").then((m) => ({ default: m.Oracle })));
-const GameDetail = lazy(() => import("./pages/GameDetail").then((m) => ({ default: m.GameDetail })));
 
 import { applyTheme, getResolvedTheme, THEMES, type ColorMode } from "./themes";
 import {
@@ -140,7 +139,6 @@ export function App() {
           <Route path="/practice" element={<Practice refreshKey={refreshKey} />} />
           <Route path="/oracle" element={<Oracle refreshKey={refreshKey} />} />
           <Route path="/settings" element={<Settings onImport={triggerRefresh} />} />
-          <Route path="/game/:gameId" element={<GameDetail refreshKey={refreshKey} />} />
         </Routes>
       </Suspense>
     ),
