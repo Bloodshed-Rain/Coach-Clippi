@@ -2490,4 +2490,75 @@ export function getTrendSeries(metric: TrendMetric, range: "7d" | "30d" | "all",
   return rows.map((r) => r.v);
 }
 
+// ── Practice plans ──────────────────────────────────────────────────
+
+export interface PracticePlan {
+  id: number;
+  name: string;
+  weaknessSummary: string | null;
+  createdAt: string;
+  drills: PracticeDrill[];
+}
+export interface PracticeDrill {
+  id: number;
+  name: string;
+  target: string;
+  completed: boolean;
+  sortOrder: number;
+}
+
+export function insertPracticePlan(
+  name: string,
+  weaknessSummary: string | null,
+  drills: Array<{ name: string; target: string }>,
+): PracticePlan {
+  const db = getDb();
+  const planRow = db
+    .prepare("INSERT INTO practice_plans (name, weakness_summary) VALUES (?, ?) RETURNING id, created_at")
+    .get(name, weaknessSummary) as { id: number; created_at: string };
+  const insertDrill = db.prepare(
+    "INSERT INTO practice_drills (plan_id, name, target, sort_order) VALUES (?, ?, ?, ?) RETURNING id",
+  );
+  const drillRows: PracticeDrill[] = drills.map((d, i) => {
+    const row = insertDrill.get(planRow.id, d.name, d.target, i) as { id: number };
+    return { id: row.id, name: d.name, target: d.target, completed: false, sortOrder: i };
+  });
+  return { id: planRow.id, name, weaknessSummary, createdAt: planRow.created_at, drills: drillRows };
+}
+
+export function listPracticePlans(): PracticePlan[] {
+  const db = getDb();
+  const plans = db
+    .prepare(
+      "SELECT id, name, weakness_summary as weaknessSummary, created_at as createdAt FROM practice_plans ORDER BY created_at DESC",
+    )
+    .all() as Array<{ id: number; name: string; weaknessSummary: string | null; createdAt: string }>;
+  const drillStmt = db.prepare(
+    "SELECT id, name, target, completed, sort_order as sortOrder FROM practice_drills WHERE plan_id = ? ORDER BY sort_order",
+  );
+  return plans.map((p) => ({
+    ...p,
+    drills: (
+      drillStmt.all(p.id) as Array<{
+        id: number;
+        name: string;
+        target: string;
+        completed: number;
+        sortOrder: number;
+      }>
+    ).map((d) => ({ ...d, completed: d.completed === 1 })),
+  }));
+}
+
+export function setDrillCompletion(drillId: number, completed: boolean): void {
+  getDb()
+    .prepare("UPDATE practice_drills SET completed = ? WHERE id = ?")
+    .run(completed ? 1 : 0, drillId);
+}
+
+export function deletePracticePlan(planId: number): void {
+  getDb().prepare("DELETE FROM practice_drills WHERE plan_id = ?").run(planId);
+  getDb().prepare("DELETE FROM practice_plans WHERE id = ?").run(planId);
+}
+
 export { DB_PATH, DATA_DIR };

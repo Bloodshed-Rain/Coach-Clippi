@@ -1,8 +1,16 @@
 import { loadConfig } from "../../config.js";
-import { getGamesOnDate, getSessionReport, setSessionReport } from "../../db.js";
+import {
+  getGamesOnDate,
+  getSessionReport,
+  setSessionReport,
+  insertPracticePlan,
+  listPracticePlans,
+  setDrillCompletion,
+  deletePracticePlan,
+} from "../../db.js";
 import { callLLM, MODELS, LLM_DEFAULTS, getModelLabel, type ProviderId } from "../../llm.js";
 import { llmQueue } from "../../llmQueue.js";
-import { SYSTEM_PROMPT_SESSION } from "../../pipeline/prompt.js";
+import { SYSTEM_PROMPT_SESSION, SYSTEM_PROMPT_PRACTICE } from "../../pipeline/prompt.js";
 import type { SafeHandleFn } from "../ipc.js";
 import { resolveLLMConfig } from "./analysis.js";
 
@@ -188,5 +196,38 @@ export function registerLlmHandlers(safeHandle: SafeHandleFn): void {
     );
     setSessionReport(date, response);
     return response;
+  });
+
+  safeHandle("llm:generatePracticePlan", async (_e, weaknessSummary: string) => {
+    const llmConfig = resolveLLMConfig();
+    const raw = await llmQueue.enqueue(() =>
+      callLLM({ systemPrompt: SYSTEM_PROMPT_PRACTICE, userPrompt: weaknessSummary, config: llmConfig }),
+    );
+    let parsed: { name: string; drills: Array<{ name: string; target: string }> };
+    try {
+      const cleaned = raw
+        .trim()
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/, "");
+      parsed = JSON.parse(cleaned);
+    } catch {
+      throw new Error(`LLM returned non-JSON response: ${raw.slice(0, 140)}…`);
+    }
+    if (!parsed.name || !Array.isArray(parsed.drills) || parsed.drills.length === 0) {
+      throw new Error("LLM response missing required fields (name, drills[]).");
+    }
+    return insertPracticePlan(parsed.name, weaknessSummary, parsed.drills);
+  });
+
+  safeHandle("llm:listPracticePlans", () => listPracticePlans());
+
+  safeHandle("llm:setDrillCompletion", (_e, drillId: number, completed: boolean) => {
+    setDrillCompletion(drillId, completed);
+    return true;
+  });
+
+  safeHandle("llm:deletePracticePlan", (_e, planId: number) => {
+    deletePracticePlan(planId);
+    return true;
   });
 }

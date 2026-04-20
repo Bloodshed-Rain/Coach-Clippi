@@ -24,6 +24,11 @@ const api = {
     ipcRenderer.invoke("analyze:scoped", scope, id, targetPlayer, streamId),
   analyzeDiscovery: (streamId?: string) => ipcRenderer.invoke("analyze:discovery", streamId),
   analyzeSession: (date: string) => ipcRenderer.invoke("llm:analyzeSession", date),
+  generatePracticePlan: (weaknessSummary: string) => ipcRenderer.invoke("llm:generatePracticePlan", weaknessSummary),
+  listPracticePlans: () => ipcRenderer.invoke("llm:listPracticePlans"),
+  setDrillCompletion: (drillId: number, completed: boolean) =>
+    ipcRenderer.invoke("llm:setDrillCompletion", drillId, completed),
+  deletePracticePlan: (planId: number) => ipcRenderer.invoke("llm:deletePracticePlan", planId),
 
   // LLM
   getLLMModels: () => ipcRenderer.invoke("llm:models"),

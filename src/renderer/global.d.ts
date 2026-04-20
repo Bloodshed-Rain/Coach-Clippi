@@ -21,6 +21,22 @@ declare global {
       analyzeScoped: (scope: string, id: string | number, targetPlayer?: string, streamId?: string) => Promise<string>;
       analyzeDiscovery: (streamId?: string) => Promise<string>;
       analyzeSession: (date: string) => Promise<string>;
+      generatePracticePlan: (weaknessSummary: string) => Promise<{
+        id: number;
+        name: string;
+        weaknessSummary: string | null;
+        createdAt: string;
+        drills: Array<{ id: number; name: string; target: string; completed: boolean; sortOrder: number }>;
+      }>;
+      listPracticePlans: () => Promise<Array<{
+        id: number;
+        name: string;
+        weaknessSummary: string | null;
+        createdAt: string;
+        drills: Array<{ id: number; name: string; target: string; completed: boolean; sortOrder: number }>;
+      }>>;
+      setDrillCompletion: (drillId: number, completed: boolean) => Promise<boolean>;
+      deletePracticePlan: (planId: number) => Promise<boolean>;
       getLLMModels: () => Promise<any[]>;
       getCurrentModel: () => Promise<{ modelId: string; label: string }>;
       fetchOpenRouterModels: () => Promise<any[]>;
