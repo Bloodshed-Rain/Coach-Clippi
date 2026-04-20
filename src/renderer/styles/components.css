@@ -2976,3 +2976,59 @@ body[data-theme="liquid"] .drawer {
   line-height: 1.6;
   color: var(--text-secondary);
 }
+
+/* ── Characters page ───────────────────────────────────────────── */
+
+.characters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+.character-tile {
+  position: relative;
+  text-align: left;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text);
+  overflow: hidden;
+}
+.character-tile-name {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+.character-tile-record {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.character-detail-split {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+}
+.character-hero {
+  text-align: center;
+  padding: 28px;
+}
+.character-hero-mini {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 20px;
+}
+.character-hero-stat {
+  padding: 10px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+.character-hero-stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
