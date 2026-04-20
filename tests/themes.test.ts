@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { THEMES, THEME_ORDER, getResolvedTheme } from "../src/renderer/themes";
 
 describe("themes", () => {
-  it("includes all five themes with stable ids", () => {
-    expect(Object.keys(THEMES).sort()).toEqual(["dark", "light", "liquid", "melee", "win98"].sort());
+  it("includes all six themes with stable ids", () => {
+    expect(Object.keys(THEMES).sort()).toEqual(["amber", "crt", "light", "liquid", "telemetry", "tournament"].sort());
   });
 
   it("orders liquid first", () => {
@@ -17,12 +17,12 @@ describe("themes", () => {
   });
 
   it("non-liquid themes leave optional tokens undefined", () => {
-    expect(THEMES["dark"]!.surfaceBlur).toBeUndefined();
-    expect(THEMES["win98"]!.radiusMd).toBeUndefined();
+    expect(THEMES["telemetry"]!.surfaceBlur).toBeUndefined();
+    expect(THEMES["tournament"]!.radiusMd).toBeUndefined();
   });
 
-  it("getResolvedTheme falls back to dark for unknown ids", () => {
-    const t = getResolvedTheme("does-not-exist", "dark");
-    expect(t.id).toBe("dark");
+  it("getResolvedTheme falls back to liquid for unknown ids", () => {
+    const t = getResolvedTheme("does-not-exist", "liquid");
+    expect(t.id).toBe("liquid");
   });
 });

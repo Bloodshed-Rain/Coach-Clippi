@@ -38,11 +38,14 @@ export interface Theme {
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
- * MAGI Theme Definitions — 3 curated themes
+ * MAGI Theme Definitions — 6 curated themes
  *
- *   dark        — the everyday default
+ *   liquid      — default chrome/glass aesthetic
+ *   telemetry   — dark blue data-forward mode
+ *   tournament  — high-contrast black for tournament overlays
+ *   crt         — green phosphor CRT look
+ *   amber       — warm monochrome amber CRT variant
  *   light       — clean bright mode for daytime / well-lit rooms
- *   win98       — full-commit Windows 98 retro (beveled, silver, navy)
  *
  * Extra per-theme visual treatment (bevels, sizing) is handled by
  * selectors in styles/tokens.css keyed off `[data-theme="<id>"]`.
@@ -51,11 +54,6 @@ export interface Theme {
 const FONT_SANS = "'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 const FONT_MONO = "'JetBrains Mono', 'Fira Code', monospace";
 const FONT_DISPLAY = "'Chakra Petch', 'DM Sans', -apple-system, sans-serif";
-const FONT_WIN98 = "'Tahoma', 'MS Sans Serif', 'Pixelated MS Sans Serif', Verdana, sans-serif";
-// Melee fonts: the real game uses ITC Galliard Std Ultra (for "Super Smash Bros.")
-// and Impact Wide (for "Melee") — both proprietary. We use EB Garamond 800 as the
-// closest free Galliard stand-in, and system Impact (scaled) for the Melee wordmark.
-const FONT_MELEE_SANS = "'Oswald', 'Arial Narrow', sans-serif";
 const EASE_SPRING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const EASE_OUT = "cubic-bezier(0, 0, 0.2, 1)";
 
@@ -100,9 +98,9 @@ export const THEMES: Record<string, Theme> = {
     radiusMd: "20px",
   },
 
-  dark: {
-    id: "dark",
-    name: "Dark",
+  telemetry: {
+    id: "telemetry",
+    name: "Telemetry",
     bg: "#0f172a",
     surface1: "#1e293b",
     surface2: "#334155",
@@ -126,6 +124,105 @@ export const THEMES: Record<string, Theme> = {
     shadowSm: "0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25)",
     shadowMd: "0 4px 16px rgba(0,0,0,0.4)",
     shadowLg: "0 12px 40px rgba(0,0,0,0.5)",
+    fontMono: FONT_MONO,
+    fontSans: FONT_SANS,
+    fontDisplay: FONT_DISPLAY,
+    easeSpring: EASE_SPRING,
+    easeOut: EASE_OUT,
+  },
+
+  tournament: {
+    id: "tournament",
+    name: "Tournament",
+    bg: "#000000",
+    surface1: "#0a0a0a",
+    surface2: "#141414",
+    surface3: "#1f1f1f",
+    border: "rgba(255,255,255,0.08)",
+    borderSubtle: "rgba(255,255,255,0.04)",
+    borderMuted: "rgba(255,255,255,0.14)",
+    text: "#ffffff",
+    textSecondary: "#d4d4d4",
+    textMuted: "#737373",
+    accent: "#3b82f6",
+    accentHover: "#2563eb",
+    accentMuted: "rgba(59,130,246,0.15)",
+    win: "#4ade80",
+    loss: "#f87171",
+    caution: "#fbbf24",
+    sidebarBg: "#000000",
+    sidebarHover: "#0a0a0a",
+    sidebarActiveBg: "rgba(59,130,246,0.15)",
+    sidebarAccent: "#3b82f6",
+    shadowSm: "0 1px 3px rgba(0,0,0,0.6)",
+    shadowMd: "0 4px 16px rgba(0,0,0,0.6)",
+    shadowLg: "0 12px 40px rgba(0,0,0,0.7)",
+    fontMono: FONT_MONO,
+    fontSans: FONT_SANS,
+    fontDisplay: FONT_DISPLAY,
+    easeSpring: EASE_SPRING,
+    easeOut: EASE_OUT,
+  },
+
+  crt: {
+    id: "crt",
+    name: "CRT",
+    bg: "#050a05",
+    surface1: "#0a140a",
+    surface2: "#111e11",
+    surface3: "#1a2e1a",
+    border: "rgba(51,255,51,0.08)",
+    borderSubtle: "rgba(51,255,51,0.04)",
+    borderMuted: "rgba(51,255,51,0.15)",
+    text: "#33ff33",
+    textSecondary: "#29cc29",
+    textMuted: "#1a801a",
+    accent: "#33ff33",
+    accentHover: "#29cc29",
+    accentMuted: "rgba(51,255,51,0.12)",
+    win: "#33ff33",
+    loss: "#ff3333",
+    caution: "#ffcc00",
+    sidebarBg: "#050a05",
+    sidebarHover: "#0a140a",
+    sidebarActiveBg: "rgba(51,255,51,0.12)",
+    sidebarAccent: "#33ff33",
+    shadowSm: "0 0 4px rgba(51,255,51,0.25)",
+    shadowMd: "0 0 12px rgba(51,255,51,0.3)",
+    shadowLg: "0 0 24px rgba(51,255,51,0.35)",
+    fontMono: FONT_MONO,
+    fontSans: FONT_MONO,
+    fontDisplay: FONT_MONO,
+    easeSpring: EASE_SPRING,
+    easeOut: EASE_OUT,
+  },
+
+  amber: {
+    id: "amber",
+    name: "Amber",
+    bg: "#1a1006",
+    surface1: "#231709",
+    surface2: "#2e200e",
+    surface3: "#3d2c15",
+    border: "rgba(217,175,106,0.1)",
+    borderSubtle: "rgba(217,175,106,0.05)",
+    borderMuted: "rgba(217,175,106,0.18)",
+    text: "#f5e6c8",
+    textSecondary: "#c9a96e",
+    textMuted: "#8b6d3f",
+    accent: "#d9a540",
+    accentHover: "#c4922e",
+    accentMuted: "rgba(217,165,64,0.14)",
+    win: "#7dba5a",
+    loss: "#d95b5b",
+    caution: "#d9a540",
+    sidebarBg: "#1a1006",
+    sidebarHover: "#231709",
+    sidebarActiveBg: "rgba(217,165,64,0.14)",
+    sidebarAccent: "#d9a540",
+    shadowSm: "0 2px 6px rgba(0,0,0,0.4)",
+    shadowMd: "0 6px 18px rgba(0,0,0,0.5)",
+    shadowLg: "0 16px 48px rgba(0,0,0,0.6)",
     fontMono: FONT_MONO,
     fontSans: FONT_SANS,
     fontDisplay: FONT_DISPLAY,
@@ -165,89 +262,18 @@ export const THEMES: Record<string, Theme> = {
     easeSpring: EASE_SPRING,
     easeOut: EASE_OUT,
   },
-
-  /* ─── Windows 98 — full commit, beveled everything ──────────────────── */
-  win98: {
-    id: "win98",
-    name: "Retro 98",
-    bg: "#008080", // classic teal desktop
-    surface1: "#c0c0c0", // silver
-    surface2: "#d4d0c8", // light silver
-    surface3: "#808080", // dark silver (shadow)
-    border: "#000000",
-    borderSubtle: "#808080",
-    borderMuted: "#404040",
-    text: "#000000",
-    textSecondary: "#000000",
-    textMuted: "#404040",
-    accent: "#000080", // navy titlebar blue
-    accentHover: "#1084d0", // brighter navy (hover gradient)
-    accentMuted: "rgba(0, 0, 128, 0.2)",
-    win: "#008000", // classic green
-    loss: "#800000", // maroon
-    caution: "#808000", // olive
-    sidebarBg: "#c0c0c0",
-    sidebarHover: "#d4d0c8",
-    sidebarActiveBg: "#000080",
-    sidebarAccent: "#ffffff",
-    // Bevel shadows, not drop shadows — Win98 windows don't cast shadows
-    shadowSm: "inset -1px -1px 0 #404040, inset 1px 1px 0 #ffffff",
-    shadowMd: "inset -1px -1px 0 #404040, inset 1px 1px 0 #ffffff, inset -2px -2px 0 #808080, inset 2px 2px 0 #dfdfdf",
-    shadowLg: "inset -1px -1px 0 #404040, inset 1px 1px 0 #ffffff, inset -2px -2px 0 #808080, inset 2px 2px 0 #dfdfdf",
-    fontMono: "'Consolas', 'Courier New', monospace",
-    fontSans: FONT_WIN98,
-    fontDisplay: FONT_WIN98,
-    easeSpring: "linear", // Win98 didn't animate
-    easeOut: "linear",
-  },
-
-  /* ─── Melee — the game's own UI, borrowed directly ─────────────────── */
-  melee: {
-    id: "melee",
-    name: "Melee",
-    // Deep navy void with a hint of blue — the backdrop behind every Melee menu
-    bg: "#050818",
-    surface1: "#0c1230", // card / panel fill, slightly lifted
-    surface2: "#141a3d", // hovered / elevated surface
-    surface3: "#1e2550", // hover ceiling
-    border: "rgba(64, 208, 255, 0.28)", // cyan wireframe lines
-    borderSubtle: "rgba(64, 208, 255, 0.12)",
-    borderMuted: "rgba(64, 208, 255, 0.45)",
-    text: "#ffffff",
-    textSecondary: "#c8d4ff",
-    textMuted: "#6b7aad",
-    accent: "#ffc300", // the signature Melee amber/gold glow
-    accentHover: "#ffdb4d",
-    accentMuted: "rgba(255, 195, 0, 0.18)",
-    win: "#4ade80",
-    loss: "#ff5555",
-    caution: "#ffc300",
-    sidebarBg: "#050818",
-    sidebarHover: "#0c1230",
-    sidebarActiveBg: "rgba(255, 195, 0, 0.15)",
-    sidebarAccent: "#ffc300",
-    // Amber glow shadows — selected items literally glow in Melee
-    shadowSm: "0 0 8px rgba(255, 195, 0, 0.25)",
-    shadowMd: "0 0 16px rgba(255, 195, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.5)",
-    shadowLg: "0 0 32px rgba(255, 195, 0, 0.45), 0 12px 32px rgba(0, 0, 0, 0.6)",
-    fontMono: FONT_MONO,
-    fontSans: FONT_MELEE_SANS,
-    fontDisplay: "Impact, 'Arial Black', 'Oswald', sans-serif",
-    easeSpring: EASE_SPRING,
-    easeOut: EASE_OUT,
-  },
 };
 
-export const THEME_ORDER = ["liquid", "dark", "light", "win98", "melee"] as const;
+export const THEME_ORDER = ["liquid", "telemetry", "tournament", "crt", "amber", "light"] as const;
 
-export type ColorMode = "liquid" | "dark" | "light" | "win98" | "melee";
+export type ColorMode = "liquid" | "telemetry" | "tournament" | "crt" | "amber" | "light";
 
 /**
- * Resolve a saved theme ID to an actual Theme, falling back to dark for
+ * Resolve a saved theme ID to an actual Theme, falling back to liquid for
  * unknown IDs (e.g. legacy character themes from a previous version).
  */
 export function getResolvedTheme(themeId: string, _mode: ColorMode): Theme {
-  return THEMES[themeId] ?? THEMES["dark"]!;
+  return THEMES[themeId] ?? THEMES["liquid"]!;
 }
 
 /**
