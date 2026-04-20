@@ -647,6 +647,16 @@
   margin-bottom: 16px;
   opacity: 0.4;
 }
+.empty-state-title {
+  font-family: var(--font-display);
+  margin: 0 0 8px;
+  color: var(--text);
+}
+.empty-state-sub {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
 
 /* ── Discovery Card ──────────────────────────────────────────────── */
 .discovery-card {
