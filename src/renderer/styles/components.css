@@ -61,24 +61,6 @@
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 12px;
 }
-.stat-box {
-  background: var(--surface-1);
-  border: none;
-  border-left: 2px solid var(--accent);
-  border-radius: 0;
-  padding: 14px 16px;
-  position: relative;
-  transition:
-    border-color 0.2s var(--ease-out),
-    background 0.2s var(--ease-out),
-    box-shadow 0.2s var(--ease-out);
-}
-.stat-box:hover {
-  border-left-width: 3px;
-  border-left-color: var(--accent);
-  background: rgba(var(--accent-rgb), 0.03);
-  box-shadow: inset 3px 0 12px -4px rgba(var(--accent-rgb), 0.12);
-}
 .stat-value {
   font-size: 24px;
   font-weight: 700;
@@ -377,34 +359,6 @@
   font-family: var(--font-mono);
   font-weight: 700;
   color: var(--text-muted);
-}
-
-/* ── Result Badge — tight HUD-like ─────────────────────────────── */
-.result-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 2px;
-  font-weight: 800;
-  font-size: 12px;
-  font-family: var(--font-mono);
-}
-.result-badge.win {
-  background: rgba(var(--green-rgb), 0.12);
-  color: var(--green);
-  border: 1px solid rgba(var(--green-rgb), 0.25);
-}
-.result-badge.loss {
-  background: rgba(var(--red-rgb), 0.12);
-  color: var(--red);
-  border: 1px solid rgba(var(--red-rgb), 0.25);
-}
-.result-badge.draw {
-  background: var(--bg-hover);
-  color: var(--text-dim);
-  border: 1px solid var(--border);
 }
 
 /* ── Game Card Sub-elements ────────────────────────────────────── */
@@ -1072,20 +1026,6 @@
   overflow: hidden;
   position: relative;
 }
-.session-pulse .stat-box {
-  flex: 1;
-  border-left: none;
-  border-radius: 0;
-  text-align: center;
-  padding: 12px 16px;
-}
-.session-pulse .stat-box + .stat-box {
-  border-left: 1px solid var(--border);
-}
-.session-pulse .stat-box:first-child {
-  border-left: none;
-}
-
 /* Scan line animation */
 .session-pulse::after {
   content: "";
@@ -1661,29 +1601,6 @@
 .sessions-row-expanded td {
   background: var(--surface-2) !important;
 }
-.sessions-winrate-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.sessions-winrate-value {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 13px;
-  min-width: 36px;
-  font-variant-numeric: tabular-nums;
-}
-.sessions-result-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 22px;
-  border-radius: var(--radius-xs);
-  font-weight: 700;
-  font-size: 11px;
-  font-family: var(--font-mono);
-}
 .sessions-stock-count {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -1772,51 +1689,6 @@
   margin-bottom: 10px;
   margin-top: 4px;
 }
-.sessions-breakdown-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-.sessions-breakdown-label {
-  width: 100px;
-  font-size: 11px;
-  font-weight: 500;
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 0;
-}
-.sessions-breakdown-track {
-  flex: 1;
-  height: 3px;
-  background: var(--surface-3);
-  border-radius: 0;
-  overflow: hidden;
-}
-.sessions-breakdown-fill {
-  height: 100%;
-  border-radius: 0;
-  transition: width 0.5s var(--ease-spring);
-}
-.sessions-breakdown-pct {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-  min-width: 32px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.sessions-breakdown-record {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-muted);
-  min-width: 48px;
-  text-align: right;
-}
-
 /* ── Sessions: Analysis ────────────────────────────────────────── */
 .sessions-analysis-section {
   margin-top: 16px;
