@@ -68,3 +68,20 @@ export function PracticeIcon({ size = 18 }: { size?: number }) {
     </svg>
   );
 }
+
+export function OracleIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 2l2.39 6.96H22l-6.19 4.5L18.18 20 12 15.67 5.82 20l2.37-6.54L2 8.96h7.61L12 2z" />
+    </svg>
+  );
+}

@@ -10,6 +10,7 @@ const Profile = lazy(() => import("./pages/Profile").then((m) => ({ default: m.P
 const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m.Settings })));
 const Characters = lazy(() => import("./pages/Characters").then((m) => ({ default: m.Characters })));
 const Practice = lazy(() => import("./pages/Practice").then((m) => ({ default: m.Practice })));
+const Oracle = lazy(() => import("./pages/Oracle").then((m) => ({ default: m.Oracle })));
 const GameDetail = lazy(() => import("./pages/GameDetail").then((m) => ({ default: m.GameDetail })));
 
 import { applyTheme, getResolvedTheme, THEMES, type ColorMode } from "./themes";
@@ -23,6 +24,7 @@ import {
   SettingsIcon,
   LibraryIcon,
   PracticeIcon,
+  OracleIcon,
 } from "./components/NavIcons";
 import { CommandPalette } from "./components/CommandPalette";
 import { LiquidShell, type NavItem as LiquidNavItem } from "./components/LiquidShell";
@@ -39,6 +41,7 @@ type Page =
   | "profile"
   | "characters"
   | "practice"
+  | "oracle"
   | "settings";
 
 interface NavItem extends LiquidNavItem {
@@ -56,7 +59,10 @@ const ANALYZE_ITEMS: NavItem[] = [
   { id: "profile", label: "Profile", path: "/profile", Icon: ProfileIcon },
 ];
 
-const SYSTEM_ITEMS: NavItem[] = [{ id: "settings", label: "Settings", path: "/settings", Icon: SettingsIcon }];
+const SYSTEM_ITEMS: NavItem[] = [
+  { id: "oracle", label: "MAGI Oracle", path: "/oracle", Icon: OracleIcon },
+  { id: "settings", label: "Settings", path: "/settings", Icon: SettingsIcon },
+];
 
 export function App() {
   const navigate = useNavigate();
@@ -138,6 +144,7 @@ export function App() {
           <Route path="/profile" element={<Profile refreshKey={refreshKey} />} />
           <Route path="/characters" element={<Characters refreshKey={refreshKey} />} />
           <Route path="/practice" element={<Practice refreshKey={refreshKey} />} />
+          <Route path="/oracle" element={<Oracle refreshKey={refreshKey} />} />
           <Route path="/settings" element={<Settings onImport={triggerRefresh} />} />
           <Route path="/game/:gameId" element={<GameDetail refreshKey={refreshKey} />} />
         </Routes>

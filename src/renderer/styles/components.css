@@ -3070,3 +3070,62 @@ body[data-theme="liquid"] .drawer {
   gap: 10px;
   cursor: pointer;
 }
+
+.oracle-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-right: 8px;
+}
+.oracle-row {
+  display: flex;
+  gap: 12px;
+  align-items: start;
+}
+.oracle-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.oracle-avatar-assistant {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+.oracle-avatar-user {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.oracle-body {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+.oracle-body p:first-child {
+  margin-top: 0;
+}
+.oracle-input-row {
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.oracle-input {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+}
