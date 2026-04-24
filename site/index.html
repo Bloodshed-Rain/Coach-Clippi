@@ -1094,25 +1094,28 @@ function copyClone(){
     const charHeightPx  = sizeVh / 100 * vh;
     const charWidthPx   = charHeightPx * 0.65; // estimated aspect ratio
 
-     let leftPx, topPx;
     if (isMobile) {
-      // Mobile: anchor to bottom-right with slight random jitter
-      // Character bleeds ~20-40% off the right and bottom edges for a bold look
-      const jitterX = rand(0, charWidthPx * 0.25);
-      const jitterY = rand(0, charHeightPx * 0.15);
-      leftPx = vw - charWidthPx * 0.70 + jitterX;  // right-anchored
-      topPx  = vh - charHeightPx * 0.80 + jitterY;  // bottom-anchored
+      // Mobile: use CSS right/bottom anchoring — immune to viewport math issues.
+      // Character bleeds slightly off the right and bottom edges for atmosphere.
+      const rightOffset = -(charWidthPx * rand(0.15, 0.30));  // bleed right
+      const bottomOffset = -(charHeightPx * rand(0.05, 0.20)); // bleed bottom
+      img.style.right  = rightOffset + 'px';
+      img.style.bottom = bottomOffset + 'px';
+      img.style.left   = 'auto';
+      img.style.top    = 'auto';
     } else {
       // Desktop: random placement, keep mostly in viewport
       const leftMin = -(charWidthPx * 0.20);
       const leftMax = vw - charWidthPx * 0.80;
-      leftPx = leftMin + Math.random() * (leftMax - leftMin);
+      const leftPx  = leftMin + Math.random() * (leftMax - leftMin);
       const topMin  = -(charHeightPx * 0.10);
       const topMax  = vh - charHeightPx * 0.80;
-      topPx  = topMin + Math.random() * Math.max(0, topMax - topMin);
+      const topPx   = topMin + Math.random() * Math.max(0, topMax - topMin);
+      img.style.left   = leftPx + 'px';
+      img.style.top    = topPx  + 'px';
+      img.style.right  = 'auto';
+      img.style.bottom = 'auto';
     }
-    img.style.left = leftPx + 'px';
-    img.style.top  = topPx  + 'px';
 
     // --- Subtle tilt (separate from drift animation) ---
     const rot = rand(-5, 5);
