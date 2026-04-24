@@ -78,6 +78,34 @@ body::after {
   100% { transform: translate(30px,-20px) scale(0.98); }
 }
 
+/* ── Wireframe character atmosphere ──────────────────────────────── */
+.wireframe-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.wireframe-char {
+  position: absolute;
+  opacity: 0;
+  filter: blur(0.4px);
+  /* mix into the dark background tastefully */
+  mix-blend-mode: screen;
+  /* fade is driven by JS-set transition */
+  will-change: opacity, transform;
+  user-select: none;
+  -webkit-user-drag: none;
+  /* very subtle drift while visible */
+  animation: wf-drift 28s ease-in-out infinite alternate;
+}
+@keyframes wf-drift {
+  0%   { transform: translate3d(0,0,0) scale(1); }
+  100% { transform: translate3d(0,-14px,0) scale(1.02); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wireframe-bg { display: none; }
+}
 /* ── Page wrapper ────────────────────────────────────────────────── */
 .page { position: relative; z-index: 1; }
 
@@ -568,6 +596,8 @@ footer {
   </style>
 </head>
 <body>
+<!-- ── Wireframe character atmosphere (renders behind .page) ── -->
+<div class="wireframe-bg" id="wireframe-bg" aria-hidden="true"></div>
 <div class="page">
 
 <!-- ── Nav ──────────────────────────────────────────────────────────── -->
@@ -969,6 +999,134 @@ function copyClone(){
   lbl.innerText='Copied!';
   setTimeout(()=>lbl.innerText='Copy',2000);
 }
+
+/* ───────────────────────────────────────────────────────────────────────
+   Wireframe character atmosphere
+   - Cycles through the full Melee wireframe roster
+   - Maintains a small pool of simultaneously visible characters
+   - Each one fades in to a low opacity, holds, fades out, then is replaced
+   ────────────────────────────────────────────────────────────────────── */
+(function initWireframeAtmosphere(){
+  const bg = document.getElementById('wireframe-bg');
+  if (!bg) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const ROSTER = [
+    'bowser','captain_falcon','donkey_kong','dr_mario','falco','fox',
+    'game_and_watch','ganondorf','ice_climbers','jigglypuff','kirby','link',
+    'luigi','mario','marth','marth_dair','mewtwo','ness','peach','pichu',
+    'pikachu','roy','samus','sheik','yoshi','young_link','zelda'
+  ];
+
+  // tunable parameters
+  const POOL_SIZE         = 3;       // number of wireframes visible at once
+  const FADE_MS_MIN       = 4500;    // fade in/out duration
+  const FADE_MS_MAX       = 7000;
+  const HOLD_MS_MIN       = 6000;    // time fully visible
+  const HOLD_MS_MAX       = 11000;
+  const PEAK_OPACITY_MIN  = 0.06;
+  const PEAK_OPACITY_MAX  = 0.12;
+  const SIZE_VH_MIN       = 55;      // size as % of viewport height
+  const SIZE_VH_MAX       = 90;
+  const STAGGER_MS        = 1800;    // delay between initial spawns
+
+  // shuffle helper
+  function shuffled(arr){
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  function rand(min, max){ return min + Math.random() * (max - min); }
+  function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+  // queue of upcoming characters (so we cycle through the whole roster
+  // without immediate repeats before replenishing)
+  let queue = shuffled(ROSTER);
+  let lastUsed = new Set();
+  function nextChar(activeNames){
+    if (queue.length === 0) queue = shuffled(ROSTER);
+    // avoid showing the same character that's currently on screen
+    let attempts = 0;
+    while (attempts < ROSTER.length && activeNames.has(queue[0])){
+      queue.push(queue.shift());
+      attempts++;
+    }
+    return queue.shift();
+  }
+
+  const active = new Map(); // element -> name
+
+  function spawn(){
+    const activeNames = new Set(active.values());
+    const name = nextChar(activeNames);
+
+    const img = document.createElement('img');
+    img.className = 'wireframe-char';
+    img.alt = '';
+    img.src = `${name}_wireframe.png`;
+    img.decoding = 'async';
+    img.loading = 'lazy';
+
+    // random sizing (height-driven so very tall figures don’t overflow weirdly)
+    const sizeVh = rand(SIZE_VH_MIN, SIZE_VH_MAX);
+    img.style.height = sizeVh + 'vh';
+    img.style.width = 'auto';
+    img.style.maxWidth = '70vw';
+
+    // random anchor position; allow figure to bleed slightly off edges
+    // for a more atmospheric feel
+    const top  = rand(-8, 100 - sizeVh * 0.55);
+    const left = rand(-12, 88);
+    img.style.top  = top + 'vh';
+    img.style.left = left + 'vw';
+
+    // very subtle random tilt
+    const rot = rand(-4, 4);
+    img.style.setProperty('--wf-rot', rot + 'deg');
+    // bake the rotation into the base transform alongside the drift animation
+    img.style.transform = `rotate(${rot}deg)`;
+
+    // randomise the drift animation phase a bit
+    img.style.animationDelay = (-rand(0, 28)) + 's';
+    img.style.animationDuration = rand(22, 34) + 's';
+
+    const fadeIn  = rand(FADE_MS_MIN, FADE_MS_MAX);
+    const fadeOut = rand(FADE_MS_MIN, FADE_MS_MAX);
+    const hold    = rand(HOLD_MS_MIN, HOLD_MS_MAX);
+    const peak    = rand(PEAK_OPACITY_MIN, PEAK_OPACITY_MAX);
+
+    img.style.transition = `opacity ${fadeIn}ms ease-in-out`;
+
+    bg.appendChild(img);
+    active.set(img, name);
+
+    // kick off fade-in on next frame
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { img.style.opacity = peak.toFixed(3); });
+    });
+
+    // schedule fade-out
+    setTimeout(() => {
+      img.style.transition = `opacity ${fadeOut}ms ease-in-out`;
+      img.style.opacity = '0';
+      setTimeout(() => {
+        img.remove();
+        active.delete(img);
+        // immediately start the next one so the pool stays full,
+        // with a tiny random offset so they don’t all land in sync
+        setTimeout(spawn, rand(400, 1800));
+      }, fadeOut + 200);
+    }, fadeIn + hold);
+  }
+
+  // initial staggered spawn so they don’t all appear at once
+  for (let i = 0; i < POOL_SIZE; i++){
+    setTimeout(spawn, i * STAGGER_MS);
+  }
+})();
 </script>
 </body>
 </html>
