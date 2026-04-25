@@ -1,10 +1,10 @@
 import { useState } from "react";
-import Markdown from "react-markdown";
 import { useGlobalStore } from "../stores/useGlobalStore";
 import { useRecentGames } from "../hooks/queries";
 import { Card } from "./ui/Card";
 import { Badge } from "./ui/Badge";
 import { StatGroupCard } from "./ui/StatGroupCard";
+import { CoachingModal } from "./CoachingModal";
 
 interface DrawerGame {
   id: number;
@@ -111,9 +111,7 @@ export function GameDrawer() {
   const game =
     drawerGameId != null ? ((games as unknown as DrawerGame[]).find((g) => g.id === drawerGameId) ?? null) : null;
 
-  const [coaching, setCoaching] = useState<string | null>(null);
-  const [coachLoading, setCoachLoading] = useState(false);
-  const [coachError, setCoachError] = useState<string | null>(null);
+  const [coachingOpen, setCoachingOpen] = useState(false);
 
   if (!game) return null;
 
@@ -125,20 +123,7 @@ export function GameDrawer() {
     .padStart(2, "0");
   const stocks = 4;
 
-  const onGetCoaching = async () => {
-    if (!game) return;
-    setCoachLoading(true);
-    setCoachError(null);
-    try {
-      const result = await window.clippi.analyzeScoped("game", game.id);
-      const text = typeof result === "string" ? result : ((result as { content?: string })?.content ?? String(result));
-      setCoaching(text);
-    } catch (err) {
-      setCoachError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setCoachLoading(false);
-    }
-  };
+  const onGetCoaching = () => setCoachingOpen(true);
 
   const onWatchReplay = () => {
     if (!game?.replayPath) return;
@@ -168,8 +153,8 @@ export function GameDrawer() {
         </div>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-          <button className="btn btn-primary" onClick={onGetCoaching} disabled={coachLoading}>
-            {coachLoading ? "Analyzing…" : "Get Coaching"}
+          <button className="btn btn-primary" onClick={onGetCoaching}>
+            {coachingOpen ? "Coaching open ←" : "Get Coaching"}
           </button>
           <button className="btn" onClick={onWatchReplay} disabled={!game.replayPath}>
             Watch Replay
@@ -193,20 +178,17 @@ export function GameDrawer() {
         {stats.map((s) => (
           <StatGroupCard key={s.group} title={s.group} items={s.items} />
         ))}
-
-        {coachError && (
-          <Card title="Coaching">
-            <p style={{ color: "var(--loss)" }}>{coachError}</p>
-          </Card>
-        )}
-        {coaching && (
-          <Card title="Coaching">
-            <div className="drawer-coaching-body">
-              <Markdown>{coaching}</Markdown>
-            </div>
-          </Card>
-        )}
       </div>
+
+      <CoachingModal
+        isOpen={coachingOpen}
+        onClose={() => setCoachingOpen(false)}
+        scope="game"
+        id={game.id}
+        title={`${game.playerCharacter ?? "—"} vs ${game.opponentCharacter} on ${game.stage}`}
+        replayPath={game.replayPath}
+        variant="alongsideDrawer"
+      />
     </>
   );
 }

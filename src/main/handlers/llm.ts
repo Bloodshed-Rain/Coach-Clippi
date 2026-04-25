@@ -12,7 +12,7 @@ import {
   clearOracleMessages,
   getRecentGames,
 } from "../../db.js";
-import { callLLM, MODELS, LLM_DEFAULTS, getModelLabel, type ProviderId } from "../../llm.js";
+import { callLLM, MODELS, getActiveModelId, getModelLabel, type ProviderId } from "../../llm.js";
 import { llmQueue } from "../../llmQueue.js";
 import { SYSTEM_PROMPT_SESSION, SYSTEM_PROMPT_PRACTICE, SYSTEM_PROMPT_ORACLE } from "../../pipeline/prompt.js";
 import type { SafeHandleFn } from "../ipc.js";
@@ -130,40 +130,47 @@ export function registerLlmHandlers(safeHandle: SafeHandleFn): void {
     return json.data;
   });
 
-  // Fetch models from all configured providers
+  // Fetch models from each provider that has a configured key.
+  // Providers without a key return an empty list so the UI can show
+  // "configure key to load models".
   safeHandle("llm:fetch-all-models", async () => {
     const config = loadConfig();
+    const openaiKey = config.apiKeys.openai || process.env.OPENAI_API_KEY;
     const openrouterKey = config.apiKeys.openrouter || process.env.OPENROUTER_API_KEY;
-    const geminiKey = config.apiKeys.gemini || process.env.GEMINI_API_KEY;
     const anthropicKey = config.apiKeys.anthropic || process.env.ANTHROPIC_API_KEY;
+    const geminiKey = config.apiKeys.gemini || process.env.GEMINI_API_KEY;
 
     const fetches: Promise<FetchedModel[]>[] = [];
     const providers: ProviderId[] = [];
 
+    if (openaiKey) {
+      fetches.push(fetchOpenAIModels(openaiKey));
+      providers.push("openai");
+    }
     if (openrouterKey) {
       fetches.push(fetchOpenRouterModels());
       providers.push("openrouter");
-    }
-    if (geminiKey) {
-      fetches.push(fetchGeminiModels(geminiKey));
-      providers.push("gemini");
     }
     if (anthropicKey) {
       fetches.push(fetchAnthropicModels(anthropicKey));
       providers.push("anthropic");
     }
+    if (geminiKey) {
+      fetches.push(fetchGeminiModels(geminiKey));
+      providers.push("gemini");
+    }
 
     const results = await Promise.all(fetches);
-    const byProvider: Record<string, FetchedModel[]> = {};
+    const byProvider: Record<string, FetchedModel[]> = {
+      openai: [],
+      openrouter: [],
+      anthropic: [],
+      gemini: [],
+      local: [{ id: "local", label: "Local Model (Ollama / LM Studio)", provider: "local" }],
+    };
     for (let i = 0; i < providers.length; i++) {
       byProvider[providers[i]!] = results[i]!;
     }
-
-    // OpenAI models are always available via the MAGI proxy — no key needed
-    byProvider["openai"] = [{ id: "gpt-4o-mini", label: "GPT-4o Mini (default)", provider: "openai" }];
-
-    // Always include local option
-    byProvider["local"] = [{ id: "local", label: "Local Model (Ollama / LM Studio)", provider: "local" }];
 
     return byProvider;
   });
@@ -172,8 +179,8 @@ export function registerLlmHandlers(safeHandle: SafeHandleFn): void {
   safeHandle("llm:models", () => MODELS);
   safeHandle("llm:currentModel", () => {
     const config = loadConfig();
-    const modelId = config.llmModelId ?? LLM_DEFAULTS.modelId;
-    return { modelId, label: getModelLabel(modelId) };
+    const modelId = getActiveModelId(config);
+    return { modelId, label: modelId ? getModelLabel(modelId) : "(none selected)" };
   });
 
   // Queue status — so UI can show "3 analyses pending..."

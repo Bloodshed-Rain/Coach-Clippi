@@ -1,5 +1,5 @@
 import { saveConfig, loadConfig, CONFIG_PATH, type Config } from "./config";
-import { getModelLabel, LLM_DEFAULTS } from "./llm";
+import { getActiveModelId, getModelLabel, getModelProvider } from "./llm";
 import { PROVIDERS, type ProviderId } from "./llmProviders";
 
 /** Map a CLI flag to a provider id (e.g. "--openrouter-key" → "openrouter"). */
@@ -13,11 +13,12 @@ const KEY_FLAGS: Record<string, ProviderId> = {
 
 function printConfig() {
   const config = loadConfig();
-  const modelId = config.llmModelId ?? LLM_DEFAULTS.modelId;
+  const modelId = getActiveModelId(config);
   console.log(`  Target player:    ${config.targetPlayer ?? "(not set)"}`);
   console.log(`  Connect code:     ${config.connectCode ?? "(not set)"}`);
   console.log(`  Replay folder:    ${config.replayFolder ?? "(not set)"}`);
-  console.log(`  AI model:         ${getModelLabel(modelId)}`);
+  console.log(`  Active provider:  ${config.activeProvider ?? "(not set)"}`);
+  console.log(`  AI model:         ${modelId ? getModelLabel(modelId) : "(none selected)"}`);
   for (const p of PROVIDERS) {
     if (!p.needsKey) continue;
     const set = config.apiKeys[p.id] ? "(set)" : "(not set)";
@@ -56,6 +57,9 @@ function main() {
       updates.replayFolder = next;
       i++;
     } else if (arg === "--model" && next) {
+      const provider = getModelProvider(next);
+      updates.activeProvider = provider;
+      updates.modelByProvider = { [provider]: next };
       updates.llmModelId = next;
       i++;
     } else if (arg in KEY_FLAGS && next) {

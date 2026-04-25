@@ -17,9 +17,24 @@ interface CoachingModalProps {
   preloadedText?: string;
   /** Replay path for timestamp click-to-Dolphin support */
   replayPath?: string;
+  /**
+   * "fullscreen" (default): slides in from the right, has its own backdrop.
+   * "alongsideDrawer": positioned to the LEFT of the open GameDrawer, no
+   * backdrop — drawer stays interactive on the right.
+   */
+  variant?: "fullscreen" | "alongsideDrawer";
 }
 
-export function CoachingModal({ isOpen, onClose, scope, id, title, preloadedText, replayPath }: CoachingModalProps) {
+export function CoachingModal({
+  isOpen,
+  onClose,
+  scope,
+  id,
+  title,
+  preloadedText,
+  replayPath,
+  variant = "fullscreen",
+}: CoachingModalProps) {
   const [analysis, setAnalysis] = useState(preloadedText ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,16 +88,21 @@ export function CoachingModal({ isOpen, onClose, scope, id, title, preloadedText
 
   if (!isOpen) return null;
 
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <motion.div
-        className="coaching-modal"
-        onClick={e => e.stopPropagation()}
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "spring", damping: 30, stiffness: 300 }}
-      >
+  const isAlongside = variant === "alongsideDrawer";
+  const modalClass = `coaching-modal${isAlongside ? " coaching-modal--alongside" : ""}`;
+  // Alongside mode slides in from the left edge of its anchor (right side of viewport
+  // minus drawer width); fullscreen slides from the right edge of the viewport.
+  const slideX = isAlongside ? "-30px" : "100%";
+
+  const panel = (
+    <motion.div
+      className={modalClass}
+      onClick={e => e.stopPropagation()}
+      initial={{ x: slideX, opacity: isAlongside ? 0 : 1 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: slideX, opacity: isAlongside ? 0 : 1 }}
+      transition={{ type: "spring", damping: 30, stiffness: 300 }}
+    >
         <header className="coaching-header">
           <div className="coaching-title-row">
             <div className="coaching-icon">
@@ -147,7 +167,15 @@ export function CoachingModal({ isOpen, onClose, scope, id, title, preloadedText
             <button className="btn" onClick={onClose}>Close</button>
           </div>
         </footer>
-      </motion.div>
+    </motion.div>
+  );
+
+  if (isAlongside) {
+    return panel;
+  }
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      {panel}
     </div>
   );
 }

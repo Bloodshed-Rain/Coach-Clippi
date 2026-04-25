@@ -1120,30 +1120,39 @@
 .timestamp-link {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 1px 6px;
-  margin: 0 2px;
-  font-size: 11px;
-  font-weight: 600;
+  gap: 4px;
+  padding: 2px 9px;
+  margin: 0 3px;
+  font-size: 12.5px;
+  font-weight: 700;
   font-family: var(--font-mono);
-  color: var(--accent);
-  background: var(--accent-muted);
-  border: 1px solid rgba(var(--accent-rgb), 0.15);
+  color: var(--text);
+  background: rgba(var(--accent-rgb), 0.18);
+  border: 1px solid rgba(var(--accent-rgb), 0.45);
   border-radius: var(--radius-xs);
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0);
+  vertical-align: baseline;
+  user-select: none;
 }
 .timestamp-link:hover {
-  background: rgba(var(--accent-rgb), 0.18);
+  background: rgba(var(--accent-rgb), 0.32);
+  border-color: rgba(var(--accent-rgb), 0.7);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.18);
+  transform: translateY(-1px);
+}
+.timestamp-link:active {
+  transform: translateY(0);
 }
 .timestamp-link.timestamp-loading {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: wait;
 }
 .timestamp-link.timestamp-error {
   color: var(--red);
-  border-color: rgba(var(--red-rgb), 0.3);
-  background: rgba(var(--red-rgb), 0.1);
+  border-color: rgba(var(--red-rgb), 0.5);
+  background: rgba(var(--red-rgb), 0.18);
 }
 
 /* ── Stock Timeline ────────────────────────────────────────────── */
@@ -1939,6 +1948,40 @@
   background: var(--surface-1);
   border-left: 1px solid var(--border);
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
+}
+
+/* Alongside-drawer variant: anchors to the LEFT of the open GameDrawer
+   so both panels are visible at once. No backdrop — drawer remains
+   interactive. Drawer width: min(720px, 90vw). */
+.coaching-modal--alongside {
+  right: min(720px, 90vw);
+  width: min(440px, calc(100vw - min(720px, 90vw) - 16px));
+  min-width: 320px;
+  height: 100vh;
+  z-index: 1003; /* above drawer-backdrop (1001) and drawer (1002) */
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
+}
+body[data-theme="liquid"] .coaching-modal--alongside {
+  background: rgba(15, 18, 26, 0.78);
+  backdrop-filter: blur(36px) saturate(1.6);
+  -webkit-backdrop-filter: blur(36px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-top-right-radius: 24px;
+  border-bottom-right-radius: 24px;
+  box-shadow:
+    -28px 0 64px rgba(0, 0, 0, 0.5),
+    inset -1px 0 0 rgba(255, 255, 255, 0.05);
+}
+/* When viewport is too narrow to fit drawer + alongside panel,
+   collapse to a slim variant overlapping the drawer's left edge. */
+@media (max-width: 1100px) {
+  .coaching-modal--alongside {
+    right: 0;
+    width: min(540px, 92vw);
+    z-index: 1004;
+  }
 }
 .coaching-header {
   display: flex;
@@ -2964,25 +3007,68 @@ body[data-theme="liquid"] .drawer {
   font-family: var(--font-mono);
   margin-bottom: 10px;
 }
-.character-detail-split {
-  display: grid;
-  grid-template-columns: 420px 1fr;
-  gap: 20px;
-}
-.character-hero {
+/* Hero banner: full-width card with stats flanking a giant wireframe.
+   Below sits a 2-column row of Matchups and Signature Stats. */
+.character-hero-banner {
   position: relative;
   overflow: hidden;
-  text-align: center;
-  padding: 20px;
+  padding: 36px 36px 28px;
+  margin-bottom: 24px;
 }
-.character-hero-art {
+.character-hero-banner::before {
+  content: "";
+  position: absolute;
+  top: -10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 120%;
+  background:
+    radial-gradient(circle at 50% 45%,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.025) 35%,
+      transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+}
+.character-hero-banner > * {
+  position: relative;
+  z-index: 1;
+}
+
+.character-hero-stage {
+  display: grid;
+  grid-template-columns: 1fr minmax(420px, 720px) 1fr;
+  align-items: center;
+  gap: 32px;
+  margin-bottom: 24px;
+}
+.character-hero-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.character-hero-side--left {
+  align-items: flex-end;
+  text-align: right;
+}
+.character-hero-side--right {
+  align-items: flex-start;
+  text-align: left;
+}
+.character-hero-side .character-hero-stat {
+  width: min(220px, 100%);
+}
+
+.character-hero-art-xl {
   display: flex;
   align-items: center;
   justify-content: center;
   aspect-ratio: 1 / 1;
   width: 100%;
-  margin-bottom: 4px;
+  position: relative;
 }
+
 .char-hero-portrait {
   display: block;
   width: 100%;
@@ -2993,31 +3079,123 @@ body[data-theme="liquid"] .drawer {
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
   mask-position: center;
-  filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.45));
+  filter:
+    drop-shadow(0 0 32px rgba(255, 255, 255, 0.08))
+    drop-shadow(0 16px 44px rgba(0, 0, 0, 0.6));
   pointer-events: none;
   user-select: none;
 }
 .character-hero-emoji {
-  font-size: 180px;
+  font-size: 280px;
   line-height: 1;
-  opacity: 0.85;
+  opacity: 0.9;
 }
-.character-hero-mini {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-top: 20px;
-}
+
 .character-hero-stat {
-  padding: 10px;
+  padding: 10px 14px;
   background: var(--surface-2);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
   border-radius: var(--radius-sm);
+  min-width: 140px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.character-hero-stat--highlight {
+  border-color: rgba(var(--accent-rgb), 0.45);
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.08), var(--surface-2));
+}
+.character-hero-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+.character-hero-stat--highlight .character-hero-stat-value {
+  color: var(--accent);
 }
 .character-hero-stat-label {
   font-size: 10px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  margin-top: 4px;
+}
+
+/* Horizontal generic-stats stripe shown beneath the wireframe when
+   signature stats already flank it. */
+.character-hero-stripe {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 4px;
+}
+.character-hero-stripe-cell {
+  padding: 8px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
+  border-radius: var(--radius-sm);
+  min-width: 110px;
+  text-align: center;
+}
+.character-hero-stripe-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+.character-hero-stripe-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+
+.character-hero-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.character-hero-foot h2 {
+  font-size: 28px;
+  letter-spacing: 0.02em;
+}
+.character-hero-cta {
+  margin-top: 6px;
+  min-width: 220px;
+}
+
+.character-detail-bottom {
+  display: block;
+}
+
+@media (max-width: 1200px) {
+  .character-hero-stage {
+    grid-template-columns: 1fr minmax(380px, 1.6fr) 1fr;
+    gap: 20px;
+  }
+  .character-hero-side .character-hero-stat {
+    min-width: 0;
+    width: 100%;
+  }
+}
+@media (max-width: 900px) {
+  .character-hero-stage {
+    grid-template-columns: 1fr;
+  }
+  .character-hero-side {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    text-align: center;
+  }
+  .character-hero-side--left,
+  .character-hero-side--right {
+    align-items: stretch;
+  }
 }
 
 .trends-hero-head {

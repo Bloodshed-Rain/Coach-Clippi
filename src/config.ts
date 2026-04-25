@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { type ProviderId } from "./llmProviders";
+import { type ProviderId, PROVIDER_BY_ID } from "./llmProviders";
 
 const DATA_DIR = path.join(require("os").homedir(), ".magi-melee");
 const CONFIG_PATH = path.join(DATA_DIR, "config.json");
@@ -10,7 +10,9 @@ export interface Config {
   connectCode: string | null;
   replayFolder: string | null;
   // LLM
-  llmModelId: string | null;
+  llmModelId: string | null;                                  // legacy; mirrors active model when activeProvider is set
+  activeProvider: ProviderId | null;                          // which provider is used for LLM calls
+  modelByProvider: Partial<Record<ProviderId, string>>;       // remembered model selection per provider
   apiKeys: Partial<Record<ProviderId, string>>;
   localEndpoint: string | null;
   // Dolphin
@@ -27,6 +29,8 @@ const DEFAULTS: Config = {
   connectCode: null,
   replayFolder: null,
   llmModelId: null,
+  activeProvider: null,
+  modelByProvider: {},
   apiKeys: {},
   localEndpoint: null,
   dolphinPath: null,
@@ -42,6 +46,17 @@ const LEGACY_KEY_FIELDS: Array<{ field: string; provider: ProviderId }> = [
   { field: "anthropicApiKey", provider: "anthropic" },
   { field: "openaiApiKey", provider: "openai" },
 ];
+
+/** Heuristic mirror of getModelProvider in llm.ts — kept here so config.ts
+ *  doesn't pull in the LLM module (avoids circular imports). */
+function inferProviderFromModelId(modelId: string): ProviderId {
+  if (modelId.includes("/")) return "openrouter";
+  if (modelId.startsWith("gemini")) return "gemini";
+  if (modelId.startsWith("claude")) return "anthropic";
+  if (modelId.startsWith("gpt-") || modelId.startsWith("o1") || modelId.startsWith("o3")) return "openai";
+  if (modelId === "local") return "local";
+  return "local";
+}
 
 /** Fold legacy per-provider key fields into the unified apiKeys map. */
 function migrateLegacyKeys(raw: Record<string, unknown>): {
@@ -66,24 +81,50 @@ function migrateLegacyKeys(raw: Record<string, unknown>): {
   return { config: { ...(raw as Partial<Config>), apiKeys }, migrated };
 }
 
+/** Migrate a flat `llmModelId` into the per-provider structure. */
+function migrateActiveProvider(config: Config): { config: Config; migrated: boolean } {
+  if (config.activeProvider || !config.llmModelId) {
+    return { config, migrated: false };
+  }
+  const provider = inferProviderFromModelId(config.llmModelId);
+  if (!PROVIDER_BY_ID[provider]) return { config, migrated: false };
+  const next: Config = {
+    ...config,
+    activeProvider: provider,
+    modelByProvider: {
+      ...config.modelByProvider,
+      [provider]: config.llmModelId,
+    },
+  };
+  return { config: next, migrated: true };
+}
+
 export function loadConfig(): Config {
   if (!fs.existsSync(CONFIG_PATH)) {
     return { ...DEFAULTS };
   }
   try {
     const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8")) as Record<string, unknown>;
-    const { config, migrated } = migrateLegacyKeys(raw);
-    const merged: Config = { ...DEFAULTS, ...config };
+    const { config, migrated: keysMigrated } = migrateLegacyKeys(raw);
+    const merged: Config = {
+      ...DEFAULTS,
+      ...config,
+      modelByProvider: {
+        ...DEFAULTS.modelByProvider,
+        ...((config as Partial<Config>).modelByProvider ?? {}),
+      },
+    };
+    const { config: withProvider, migrated: providerMigrated } = migrateActiveProvider(merged);
 
-    if (migrated) {
+    if (keysMigrated || providerMigrated) {
       try {
-        fs.writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2) + "\n");
+        fs.writeFileSync(CONFIG_PATH, JSON.stringify(withProvider, null, 2) + "\n");
       } catch {
         // Best-effort persistence — next load will retry the migration
       }
     }
 
-    return merged;
+    return withProvider;
   } catch {
     return { ...DEFAULTS };
   }
@@ -96,6 +137,7 @@ export function saveConfig(config: Partial<Config>): Config {
     }
     const current = loadConfig();
     const merged: Config = { ...current, ...config };
+
     // Deep-merge apiKeys so partial saves (e.g. just one provider's key) don't
     // wipe the others. An explicit empty string clears that provider's key.
     if (config.apiKeys) {
@@ -109,6 +151,29 @@ export function saveConfig(config: Partial<Config>): Config {
       }
       merged.apiKeys = next;
     }
+
+    // Same merge semantics for modelByProvider — partial saves preserve other
+    // providers' selections.
+    if (config.modelByProvider) {
+      const next = { ...current.modelByProvider };
+      for (const [k, v] of Object.entries(config.modelByProvider)) {
+        if (v && typeof v === "string") {
+          next[k as ProviderId] = v;
+        } else {
+          delete next[k as ProviderId];
+        }
+      }
+      merged.modelByProvider = next;
+    }
+
+    // Keep llmModelId in sync with the active provider's model so legacy
+    // callers continue to work without knowing about the new shape.
+    if (merged.activeProvider) {
+      merged.llmModelId = merged.modelByProvider[merged.activeProvider] ?? null;
+    } else {
+      merged.llmModelId = null;
+    }
+
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2) + "\n");
     return merged;
   } catch (err) {

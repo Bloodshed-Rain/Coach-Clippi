@@ -4,7 +4,7 @@
  * can import it without pulling in fs/crypto/etc.
  */
 
-export type ProviderId = "openrouter" | "gemini" | "anthropic" | "openai" | "local";
+export type ProviderId = "openai" | "openrouter" | "anthropic" | "gemini" | "local";
 
 export interface ProviderInfo {
   id: ProviderId;
@@ -13,7 +13,6 @@ export interface ProviderInfo {
   keyPlaceholder: string;
   signupUrl: string;
   needsKey: boolean;       // false for "local"
-  proxied: boolean;        // true: MAGI bundled proxy works without a user key
 }
 
 export const PROVIDERS: ProviderInfo[] = [
@@ -24,25 +23,6 @@ export const PROVIDERS: ProviderInfo[] = [
     keyPlaceholder: "sk-...",
     signupUrl: "https://platform.openai.com/api-keys",
     needsKey: true,
-    proxied: true,
-  },
-  {
-    id: "gemini",
-    label: "Google Gemini",
-    envVar: "GEMINI_API_KEY",
-    keyPlaceholder: "AIza...",
-    signupUrl: "https://aistudio.google.com/apikey",
-    needsKey: true,
-    proxied: false,
-  },
-  {
-    id: "anthropic",
-    label: "Anthropic",
-    envVar: "ANTHROPIC_API_KEY",
-    keyPlaceholder: "sk-ant-...",
-    signupUrl: "https://console.anthropic.com/settings/keys",
-    needsKey: true,
-    proxied: false,
   },
   {
     id: "openrouter",
@@ -51,7 +31,22 @@ export const PROVIDERS: ProviderInfo[] = [
     keyPlaceholder: "sk-or-...",
     signupUrl: "https://openrouter.ai/keys",
     needsKey: true,
-    proxied: false,
+  },
+  {
+    id: "anthropic",
+    label: "Anthropic",
+    envVar: "ANTHROPIC_API_KEY",
+    keyPlaceholder: "sk-ant-...",
+    signupUrl: "https://console.anthropic.com/settings/keys",
+    needsKey: true,
+  },
+  {
+    id: "gemini",
+    label: "Google Gemini",
+    envVar: "GEMINI_API_KEY",
+    keyPlaceholder: "AIza...",
+    signupUrl: "https://aistudio.google.com/apikey",
+    needsKey: true,
   },
   {
     id: "local",
@@ -60,7 +55,6 @@ export const PROVIDERS: ProviderInfo[] = [
     keyPlaceholder: "",
     signupUrl: "",
     needsKey: false,
-    proxied: false,
   },
 ];
 

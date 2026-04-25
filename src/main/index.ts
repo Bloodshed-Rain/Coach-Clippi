@@ -2,26 +2,19 @@ import { app, BrowserWindow } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 
-// Load env files: build.env (HMAC secret, bundled in releases) + key.env (dev only)
+// Load key.env (dev only) so OPENAI_API_KEY / GEMINI_API_KEY / etc. flow into
+// process.env. Released builds never bundle keys — users supply their own in Settings.
 function loadEnvFile(): void {
-  const candidates = [
-    path.join(process.resourcesPath ?? "", "build.env"), // production (HMAC secret)
-    path.join(__dirname, "../../build.env"), // dev fallback
-    path.join(__dirname, "../../key.env"), // dev (provider keys)
-  ];
-  for (const envPath of candidates) {
-    if (fs.existsSync(envPath)) {
-      for (const line of fs.readFileSync(envPath, "utf-8").split("\n")) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith("#")) continue;
-        const eqIdx = trimmed.indexOf("=");
-        if (eqIdx > 0) {
-          const key = trimmed.slice(0, eqIdx).trim();
-          const value = trimmed.slice(eqIdx + 1).trim();
-          if (!process.env[key]) process.env[key] = value;
-        }
-      }
-      // Don't break — load all matching env files
+  const envPath = path.join(__dirname, "../../key.env");
+  if (!fs.existsSync(envPath)) return;
+  for (const line of fs.readFileSync(envPath, "utf-8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx > 0) {
+      const key = trimmed.slice(0, eqIdx).trim();
+      const value = trimmed.slice(eqIdx + 1).trim();
+      if (!process.env[key]) process.env[key] = value;
     }
   }
 }

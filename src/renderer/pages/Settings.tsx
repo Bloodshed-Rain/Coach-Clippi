@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card } from "../components/ui/Card";
 import { PROVIDERS, PROVIDER_BY_ID, type ProviderId } from "../../llmProviders";
 
@@ -9,7 +9,8 @@ interface Config {
   replayFolder: string | null;
   dolphinPath: string | null;
   meleeIsoPath: string | null;
-  llmModelId: string | null;
+  activeProvider: ProviderId | null;
+  modelByProvider: Partial<Record<ProviderId, string>>;
   apiKeys: Partial<Record<ProviderId, true>>;
   localEndpoint: string | null;
   theme: string | null;
@@ -22,29 +23,27 @@ interface FetchedModel {
   provider: ProviderId;
 }
 
-const KEY_PROVIDERS = PROVIDERS.filter((p) => p.needsKey);
-
-const STATIC_MODELS: FetchedModel[] = [
-  { id: "gpt-4o-mini", label: "GPT-4o Mini (default)", provider: "openai" },
-  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "gemini" },
-  { id: "deepseek/deepseek-chat", label: "DeepSeek V3", provider: "openrouter" },
-  { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4", provider: "anthropic" },
-  { id: "local", label: "Local Model (Ollama / LM Studio)", provider: "local" },
-];
-
-const DEFAULT_MODEL_ID = "gpt-4o-mini";
-
-/** Heuristic mirror of getModelProvider in src/llm.ts — runs in the renderer
- *  where we don't want to import llm.ts (Node deps). */
-function inferProvider(modelId: string): ProviderId {
-  const known = STATIC_MODELS.find((m) => m.id === modelId);
-  if (known) return known.provider;
-  if (modelId.includes("/")) return "openrouter";
-  if (modelId.startsWith("gemini")) return "gemini";
-  if (modelId.startsWith("claude")) return "anthropic";
-  if (modelId.startsWith("gpt-") || modelId.startsWith("o1") || modelId.startsWith("o3")) return "openai";
-  return "local";
-}
+/** Per-provider fallback when the dynamic fetch hasn't run yet (or no key set). */
+const FALLBACK_MODELS: Record<ProviderId, FetchedModel[]> = {
+  openai: [
+    { id: "gpt-4o-mini", label: "GPT-4o Mini", provider: "openai" },
+    { id: "gpt-4o", label: "GPT-4o", provider: "openai" },
+  ],
+  openrouter: [
+    { id: "deepseek/deepseek-chat", label: "DeepSeek V3", provider: "openrouter" },
+    { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4 (via OpenRouter)", provider: "openrouter" },
+  ],
+  anthropic: [
+    { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4", provider: "anthropic" },
+  ],
+  gemini: [
+    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "gemini" },
+    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", provider: "gemini" },
+  ],
+  local: [
+    { id: "local", label: "Local Model (Ollama / LM Studio)", provider: "local" },
+  ],
+};
 
 // ── Component ────────────────────────────────────────────────────────
 
@@ -59,7 +58,8 @@ export function Settings({ onImport }: SettingsProps) {
     replayFolder: null,
     dolphinPath: null,
     meleeIsoPath: null,
-    llmModelId: null,
+    activeProvider: null,
+    modelByProvider: {},
     apiKeys: {},
     localEndpoint: null,
     theme: null,
@@ -85,7 +85,7 @@ export function Settings({ onImport }: SettingsProps) {
   const [watching, setWatching] = useState(false);
   const [dynamicModels, setDynamicModels] = useState<Record<string, FetchedModel[]> | null>(null);
   const [modelsLoading, setModelsLoading] = useState(false);
-  const [customModelInput, setCustomModelInput] = useState(false);
+  const [customModelInputs, setCustomModelInputs] = useState<Partial<Record<ProviderId, boolean>>>({});
 
   // Load user config
   useEffect(() => {
@@ -147,14 +147,6 @@ export function Settings({ onImport }: SettingsProps) {
     return unsub;
   }, [watching, onImport]);
 
-  const selectedModel = config.llmModelId || DEFAULT_MODEL_ID;
-  const selectedProvider = useMemo(() => inferProvider(selectedModel), [selectedModel]);
-  const selectedProviderInfo = PROVIDER_BY_ID[selectedProvider];
-  const selectedProviderHasKey =
-    !!config.apiKeys[selectedProvider] || !!keyEdits[selectedProvider]?.trim();
-  const selectedModelReady =
-    !selectedProviderInfo.needsKey || selectedProviderHasKey || selectedProviderInfo.proxied;
-
   const handleSave = useCallback(async () => {
     try {
       // Build save payload: non-secret fields + only non-empty key edits.
@@ -175,6 +167,16 @@ export function Settings({ onImport }: SettingsProps) {
       setImportStatus(`Error saving: ${err instanceof Error ? err.message : String(err)}`);
     }
   }, [config, keyEdits]);
+
+  const setActiveProvider = (p: ProviderId) => setConfig({ ...config, activeProvider: p });
+  const setProviderModel = (p: ProviderId, modelId: string | null) =>
+    setConfig({
+      ...config,
+      modelByProvider: {
+        ...config.modelByProvider,
+        ...(modelId ? { [p]: modelId } : { [p]: undefined }),
+      },
+    });
 
   const handleBrowse = async () => {
     const folder = await window.clippi.openFolder();
@@ -425,133 +427,152 @@ export function Settings({ onImport }: SettingsProps) {
         </div>
       </Card>
 
-      {/* AI Model — custom header (title + inline controls), so render header manually */}
+      {/* AI Provider — one section per provider with active selector, key, model */}
       <Card>
         <div className="card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span>AI Model</span>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button
-              className="btn"
-              style={{ padding: "3px 8px", fontSize: 10 }}
-              onClick={() => setCustomModelInput(!customModelInput)}
-            >
-              {customModelInput ? "Dropdown" : "Custom ID"}
-            </button>
-            <button
-              className="btn"
-              style={{ padding: "3px 8px", fontSize: 10 }}
-              onClick={fetchModels}
-              disabled={modelsLoading}
-            >
-              {modelsLoading ? "Fetching..." : "Refresh"}
-            </button>
-          </div>
+          <span>AI Provider</span>
+          <button
+            className="btn"
+            style={{ padding: "3px 8px", fontSize: 10 }}
+            onClick={fetchModels}
+            disabled={modelsLoading}
+          >
+            {modelsLoading ? "Fetching..." : "Refresh models"}
+          </button>
         </div>
-        <div className="settings-field">
-          <label>
-            Model{" "}
-            {modelsLoading && <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>(loading models...)</span>}
-          </label>
-          {customModelInput ? (
-            <input
-              value={selectedModel}
-              onChange={(e) => setConfig({ ...config, llmModelId: e.target.value || null })}
-              placeholder="e.g. gemini-2.5-flash or anthropic/claude-sonnet-4"
-            />
-          ) : (
-            <select
-              className="model-select"
-              value={selectedModel}
-              onChange={(e) => setConfig({ ...config, llmModelId: e.target.value })}
-            >
-              {dynamicModels
-                ? Object.entries(dynamicModels)
-                    .filter(([, models]) => models.length > 0)
-                    .map(([provider, models]) => (
-                      <optgroup
-                        key={provider}
-                        label={PROVIDER_BY_ID[provider as ProviderId]?.label ?? provider}
-                      >
-                        {models.map((m) => (
-                          <option key={`${provider}-${m.id}`} value={m.id}>
-                            {m.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))
-                : STATIC_MODELS.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.label}
-                    </option>
-                  ))}
-            </select>
-          )}
-        </div>
-        <p style={{ color: "var(--text-muted)", fontSize: 11, margin: "4px 0 0", fontFamily: "var(--font-mono)" }}>
-          Current: {selectedModel}
+        <p style={{ color: "var(--text-dim)", fontSize: 11, margin: "0 0 12px" }}>
+          Bring your own key for any provider. Pick one as the active provider — that's the one MAGI will use for
+          coaching, sessions, oracle, and practice plans.
         </p>
-        <p style={{ fontSize: 11, margin: "6px 0 0" }}>
-          Uses your <strong>{selectedProviderInfo.label}</strong> key —{" "}
-          {selectedModelReady ? (
-            <span style={{ color: "var(--green, #4caf50)" }}>
-              {selectedProviderInfo.proxied && !selectedProviderHasKey
-                ? "ready (provided by MAGI)"
-                : "set"}
-            </span>
-          ) : (
-            <span style={{ color: "var(--orange, #f59e0b)" }}>
-              not set — add it below
-            </span>
-          )}
-        </p>
-      </Card>
 
-      {/* API Keys */}
-      <Card title="API Keys">
-        <p style={{ color: "var(--text-dim)", fontSize: 11, margin: "0 0 12px", fontFamily: "var(--font-mono)" }}>
-          OpenAI is bundled — MAGI provides a default key for GPT models. Add your own keys to use any other
-          provider, or to override the bundled OpenAI key.
-        </p>
-        {KEY_PROVIDERS.map((p) => {
+        {PROVIDERS.map((p) => {
+          const isActive = config.activeProvider === p.id;
           const isSet = !!config.apiKeys[p.id];
-          const editValue = keyEdits[p.id] ?? "";
+          const keyEdit = keyEdits[p.id] ?? "";
+          const fetched = dynamicModels?.[p.id] ?? [];
+          const models = fetched.length > 0 ? fetched : FALLBACK_MODELS[p.id];
+          const selectedModel = config.modelByProvider[p.id] ?? "";
+          const customMode = customModelInputs[p.id] ?? false;
+          const ready = !p.needsKey || isSet || !!keyEdit.trim();
+
           return (
-            <div key={p.id} className="settings-field">
-              <label>
-                {p.label}{" "}
-                {isSet && <span style={{ color: "var(--green, #4caf50)", fontSize: 10 }}>(configured)</span>}
-                {p.proxied && !isSet && (
-                  <span style={{ color: "var(--text-muted)", fontSize: 10 }}>(bundled — optional override)</span>
-                )}
+            <div
+              key={p.id}
+              style={{
+                border: `1px solid ${isActive ? "var(--accent, #4ade80)" : "var(--border, rgba(255,255,255,0.08))"}`,
+                borderRadius: 6,
+                padding: "12px 14px",
+                marginBottom: 12,
+                background: isActive ? "rgba(74, 222, 128, 0.04)" : "transparent",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    name="active-provider"
+                    checked={isActive}
+                    onChange={() => setActiveProvider(p.id)}
+                  />
+                  {p.label}
+                  {isActive && (
+                    <span style={{ color: "var(--accent, #4ade80)", fontSize: 10, fontWeight: 400 }}>
+                      ACTIVE
+                    </span>
+                  )}
+                </label>
                 {p.signupUrl && (
                   <a
                     href={p.signupUrl}
                     target="_blank"
                     rel="noreferrer"
-                    style={{ marginLeft: 8, fontSize: 10, color: "var(--text-muted)" }}
+                    style={{ fontSize: 10, color: "var(--text-muted)" }}
                   >
                     get a key →
                   </a>
                 )}
-              </label>
-              <input
-                type="password"
-                value={editValue}
-                onChange={(e) => setKeyEdits({ ...keyEdits, [p.id]: e.target.value })}
-                placeholder={isSet ? "Enter new key to replace" : p.keyPlaceholder}
-              />
+              </div>
+
+              {p.needsKey && (
+                <div className="settings-field" style={{ marginBottom: 8 }}>
+                  <label style={{ fontSize: 11 }}>
+                    API Key{" "}
+                    {isSet && <span style={{ color: "var(--green, #4caf50)", fontSize: 10 }}>(configured)</span>}
+                  </label>
+                  <input
+                    type="password"
+                    value={keyEdit}
+                    onChange={(e) => setKeyEdits({ ...keyEdits, [p.id]: e.target.value })}
+                    placeholder={isSet ? "Enter new key to replace" : p.keyPlaceholder}
+                  />
+                </div>
+              )}
+
+              {p.id === "local" && (
+                <div className="settings-field" style={{ marginBottom: 8 }}>
+                  <label style={{ fontSize: 11 }}>Local Endpoint URL</label>
+                  <input
+                    type="text"
+                    value={config.localEndpoint ?? ""}
+                    onChange={(e) => setConfig({ ...config, localEndpoint: e.target.value || null })}
+                    placeholder="http://localhost:1234/v1"
+                  />
+                </div>
+              )}
+
+              <div className="settings-field" style={{ marginBottom: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label style={{ fontSize: 11 }}>
+                    Model
+                    {p.needsKey && !ready && (
+                      <span style={{ color: "var(--text-muted)", fontSize: 10, fontWeight: 400, marginLeft: 8 }}>
+                        (add a key to load live models)
+                      </span>
+                    )}
+                  </label>
+                  <button
+                    className="btn"
+                    style={{ padding: "2px 6px", fontSize: 10 }}
+                    onClick={() =>
+                      setCustomModelInputs({ ...customModelInputs, [p.id]: !customMode })
+                    }
+                  >
+                    {customMode ? "Dropdown" : "Custom ID"}
+                  </button>
+                </div>
+                {customMode ? (
+                  <input
+                    value={selectedModel}
+                    onChange={(e) => setProviderModel(p.id, e.target.value || null)}
+                    placeholder={models[0]?.id ?? "model-id"}
+                  />
+                ) : (
+                  <select
+                    className="model-select"
+                    value={selectedModel}
+                    onChange={(e) => setProviderModel(p.id, e.target.value || null)}
+                  >
+                    <option value="">— select a model —</option>
+                    {models.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
           );
         })}
-        <div className="settings-field">
-          <label>Local Endpoint URL</label>
-          <input
-            type="text"
-            value={config.localEndpoint ?? ""}
-            onChange={(e) => setConfig({ ...config, localEndpoint: e.target.value || null })}
-            placeholder="http://localhost:1234/v1"
-          />
-        </div>
+
+        <p style={{ fontSize: 11, margin: "0", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+          Active:{" "}
+          {config.activeProvider
+            ? `${PROVIDER_BY_ID[config.activeProvider].label} → ${
+                config.modelByProvider[config.activeProvider] ?? "(no model selected)"
+              }`
+            : "(none — pick a provider above)"}
+        </p>
       </Card>
 
       <button className="btn btn-primary" onClick={handleSave}>

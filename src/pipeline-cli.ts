@@ -164,11 +164,15 @@ async function main() {
   const llmMod = require("./llm") as typeof import("./llm");
   const userConfig = configMod.loadConfig();
   const llmConfig: import("./llm").LLMConfig = {
-    modelId: userConfig.llmModelId ?? llmMod.LLM_DEFAULTS.modelId,
+    modelId: llmMod.getActiveModelId(userConfig),
     apiKeys: userConfig.apiKeys,
     localEndpoint: userConfig.localEndpoint,
   };
 
+  if (!llmConfig.modelId) {
+    console.error("No AI model selected. Run: npx tsx src/setup.ts --model <model-id> --<provider>-key <key>");
+    process.exit(1);
+  }
   console.error(`Calling ${llmMod.getModelLabel(llmConfig.modelId)}...`);
 
   try {

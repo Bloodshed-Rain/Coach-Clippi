@@ -464,85 +464,123 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
     });
   }, [signature, character]);
 
+  // Signature stats flank the wireframe — half on each side.
+  // If a character has no sig stats, fall back to flanking with the
+  // generic hero stats so the layout never feels empty.
+  const flankItems: Array<{ label: string; value: string; highlight?: boolean }> =
+    sigItems.length > 0
+      ? sigItems.map((s) => ({
+          label: s.label,
+          value: String(s.value),
+          ...(s.good ? { highlight: true } : {}),
+        }))
+      : heroStats.map(([label, value]) => ({ label, value }));
+  const leftFlank = flankItems.slice(0, Math.ceil(flankItems.length / 2));
+  const rightFlank = flankItems.slice(Math.ceil(flankItems.length / 2));
+
   return (
     <div>
       <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: 20 }}>
         &larr; All Characters
       </button>
-      <div className="character-detail-split">
-        <Card tone="chrome-plate" className="character-hero">
-          <div className="character-hero-art">
+
+      <Card tone="chrome-plate" className="character-hero-banner">
+        <div className="character-hero-stage">
+          <div className="character-hero-side character-hero-side--left">
+            {leftFlank.map((s) => (
+              <div
+                key={s.label}
+                className={`character-hero-stat${s.highlight ? " character-hero-stat--highlight" : ""}`}
+              >
+                <div className="character-hero-stat-value mono">{s.value}</div>
+                <div className="character-hero-stat-label">{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="character-hero-art-xl">
             {CHARACTER_IMAGE_NAMES[character] ? (
               <CharacterCardImage character={character} variant="portrait" color={meta.color} />
             ) : (
               <div className="character-hero-emoji">{meta.emoji}</div>
             )}
           </div>
-          <h2 style={{ color: meta.color, marginTop: 10 }}>{character}</h2>
-          <div style={{ color: "var(--text-muted)", fontSize: 12, marginBottom: 20 }}>{totalGames} games</div>
-          <button className="btn btn-primary" style={{ width: "100%" }} onClick={() => setCoachOpen(true)}>
-            Analyze Matchup
-          </button>
-          {heroStats.length > 0 && (
-            <div className="character-hero-mini">
+
+          <div className="character-hero-side character-hero-side--right">
+            {rightFlank.map((s) => (
+              <div
+                key={s.label}
+                className={`character-hero-stat${s.highlight ? " character-hero-stat--highlight" : ""}`}
+              >
+                <div className="character-hero-stat-value mono">{s.value}</div>
+                <div className="character-hero-stat-label">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="character-hero-foot">
+          <h2 style={{ color: meta.color, margin: 0 }}>{character}</h2>
+          <div style={{ color: "var(--text-muted)", fontSize: 12 }}>{totalGames} games</div>
+          {sigItems.length > 0 && heroStats.length > 0 && (
+            <div className="character-hero-stripe">
               {heroStats.map(([label, value]) => (
-                <div key={label} className="character-hero-stat">
-                  <div className="mono" style={{ fontSize: 16, fontWeight: 700 }}>
-                    {value}
-                  </div>
-                  <div className="character-hero-stat-label">{label}</div>
+                <div key={label} className="character-hero-stripe-cell">
+                  <div className="mono character-hero-stripe-value">{value}</div>
+                  <div className="character-hero-stripe-label">{label}</div>
                 </div>
               ))}
             </div>
           )}
-        </Card>
-
-        <div>
-          <Card title="Matchups">
-            <DataTable>
-              <thead>
-                <tr>
-                  <th>vs</th>
-                  <th>Games</th>
-                  <th>Record</th>
-                  <th>Win Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {matchups.slice(0, 12).map((m) => {
-                  const gamesCount = m.gamesPlayed ?? 0;
-                  const wr = m.winRate ?? (gamesCount > 0 ? m.wins / gamesCount : 0);
-                  return (
-                    <tr key={m.opponentCharacter}>
-                      <td style={{ fontWeight: 600 }}>{m.opponentCharacter}</td>
-                      <td className="mono">{gamesCount}</td>
-                      <td>
-                        <span style={{ color: "var(--win)" }}>{m.wins}W</span>-
-                        <span style={{ color: "var(--loss)" }}>{m.losses}L</span>
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span
-                            className="mono"
-                            style={{
-                              color: wr >= 0.5 ? "var(--win)" : "var(--loss)",
-                              fontWeight: 700,
-                            }}
-                          >
-                            {(wr * 100).toFixed(0)}%
-                          </span>
-                          <WinrateBar value={wr} />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </DataTable>
-          </Card>
-
-          {sigItems.length > 0 && <StatGroupCard title="Signature Stats" items={sigItems} />}
+          <button className="btn btn-primary character-hero-cta" onClick={() => setCoachOpen(true)}>
+            Analyze Matchup
+          </button>
         </div>
+      </Card>
+
+      <div className="character-detail-bottom">
+        <Card title="Matchups">
+          <DataTable>
+            <thead>
+              <tr>
+                <th>vs</th>
+                <th>Games</th>
+                <th>Record</th>
+                <th>Win Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {matchups.slice(0, 12).map((m) => {
+                const gamesCount = m.gamesPlayed ?? 0;
+                const wr = m.winRate ?? (gamesCount > 0 ? m.wins / gamesCount : 0);
+                return (
+                  <tr key={m.opponentCharacter}>
+                    <td style={{ fontWeight: 600 }}>{m.opponentCharacter}</td>
+                    <td className="mono">{gamesCount}</td>
+                    <td>
+                      <span style={{ color: "var(--win)" }}>{m.wins}W</span>-
+                      <span style={{ color: "var(--loss)" }}>{m.losses}L</span>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span
+                          className="mono"
+                          style={{
+                            color: wr >= 0.5 ? "var(--win)" : "var(--loss)",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {(wr * 100).toFixed(0)}%
+                        </span>
+                        <WinrateBar value={wr} />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </DataTable>
+        </Card>
       </div>
 
       {coachOpen && (

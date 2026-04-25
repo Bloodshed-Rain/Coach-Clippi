@@ -10,7 +10,7 @@ import {
   type GameResult,
   type GameSummary,
 } from "./pipeline";
-import { callLLM, LLM_DEFAULTS, type LLMConfig } from "./llm";
+import { callLLM, getActiveModelId, type LLMConfig } from "./llm";
 import { loadConfig } from "./config";
 import { parsePool } from "./parsePool";
 
@@ -590,10 +590,14 @@ export async function importAndAnalyze(
   const userPrompt = assembleUserPrompt(gameResults, targetTag, playerHistory);
   const userCfg = loadConfig();
   const llmConfig: LLMConfig = {
-    modelId: userCfg.llmModelId ?? LLM_DEFAULTS.modelId,
+    modelId: getActiveModelId(userCfg),
     apiKeys: userCfg.apiKeys,
     localEndpoint: userCfg.localEndpoint,
   };
+  if (!llmConfig.modelId) {
+    // No model configured — skip LLM coaching but return successful import
+    return { batchResult, analysis: null };
+  }
   const analysis = await callLLM({
     systemPrompt: SYSTEM_PROMPT,
     userPrompt,

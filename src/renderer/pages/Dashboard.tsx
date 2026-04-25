@@ -179,17 +179,51 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
             </span>
           </div>
           <div className="dash-spark-grid">
-            <div>
-              <div className="dash-spark-label">Neutral WR</div>
-              <Sparkline values={recent.map((g) => g.neutralWinRate).reverse()} color="var(--accent)" />
+            <div className="dash-spark-cell">
+              <div className="dash-spark-head">
+                <span className="dash-spark-label">Neutral WR</span>
+                <span className="dash-spark-value mono">{(avgNeutral * 100).toFixed(1)}%</span>
+              </div>
+              <Sparkline
+                values={recent.map((g) => g.neutralWinRate).reverse()}
+                color="var(--accent)"
+                kind="chart"
+                height={90}
+                fill
+              />
             </div>
-            <div>
-              <div className="dash-spark-label">L-Cancel</div>
-              <Sparkline values={recent.map((g) => g.lCancelRate).reverse()} color="var(--win)" />
+            <div className="dash-spark-cell">
+              <div className="dash-spark-head">
+                <span className="dash-spark-label">L-Cancel</span>
+                <span className="dash-spark-value mono">{(avgLCancel * 100).toFixed(1)}%</span>
+              </div>
+              <Sparkline
+                values={recent.map((g) => g.lCancelRate).reverse()}
+                color="var(--win)"
+                kind="chart"
+                height={90}
+                fill
+              />
             </div>
-            <div>
-              <div className="dash-spark-label">Conversion</div>
-              <Sparkline values={recent.map((g) => g.conversionRate).reverse()} color="var(--caution)" />
+            <div className="dash-spark-cell">
+              <div className="dash-spark-head">
+                <span className="dash-spark-label">Conversion</span>
+                <span className="dash-spark-value mono">
+                  {(
+                    (recent.reduce((s, g) => s + g.conversionRate, 0) /
+                      Math.max(recent.length, 1)) *
+                    100
+                  ).toFixed(1)}
+                  %
+                </span>
+              </div>
+              <Sparkline
+                values={recent.map((g) => g.conversionRate).reverse()}
+                color="var(--caution)"
+                kind="chart"
+                height={90}
+                fill
+              />
             </div>
           </div>
         </Card>

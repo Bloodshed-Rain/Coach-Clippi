@@ -2,13 +2,14 @@
  * Multi-LLM provider abstraction.
  *
  * Supports:
- *   - OpenRouter (DeepSeek, Claude, etc.)
- *   - Gemini direct  ← default (free tier, no key needed for end users)
- *   - Anthropic direct (Claude)
  *   - OpenAI direct
+ *   - OpenRouter (DeepSeek, Claude, etc.)
+ *   - Anthropic direct (Claude)
+ *   - Gemini direct
  *   - Local models via OpenAI-compatible API (Ollama, LM Studio)
  *
  * All providers share the same interface: system prompt + user prompt → text.
+ * Every remote provider requires the user to supply their own API key.
  */
 
 // ── Provider types ───────────────────────────────────────────────────
@@ -24,78 +25,38 @@ export interface ModelOption {
   costPer1kOutput?: number;
 }
 
-/** Static list of supported models. Users can also type custom model IDs. */
+/** Static fallback list of suggested models, one per remote provider.
+ *  Used by the Settings UI when dynamic model fetching hasn't run yet.
+ *  Users can always type a custom model ID. */
 export const MODELS: ModelOption[] = [
-  // OpenRouter — DeepSeek (default cheap/smart)
+  {
+    id: "gpt-4o-mini",
+    label: "GPT-4o Mini",
+    provider: "openai",
+    costPer1kInput: 0.00015,
+    costPer1kOutput: 0.0006,
+  },
   {
     id: "deepseek/deepseek-chat",
-    label: "DeepSeek V3 (via OpenRouter)",
+    label: "DeepSeek V3",
     provider: "openrouter",
     costPer1kInput: 0.00014,
     costPer1kOutput: 0.00028,
   },
   {
-    id: "deepseek/deepseek-reasoner",
-    label: "DeepSeek R1 (via OpenRouter)",
-    provider: "openrouter",
-    costPer1kInput: 0.00055,
-    costPer1kOutput: 0.00219,
-  },
-  // OpenRouter — Claude
-  {
-    id: "anthropic/claude-sonnet-4",
-    label: "Claude Sonnet 4 (via OpenRouter)",
-    provider: "openrouter",
-    costPer1kInput: 0.003,
-    costPer1kOutput: 0.015,
-  },
-  // OpenRouter — other
-  {
-    id: "google/gemini-2.5-flash",
-    label: "Gemini 2.5 Flash (via OpenRouter)",
-    provider: "openrouter",
-    costPer1kInput: 0.00015,
-    costPer1kOutput: 0.0006,
-  },
-  {
-    id: "openai/gpt-4o",
-    label: "GPT-4o (via OpenRouter)",
-    provider: "openrouter",
-    costPer1kInput: 0.0025,
-    costPer1kOutput: 0.01,
-  },
-  // Gemini direct
-  {
-    id: "gemini-2.5-flash",
-    label: "Gemini 2.5 Flash (direct)",
-    provider: "gemini",
-    costPer1kInput: 0.00015,
-    costPer1kOutput: 0.0006,
-  },
-  // Anthropic direct
-  {
     id: "claude-sonnet-4-20250514",
-    label: "Claude Sonnet 4 (direct)",
+    label: "Claude Sonnet 4",
     provider: "anthropic",
     costPer1kInput: 0.003,
     costPer1kOutput: 0.015,
   },
-  // OpenAI direct
   {
-    id: "gpt-4o-mini",
-    label: "GPT-4o Mini (direct)",
-    provider: "openai",
+    id: "gemini-2.5-flash",
+    label: "Gemini 2.5 Flash",
+    provider: "gemini",
     costPer1kInput: 0.00015,
     costPer1kOutput: 0.0006,
   },
-  {
-    id: "gpt-4o",
-    label: "GPT-4o (direct)",
-    provider: "openai",
-    costPer1kInput: 0.0025,
-    costPer1kOutput: 0.01,
-  },
-  // Local
   {
     id: "local",
     label: "Local Model (Ollama / LM Studio)",
@@ -103,48 +64,8 @@ export const MODELS: ModelOption[] = [
   },
 ];
 
-export const DEFAULT_MODEL_ID = "gpt-4o";
-
-/**
- * Proxy URL for bundled OpenAI access.
- * When set, OpenAI calls are routed through this server-side proxy so the
- * real API key never ships in the desktop app.  Set to null to fall back
- * to direct key-based calls (dev / CLI).
- *
- * After deploying proxy/worker.ts to Cloudflare Workers, paste the URL here.
- */
-export const MAGI_PROXY_URL: string | null =
-  "https://magi-llm-proxy.magi-proxy.workers.dev";
-
-/** App version sent as X-MAGI-Version header to the proxy */
-const APP_VERSION: string = (() => {
-  try {
-    // Works in both dev and packaged builds
-    return (require("../../package.json") as { version: string }).version;
-  } catch {
-    return "unknown";
-  }
-})();
-
-/**
- * HMAC shared secret for proxy request signing.
- * Must match the HMAC_SECRET set on the Cloudflare Worker.
- *
- * Loaded from MAGI_HMAC_SECRET env var (set in key.env for dev, injected
- * at build time for releases). Never hardcoded in source — the repo is public.
- * A determined reverse-engineer CAN extract it from the binary, but combined
- * with rate limiting and model restriction it prevents casual abuse.
- */
-const HMAC_SECRET: string = process.env["MAGI_HMAC_SECRET"] ?? "";
-
-/** Sign a request body with HMAC-SHA256 for the proxy */
-async function signRequest(body: string): Promise<{ timestamp: string; signature: string }> {
-  const crypto = require("crypto") as typeof import("crypto");
-  const timestamp = String(Date.now());
-  const hmac = crypto.createHmac("sha256", HMAC_SECRET);
-  hmac.update(`${timestamp}.${body}`);
-  return { timestamp, signature: hmac.digest("hex") };
-}
+/** No default — users must pick a provider and model in Settings. */
+export const DEFAULT_MODEL_ID: string | null = null;
 
 /** Get the provider for a given model ID */
 export function getModelProvider(modelId: string): ProviderId {
@@ -166,16 +87,31 @@ export function getModelLabel(modelId: string): string {
 // ── Provider config (stored in user config) ──────────────────────────
 
 export interface LLMConfig {
-  modelId: string;
+  modelId: string | null;        // null = no provider/model selected yet
   apiKeys: Partial<Record<ProviderId, string>>;
   localEndpoint: string | null;   // e.g. "http://localhost:1234/v1"
 }
 
 export const LLM_DEFAULTS: LLMConfig = {
-  modelId: DEFAULT_MODEL_ID,
+  modelId: null,
   apiKeys: {},
   localEndpoint: null,
 };
+
+/** Resolve the active model from a config that has activeProvider + modelByProvider.
+ *  Falls back to legacy `llmModelId` if present. Returns null when nothing is selected. */
+export function getActiveModelId(config: {
+  activeProvider?: ProviderId | null;
+  modelByProvider?: Partial<Record<ProviderId, string>>;
+  llmModelId?: string | null;
+}): string | null {
+  const provider = config.activeProvider ?? null;
+  if (provider) {
+    const m = config.modelByProvider?.[provider];
+    if (m) return m;
+  }
+  return config.llmModelId ?? null;
+}
 
 /** Resolve an API key: user config first, then env var. */
 export function getApiKey(provider: ProviderId, config: LLMConfig): string | null {
@@ -226,6 +162,9 @@ export interface CallLLMOptions {
 
 export async function callLLM(opts: CallLLMOptions): Promise<string> {
   const modelId = opts.modelOverride ?? opts.config.modelId;
+  if (!modelId) {
+    throw new Error("No AI model selected. Open Settings → AI Provider and pick a provider, add an API key, and choose a model.");
+  }
   const provider = getModelProvider(modelId);
 
   switch (provider) {
@@ -256,6 +195,9 @@ export async function callLLMStream(
   onChunk: StreamChunkCallback,
 ): Promise<string> {
   const modelId = opts.modelOverride ?? opts.config.modelId;
+  if (!modelId) {
+    throw new Error("No AI model selected. Open Settings → AI Provider and pick a provider, add an API key, and choose a model.");
+  }
   const provider = getModelProvider(modelId);
 
   switch (provider) {
@@ -355,7 +297,7 @@ async function callOpenRouter(
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/Bloodshed-Rain/MAGI",
+        "HTTP-Referer": "https://github.com/Bloodshed-Rain/TheMAGI",
         "X-Title": "MAGI",
       },
       body,
@@ -436,7 +378,7 @@ async function callOpenRouterStream(
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://github.com/Bloodshed-Rain/MAGI",
+          "HTTP-Referer": "https://github.com/Bloodshed-Rain/TheMAGI",
           "X-Title": "MAGI",
         },
         body,
@@ -881,33 +823,9 @@ async function callAnthropicStream(
   throw new EmptyResponseError("unknown");
 }
 
-// ── OpenAI (via proxy or direct) ────────────────────────────────────
+// ── OpenAI direct ────────────────────────────────────────────────────
 
-/** Resolve the OpenAI endpoint URL and auth headers.
- *  When MAGI_PROXY_URL is set, signs the request body with HMAC. */
-async function resolveOpenAIEndpoint(
-  config: LLMConfig,
-  body: string,
-): Promise<{ url: string; headers: Record<string, string> }> {
-  if (MAGI_PROXY_URL) {
-    if (!HMAC_SECRET) {
-      throw new Error(
-        "MAGI proxy is configured but the signing key is missing (build.env not bundled). " +
-        "Please reinstall MAGI from an official release, or add your own API key in Settings.",
-      );
-    }
-    const { timestamp, signature } = await signRequest(body);
-    return {
-      url: MAGI_PROXY_URL,
-      headers: {
-        "Content-Type": "application/json",
-        "X-MAGI-Version": APP_VERSION,
-        "X-MAGI-Timestamp": timestamp,
-        "X-MAGI-Signature": signature,
-      },
-    };
-  }
-  // Fallback: direct OpenAI call (dev / CLI with key.env)
+function resolveOpenAIEndpoint(config: LLMConfig): { url: string; headers: Record<string, string> } {
   const apiKey = getApiKey("openai", config);
   if (!apiKey) {
     throw new Error(
@@ -937,7 +855,7 @@ async function callOpenAI(
       { role: "user", content: userPrompt },
     ],
   });
-  const { url, headers } = await resolveOpenAIEndpoint(config, body);
+  const { url, headers } = resolveOpenAIEndpoint(config);
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const response = await fetchWithTimeout(url, {
@@ -1000,7 +918,7 @@ async function callOpenAIStream(
       { role: "user", content: userPrompt },
     ],
   });
-  const { url, headers } = await resolveOpenAIEndpoint(config, body);
+  const { url, headers } = resolveOpenAIEndpoint(config);
 
   let anyChunksSent = false;
   const wrappedOnChunk: StreamChunkCallback = (chunk) => { anyChunksSent = true; onChunk(chunk); };

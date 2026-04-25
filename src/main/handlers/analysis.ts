@@ -15,7 +15,7 @@ import {
   assembleDiscoveryPrompt, SYSTEM_PROMPT_DISCOVERY,
   type GameResult,
 } from "../../pipeline/index.js";
-import { callLLM, callLLMStream, LLM_DEFAULTS, type LLMConfig } from "../../llm.js";
+import { callLLM, callLLMStream, getActiveModelId, type LLMConfig } from "../../llm.js";
 import { llmQueue } from "../../llmQueue.js";
 import { parsePool } from "../../parsePool.js";
 import { buildInsertGameParams, buildInsertGameStatsParams } from "../../replayAnalyzer.js";
@@ -30,11 +30,12 @@ async function hashFileAsync(filePath: string): Promise<string> {
 }
 
 /** Build LLMConfig from user config. The provider abstraction handles env-var
- *  fallbacks and the MAGI proxy for OpenAI. */
+ *  fallbacks. Returns modelId=null when no provider/model is selected — the
+ *  LLM call will throw a clear error in that case. */
 export function resolveLLMConfig(): LLMConfig {
   const config = loadConfig();
   return {
-    modelId: config.llmModelId ?? LLM_DEFAULTS.modelId,
+    modelId: getActiveModelId(config),
     apiKeys: config.apiKeys,
     localEndpoint: config.localEndpoint ?? null,
   };
@@ -157,7 +158,7 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
       }
     }
 
-    insertCoachingAnalysis(gameIds[0] ?? null, null, llmConfig.modelId, analysis);
+    insertCoachingAnalysis(gameIds[0] ?? null, null, llmConfig.modelId!, analysis);
 
     return analysis;
   });
@@ -242,7 +243,7 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
       // ignore
     }
 
-    insertCoachingAnalysis(gameIdForCache, sessionIdForCache, llmConfig.modelId, analysis);
+    insertCoachingAnalysis(gameIdForCache, sessionIdForCache, llmConfig.modelId!, analysis);
     return analysis;
   });
 
@@ -318,7 +319,7 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
     } catch {
       // ignore
     }
-    insertCoachingAnalysis(games[0]?.id ?? null, null, llmConfig.modelId, analysis);
+    insertCoachingAnalysis(games[0]?.id ?? null, null, llmConfig.modelId!, analysis);
 
     return analysis;
   });

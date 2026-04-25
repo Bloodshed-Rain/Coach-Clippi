@@ -21,10 +21,31 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
 }
+.dash-spark-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
+}
+.dash-spark-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
 .dash-spark-label {
   font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 4px;
+}
+.dash-spark-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
 }
 .dash-section-head {
   display: flex;

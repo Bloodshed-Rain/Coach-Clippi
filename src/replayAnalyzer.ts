@@ -2,7 +2,7 @@ import crypto from "crypto";
 import fs from "fs";
 import type Database from "better-sqlite3";
 import { loadConfig } from "./config";
-import { LLM_DEFAULTS } from "./llm";
+import { getActiveModelId } from "./llm";
 import {
   findPlayerIdx,
   type GameSummary,
@@ -242,7 +242,7 @@ export async function processReplay(
   if (existingGame) {
     // ── 2. Game exists — look for cached analysis ────────────────────
 
-    const currentModelId = loadConfig().llmModelId ?? LLM_DEFAULTS.modelId;
+    const currentModelId = getActiveModelId(loadConfig());
     const cachedAnalysis = db.prepare(`
       SELECT id, game_id, analysis_text, model_used, created_at
       FROM coaching_analyses
@@ -270,7 +270,7 @@ export async function processReplay(
     `).run(
       existingGame.id,
       existingGame.session_id,
-      loadConfig().llmModelId ?? LLM_DEFAULTS.modelId,
+      getActiveModelId(loadConfig()),
       analysisText,
     );
 
@@ -312,7 +312,7 @@ export async function processReplay(
     db.prepare(`
       INSERT INTO coaching_analyses (game_id, session_id, model_used, analysis_text)
       VALUES (?, ?, ?, ?)
-    `).run(gameId, sessionId, loadConfig().llmModelId ?? LLM_DEFAULTS.modelId, text);
+    `).run(gameId, sessionId, getActiveModelId(loadConfig()), text);
 
     return gameId;
   });

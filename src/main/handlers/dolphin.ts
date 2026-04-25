@@ -75,18 +75,28 @@ function launchDolphin(replayPath: string, startFrame?: number): true {
   const { spawn } = require("child_process") as typeof import("child_process");
   const home = require("os").homedir();
 
-  // Write JSON comm file (same format as Slippi Launcher)
-  const commData: Record<string, unknown> = {
-    mode: "normal",
-    replay: safeReplayPath,
-    isRealTimeMode: false,
-    commandId: Math.random().toString(36).slice(2),
-  };
-
-  // Include startFrame if provided — Slippi Dolphin may support seeking
-  if (startFrame != null && startFrame > 0) {
-    commData.startFrame = startFrame;
-  }
+  // Write JSON comm file. For plain playback we use mode: "normal".
+  // For seeking to a specific frame we use mode: "queue" with a queue entry
+  // that includes startFrame — this is the format Slippi Launcher's
+  // "Play from frame" feature uses, which Slippi Dolphin honors.
+  // Frames before the playable game (e.g. -123 .. -1, the countdown) should
+  // be clamped to 0 so we don't accidentally overshoot.
+  const seekFrame = startFrame != null ? Math.max(0, Math.floor(startFrame)) : null;
+  const commData: Record<string, unknown> =
+    seekFrame != null
+      ? {
+          mode: "queue",
+          queue: [{ path: safeReplayPath, startFrame: seekFrame }],
+          isRealTimeMode: false,
+          commandId: Math.random().toString(36).slice(2),
+        }
+      : {
+          mode: "normal",
+          replay: safeReplayPath,
+          isRealTimeMode: false,
+          commandId: Math.random().toString(36).slice(2),
+        };
+  console.log("[MAGI] Seek frame:", seekFrame);
 
   const commFile = path.join(require("os").tmpdir(), `magi-comm-${Date.now()}.json`);
   fs.writeFileSync(commFile, JSON.stringify(commData));
