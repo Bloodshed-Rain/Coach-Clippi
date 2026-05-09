@@ -299,18 +299,26 @@ export function ReplayPlayer() {
   const onTogglePause = () => {
     if (!sessionId) return;
     window.clippi.embedReplaySendKey(sessionId, VK_SPACE);
-    const nowPaused = !isPaused;
+    // Read pause state from the anchor (always current) rather than from
+    // closure-captured `isPaused`, so the keyboard-Space path doesn't see
+    // stale state from an old render.
+    const a = playAnchorRef.current;
+    const wasPaused = a.pausedAtMs != null;
+    const nowPaused = !wasPaused;
     setIsPaused(nowPaused);
     if (nowPaused) {
       // Freeze the estimate at "now".
       playAnchorRef.current = {
-        ...playAnchorRef.current,
+        ...a,
         pausedAtMs: Date.now(),
       };
     } else {
-      // Resume from the current displayFrame at the new wall time.
+      // Resume: anchor at the frame the puck was frozen on (recomputed from
+      // the existing anchor, not from React state — keydown closure may be
+      // stale).
+      const frozenFrame = estimateFrame(a.frame, a.wallTimeMs, Date.now(), true, a.pausedAtMs);
       playAnchorRef.current = {
-        frame: displayFrame,
+        frame: frozenFrame,
         wallTimeMs: Date.now(),
         pausedAtMs: null,
       };
