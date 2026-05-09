@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ExternalLink, Play, Pause, RotateCcw, StepForward, StepBack } from "lucide-react";
+import { X, ExternalLink, Play, Pause, RotateCcw, StepForward, StepBack, HelpCircle } from "lucide-react";
 import { useReplayPlayerStore } from "../stores/useReplayPlayerStore";
 
 import { useGlobalStore } from "../stores/useGlobalStore";
+import { ReplayScrubber } from "./ReplayScrubber";
+import { estimateFrame } from "../utils/scrubber";
 
 type Bounds = { x: number; y: number; width: number; height: number };
 
@@ -35,7 +37,11 @@ export function ReplayPlayer() {
   const seekToken = useReplayPlayerStore((s) => s.seekToken);
   const closePlayer = useReplayPlayerStore((s) => s.closePlayer);
   const openPlayer = useReplayPlayerStore((s) => s.openPlayer);
-  
+  const totalFrames = useReplayPlayerStore((s) => s.totalFrames);
+  const seekState = useReplayPlayerStore((s) => s.seekState);
+  const setSeekState = useReplayPlayerStore((s) => s.setSeekState);
+  const seekToFrame = useReplayPlayerStore((s) => s.seekToFrame);
+
   const drawerGameId = useGlobalStore((s) => s.drawerGameId);
   const isCoachingOpen = useGlobalStore((s) => s.isCoachingOpen);
 
@@ -43,6 +49,12 @@ export function ReplayPlayer() {
   const [status, setStatus] = useState<"opening" | "ready" | "error" | "fallback">("opening");
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [displayFrame, setDisplayFrame] = useState(0);
+  const playAnchorRef = useRef<{ frame: number; wallTimeMs: number; pausedAtMs: number | null }>({
+    frame: 0,
+    wallTimeMs: Date.now(),
+    pausedAtMs: null,
+  });
 
   const stageRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -58,7 +70,10 @@ export function ReplayPlayer() {
   useEffect(() => {
     if (!open) return;
     const offReady = window.clippi.onEmbedReplayReady((sid) => {
-      if (sid === sessionIdRef.current) setStatus("ready");
+      if (sid === sessionIdRef.current) {
+        setStatus("ready");
+        setSeekState("idle"); // clears seek overlay after respawn-mode seek completes
+      }
     });
     const offErr = window.clippi.onEmbedReplayError((sid, message) => {
       if (sid === sessionIdRef.current) {
@@ -71,14 +86,20 @@ export function ReplayPlayer() {
         closePlayer();
       }
     });
+    const offSeeked = window.clippi.onEmbedReplaySeeked((sid) => {
+      if (sid === sessionIdRef.current) setSeekState("idle");
+    });
     return () => {
       offReady();
       offErr();
       offExited();
+      offSeeked();
     };
-  }, [open, closePlayer]);
+  }, [open, closePlayer, setSeekState]);
 
-  // Open / re-open the embedded session when the store changes.
+  // Open / re-open the embedded session ONLY when the replay path or open
+  // flag changes. Seeks within an open session route through the seek
+  // effect below — they don't kill+reopen unconditionally.
   useEffect(() => {
     if (!open || !replayPath || !stageRef.current) return;
 
@@ -87,9 +108,6 @@ export function ReplayPlayer() {
 
     const timeout = setTimeout(async () => {
       if (cancelled) return;
-
-      const isNewSeek = seekToken !== lastSeekTokenRef.current;
-      lastSeekTokenRef.current = seekToken;
 
       const bounds = getStageBounds(stage);
 
@@ -123,6 +141,14 @@ export function ReplayPlayer() {
           setSessionId(result.sessionId);
           sessionIdRef.current = result.sessionId;
           sessionPathRef.current = replayPath;
+          // Anchor playback estimate at the requested frame.
+          playAnchorRef.current = {
+            frame: startFrame ?? 0,
+            wallTimeMs: Date.now(),
+            pausedAtMs: null,
+          };
+          setDisplayFrame(startFrame ?? 0);
+          lastSeekTokenRef.current = seekToken;
         }
       } catch (err) {
         if (cancelled) return;
@@ -135,7 +161,49 @@ export function ReplayPlayer() {
       cancelled = true;
       clearTimeout(timeout);
     };
-  }, [open, replayPath, startFrame, seekToken]);
+    // Intentionally NOT depending on startFrame/seekToken — those are
+    // handled by the seek effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, replayPath]);
+
+  // Seek within an open session: triggered by seekToken changes after the
+  // initial open completed.
+  useEffect(() => {
+    if (!open || !sessionId || seekToken === lastSeekTokenRef.current) return;
+    if (startFrame == null) return;
+
+    const targetFrame = startFrame;
+    lastSeekTokenRef.current = seekToken;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = (await window.clippi.embedReplaySeek(sessionId, targetFrame)) as
+          | { ok: boolean; mode?: "live" | "respawn"; reason?: string }
+          | boolean;
+        if (cancelled) return;
+        // Re-anchor playback estimate at the new frame.
+        playAnchorRef.current = {
+          frame: targetFrame,
+          wallTimeMs: Date.now(),
+          pausedAtMs: isPaused ? Date.now() : null,
+        };
+        setDisplayFrame(targetFrame);
+        // For live-seek mode there's no ready event; clear seek state now.
+        // For respawn mode the ready / seeked listener will clear it.
+        if (typeof res === "object" && res?.mode === "live") {
+          setSeekState("idle");
+        }
+      } catch {
+        if (!cancelled) setSeekState("idle");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seekToken, sessionId, open]);
 
   // Tear down on close.
   useEffect(() => {
@@ -182,6 +250,23 @@ export function ReplayPlayer() {
     };
   }, [open, status, sessionId]);
 
+  // Drive displayFrame from a rAF loop while playing. Re-anchored on every
+  // pause/play/seek, so drift is bounded.
+  useEffect(() => {
+    if (!open || status !== "ready") return;
+    let raf: number | null = null;
+    const tick = () => {
+      const a = playAnchorRef.current;
+      const f = estimateFrame(a.frame, a.wallTimeMs, Date.now(), isPaused, a.pausedAtMs);
+      setDisplayFrame(f);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      if (raf != null) cancelAnimationFrame(raf);
+    };
+  }, [open, status, isPaused]);
+
   // Esc closes.
   useEffect(() => {
     if (!open) return;
@@ -214,7 +299,22 @@ export function ReplayPlayer() {
   const onTogglePause = () => {
     if (!sessionId) return;
     window.clippi.embedReplaySendKey(sessionId, VK_SPACE);
-    setIsPaused(!isPaused);
+    const nowPaused = !isPaused;
+    setIsPaused(nowPaused);
+    if (nowPaused) {
+      // Freeze the estimate at "now".
+      playAnchorRef.current = {
+        ...playAnchorRef.current,
+        pausedAtMs: Date.now(),
+      };
+    } else {
+      // Resume from the current displayFrame at the new wall time.
+      playAnchorRef.current = {
+        frame: displayFrame,
+        wallTimeMs: Date.now(),
+        pausedAtMs: null,
+      };
+    }
   };
 
   const onStepForward = () => {
@@ -248,7 +348,7 @@ export function ReplayPlayer() {
   return (
     <AnimatePresence>
       {open && (
-        <div 
+        <div
           className="replay-player-backdrop"
           style={{
             right: drawerGameId != null ? "min(720px, 90vw)" : 0,
@@ -297,7 +397,18 @@ export function ReplayPlayer() {
                   <div style={{ fontSize: 11, marginTop: 4 }}>Opened externally in Dolphin.</div>
                 </div>
               )}
+              {seekState === "seeking" && (
+                <div className="replay-player-seeking-overlay">Seeking…</div>
+              )}
             </div>
+
+            {totalFrames != null && totalFrames > 0 && (
+              <ReplayScrubber
+                currentFrame={displayFrame}
+                totalFrames={totalFrames}
+                onSeek={(frame) => seekToFrame(frame)}
+              />
+            )}
 
             <div className="replay-player-footer">
               <div className="replay-player-controls">
@@ -334,6 +445,16 @@ export function ReplayPlayer() {
                 >
                   <RotateCcw size={16} />
                 </button>
+                <div className="replay-hotkey-help" tabIndex={0} aria-label="Keyboard shortcuts">
+                  <button className="replay-control-btn" type="button" aria-haspopup="true">
+                    <HelpCircle size={14} />
+                  </button>
+                  <div className="replay-hotkey-help-tooltip" role="tooltip">
+                    <div><kbd>Space</kbd> Pause / Play</div>
+                    <div><kbd>←</kbd> <kbd>→</kbd> Frame step</div>
+                    <div><kbd>Esc</kbd> Close</div>
+                  </div>
+                </div>
               </div>
 
               <div className="replay-player-footer-right">
