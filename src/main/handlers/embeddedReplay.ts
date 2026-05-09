@@ -333,7 +333,9 @@ export function registerEmbeddedReplayHandlers(safeHandle: SafeHandleFn): void {
     // Slippi Dolphin gains live-seek support (see file header).
     killSession(activeSession);
     activeSession = null;
-    // Don't clear lastSessionBounds — we need to keep it for the new spawn.
+    // Leave lastSessionBounds intact — this spawn uses the local `bounds`,
+    // but a subsequent seek before setBounds fires for the new session would
+    // need it.
 
     const seekFrame = Math.max(0, Math.floor(frame));
     await spawnEmbedSession(replayPath, bounds, seekFrame);
