@@ -1,0 +1,334 @@
+/* In-app embedded Dolphin replay player — docks as a right-side panel so
+   the rest of the page (coaching text, game drawer) remains visible and
+   clickable. No backdrop dim; the panel itself is the only interactive
+   surface added to the page. */
+
+.replay-player-backdrop {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(880px, 58vw);
+  z-index: 2100; /* above coaching modal overlay (2000) */
+  pointer-events: none; /* let clicks fall through to underlying page */
+  display: flex;
+  align-items: stretch;
+  transition: left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), right 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.replay-player-modal {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--surface, #0a0c10);
+  color: var(--text, #f3f4f6);
+  border-left: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  box-shadow: -24px 0 60px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: auto; /* re-enable interaction inside the panel */
+}
+
+body[data-theme="liquid"] .replay-player-modal {
+  background: rgba(15, 18, 26, 0.82);
+  backdrop-filter: blur(40px) saturate(1.6);
+  -webkit-backdrop-filter: blur(40px) saturate(1.6);
+  border-top-left-radius: 28px;
+  border-bottom-left-radius: 28px;
+}
+
+.replay-player-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--text-secondary, #9ca3af);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  transition: background 0.15s, color 0.15s;
+}
+.replay-player-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text, #f3f4f6);
+}
+
+.replay-player-titlebar {
+  padding: 12px 48px 12px 18px;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.replay-player-titlebar-label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted, #6b7280);
+  font-weight: 600;
+}
+
+/* Stage area: Dolphin floats over this rect natively. The div itself
+   stays empty (black background visible while Dolphin loads). */
+.replay-player-stage {
+  position: relative;
+  flex: 1;
+  min-height: 360px;
+  background: #000;
+  overflow: hidden;
+}
+.replay-player-loading,
+.replay-player-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #9ca3af);
+  font-size: 13px;
+  text-align: center;
+  padding: 0 24px;
+  pointer-events: none;
+}
+.replay-player-error {
+  color: var(--loss, #f97066);
+}
+.replay-player-error button {
+  pointer-events: auto;
+}
+
+.replay-player-meta {
+  padding: 16px 18px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.05));
+}
+
+.replay-player-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px 14px;
+  font-size: 11px;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  flex-shrink: 0;
+}
+
+.replay-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.replay-control-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: var(--text-secondary, #9ca3af);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.replay-control-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text, #f3f4f6);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.replay-control-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.replay-control-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.replay-player-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.replay-player-dolphin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary, #9ca3af);
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.15s, color 0.15s;
+}
+.replay-player-dolphin:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text, #f3f4f6);
+}
+.replay-player-dolphin:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.replay-player-hint {
+  color: var(--text-muted, #6b7280);
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+}
+
+@media (max-width: 900px) {
+  .replay-player-backdrop {
+    width: 100vw;
+  }
+  body[data-theme="liquid"] .replay-player-modal {
+    border-radius: 0;
+  }
+}
+
+/* ─── Scrubber ─────────────────────────────────────────────────────── */
+
+.replay-scrubber-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px 4px;
+  flex-shrink: 0;
+}
+
+.replay-scrubber-track {
+  position: relative;
+  flex: 1;
+  height: 18px; /* generous click target around a 4px visual bar */
+  cursor: pointer;
+  touch-action: none; /* let pointer events handle drag */
+}
+
+.replay-scrubber-track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  transform: translateY(-50%);
+}
+
+.replay-scrubber-fill {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 4px;
+  background: var(--accent, #6ea8ff);
+  border-radius: 2px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.replay-scrubber-puck {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: var(--accent, #6ea8ff);
+  border: 2px solid var(--surface, #0a0c10);
+  transform: translateY(-50%);
+  pointer-events: none;
+  transition: transform 0.08s ease;
+}
+
+.replay-scrubber-track:hover .replay-scrubber-puck {
+  transform: translateY(-50%) scale(1.18);
+}
+
+.replay-scrubber-tooltip {
+  position: absolute;
+  bottom: 22px;
+  transform: translateX(-50%);
+  background: rgba(15, 18, 26, 0.96);
+  color: var(--text, #f3f4f6);
+  font-size: 11px;
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.replay-scrubber-time {
+  font-size: 11px;
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+  color: var(--text-muted, #6b7280);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ─── Seeking overlay ──────────────────────────────────────────────── */
+
+.replay-player-seeking-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.92);
+  color: var(--text-muted, #9ca3af);
+  font-size: 13px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ─── Hotkey help ──────────────────────────────────────────────────── */
+
+.replay-hotkey-help {
+  position: relative;
+  display: flex;
+}
+
+.replay-hotkey-help-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 18, 26, 0.98);
+  color: var(--text, #f3f4f6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 3;
+}
+.replay-hotkey-help:hover .replay-hotkey-help-tooltip,
+.replay-hotkey-help:focus-within .replay-hotkey-help-tooltip {
+  opacity: 1;
+}
+.replay-hotkey-help-tooltip kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-right: 4px;
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+}
