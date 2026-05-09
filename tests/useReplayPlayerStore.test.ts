@@ -49,4 +49,20 @@ describe("useReplayPlayerStore — totalFrames + seek", () => {
     expect(s.totalFrames).toBeNull();
     expect(s.seekState).toBe("idle");
   });
+
+  it("openPlayer on same replay sets seekState to seeking and bumps seekToken", () => {
+    useReplayPlayerStore.getState().openPlayer("/r.slp", 0, "Marth", "Falco", 1000);
+    const tokenBefore = useReplayPlayerStore.getState().seekToken;
+    // First open — seekState should be idle.
+    expect(useReplayPlayerStore.getState().seekState).toBe("idle");
+
+    // Re-open same path with a new startFrame — should hit the same-replay branch.
+    useReplayPlayerStore.getState().openPlayer("/r.slp", 500);
+    const after = useReplayPlayerStore.getState();
+    expect(after.startFrame).toBe(500);
+    expect(after.seekToken).toBe(tokenBefore + 1);
+    expect(after.seekState).toBe("seeking");
+    // totalFrames was set on first open and not provided on re-open; should remain.
+    expect(after.totalFrames).toBe(1000);
+  });
 });
