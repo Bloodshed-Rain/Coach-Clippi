@@ -182,6 +182,12 @@ export function ReplayPlayer() {
           | { ok: boolean; mode?: "live" | "respawn"; reason?: string }
           | boolean;
         if (cancelled) return;
+        // If the main process rejected the seek (no active session, etc.),
+        // clear the seeking overlay immediately so it doesn't stick forever.
+        if (typeof res === "object" && !res.ok) {
+          setSeekState("idle");
+          return;
+        }
         // Re-anchor playback estimate at the new frame.
         playAnchorRef.current = {
           frame: targetFrame,

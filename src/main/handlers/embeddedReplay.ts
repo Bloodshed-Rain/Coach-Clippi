@@ -188,6 +188,9 @@ async function spawnEmbedSession(
   replayPath: string,
   bounds: { x: number; y: number; width: number; height: number },
   startFrame: number,
+  /** When provided (seek path), the new session re-uses this id so the
+   *  renderer's sessionIdRef stays valid across kill+respawn cycles. */
+  reuseSessionId?: string,
 ): Promise<OpenResult> {
   const mainWindow = getMainWindow();
   if (!mainWindow) throw new Error("Main window unavailable");
@@ -212,7 +215,9 @@ async function spawnEmbedSession(
     stderrBuf += chunk.toString();
   });
 
-  const sessionId = `s_${child.pid}_${Date.now()}`;
+  // For seek respawns, preserve the caller's sessionId so the renderer's
+  // sessionIdRef stays valid and its onEmbedReplayReady listener fires.
+  const sessionId = reuseSessionId ?? `s_${child.pid}_${Date.now()}`;
   const session: EmbedSession = {
     id: sessionId,
     replayPath,
@@ -331,6 +336,7 @@ export function registerEmbeddedReplayHandlers(safeHandle: SafeHandleFn): void {
 
     // Tear down current session — kill+respawn is the only seek path until
     // Slippi Dolphin gains live-seek support (see file header).
+    const oldSessionId = activeSession.id;
     killSession(activeSession);
     activeSession = null;
     // Leave lastSessionBounds intact — this spawn uses the local `bounds`,
@@ -338,12 +344,15 @@ export function registerEmbeddedReplayHandlers(safeHandle: SafeHandleFn): void {
     // need it.
 
     const seekFrame = Math.max(0, Math.floor(frame));
-    await spawnEmbedSession(replayPath, bounds, seekFrame);
+    // Pass the old sessionId so spawnEmbedSession re-uses it. This ensures
+    // the renderer's sessionIdRef stays valid: replay:embed:ready will carry
+    // the same id the renderer is already listening for.
+    await spawnEmbedSession(replayPath, bounds, seekFrame, oldSessionId);
 
     // Inform the renderer; ready event from the new spawn also serves as
     // "seek complete," but seeked is the explicit signal.
     const win = getMainWindow();
-    win?.webContents.send("replay:embed:seeked", { sessionId, frame: seekFrame });
+    win?.webContents.send("replay:embed:seeked", { sessionId: oldSessionId, frame: seekFrame });
 
     return { ok: true as const, mode: "respawn" as const };
   });
