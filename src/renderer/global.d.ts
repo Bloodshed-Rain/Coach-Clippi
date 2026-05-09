@@ -88,6 +88,24 @@ declare global {
       ) => Promise<number[]>;
       openInDolphin: (replayPath: string) => Promise<boolean>;
       openInDolphinAtFrame: (replayPath: string, frame: number) => Promise<boolean>;
+      embedReplayOpen: (
+        replayPath: string,
+        bounds: { x: number; y: number; width: number; height: number },
+        startFrame?: number,
+      ) => Promise<{ embedded: boolean; sessionId?: string; reason?: string }>;
+      embedReplaySetBounds: (
+        sessionId: string,
+        bounds: { x: number; y: number; width: number; height: number },
+      ) => Promise<boolean>;
+      embedReplaySeek: (
+        sessionId: string,
+        frame: number,
+      ) => Promise<{ ok: boolean; mode?: "respawn"; reason?: string }>;
+      embedReplayClose: (sessionId: string) => Promise<boolean>;
+      onEmbedReplayReady: (callback: (sessionId: string) => void) => () => void;
+      onEmbedReplayError: (callback: (sessionId: string, message: string) => void) => () => void;
+      onEmbedReplayExited: (callback: (sessionId: string) => void) => () => void;
+      onEmbedReplaySeeked: (callback: (sessionId: string, frame: number) => void) => () => void;
       getStockTimeline: (replayPath: string) => Promise<any>;
       openFileDialog: (title: string, filters: { name: string; extensions: string[] }[]) => Promise<string | null>;
       startWatcher: (replayFolder: string, targetPlayer: string) => Promise<boolean>;
