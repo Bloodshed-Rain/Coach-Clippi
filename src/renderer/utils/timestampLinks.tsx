@@ -1,8 +1,9 @@
 /**
  * Shared timestamp utilities for coaching output.
- * Converts [M:SS] timestamps into clickable Dolphin replay launchers.
+ * Converts [M:SS] timestamps into clickable in-app replay player launchers.
  */
 import type { Components } from "react-markdown";
+import { useReplayPlayerStore } from "../stores/useReplayPlayerStore";
 
 const FPS = 60;
 const FIRST_PLAYABLE = -123; // Frames.FIRST_PLAYABLE from slippi-js
@@ -23,7 +24,7 @@ export function injectTimestampLinks(text: string): string {
 }
 
 /** Create react-markdown components that render timestamp code spans as clickable buttons */
-export function makeTimestampComponents(replayPath: string): Components {
+export function makeTimestampComponents(replayPath: string, totalFrames?: number): Components {
   return {
     code: ({ children }) => {
       const text = String(children);
@@ -31,33 +32,24 @@ export function makeTimestampComponents(replayPath: string): Components {
       if (match) {
         const ts = match[1]!;
         const frame = timestampToFrame(ts);
-        const handleClick = async (e: React.MouseEvent) => {
+        const handleClick = (e: React.MouseEvent | React.KeyboardEvent) => {
           e.preventDefault();
           e.stopPropagation();
-          const el = e.currentTarget as HTMLElement;
-          el.classList.add("timestamp-loading");
-          try {
-            await window.clippi.openInDolphinAtFrame(replayPath, frame);
-          } catch (err) {
-            console.error("Failed to open Dolphin at timestamp:", err);
-            el.title = `Error: ${err instanceof Error ? err.message : String(err)}`;
-            el.classList.add("timestamp-error");
-            setTimeout(() => {
-              el.classList.remove("timestamp-error");
-              el.title = `Open replay at ${ts}`;
-            }, 5000);
-          } finally {
-            el.classList.remove("timestamp-loading");
-          }
+          useReplayPlayerStore.getState().openPlayer(replayPath, frame, undefined, undefined, totalFrames);
         };
         return (
           <span
             role="button"
             tabIndex={0}
             onClick={handleClick}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleClick(e as any); } }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleClick(e);
+              }
+            }}
             className="timestamp-link"
-            title={`Open replay at ${ts} — Dolphin will fast-forward to this point, hang tight`}
+            title={`Open replay at ${ts}`}
           >
             ▶ {ts}
           </span>

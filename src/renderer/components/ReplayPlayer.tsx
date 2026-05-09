@@ -337,7 +337,13 @@ export function ReplayPlayer() {
 
   const onRestart = () => {
     if (!replayPath) return;
-    openPlayer(replayPath, 0);
+    openPlayer(
+      replayPath,
+      0,
+      playerCharacter ?? undefined,
+      opponentCharacter ?? undefined,
+      totalFrames ?? undefined,
+    );
   };
 
   const onOpenInDolphin = async () => {

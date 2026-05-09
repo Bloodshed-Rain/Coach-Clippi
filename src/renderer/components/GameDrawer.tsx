@@ -1,10 +1,11 @@
-import { useState } from "react";
 import { useGlobalStore } from "../stores/useGlobalStore";
+import { useReplayPlayerStore } from "../stores/useReplayPlayerStore";
 import { useRecentGames } from "../hooks/queries";
 import { Card } from "./ui/Card";
 import { Badge } from "./ui/Badge";
 import { StatGroupCard } from "./ui/StatGroupCard";
 import { CoachingModal } from "./CoachingModal";
+import { StockTimeline } from "./StockTimeline";
 
 interface DrawerGame {
   id: number;
@@ -107,11 +108,12 @@ function buildStats(g: DrawerGame): StatGroup[] {
 export function GameDrawer() {
   const drawerGameId = useGlobalStore((s) => s.drawerGameId);
   const closeDrawer = useGlobalStore((s) => s.closeDrawer);
+  const coachingOpen = useGlobalStore((s) => s.isCoachingOpen);
+  const setCoachingOpen = useGlobalStore((s) => s.setCoachingOpen);
+  const openPlayer = useReplayPlayerStore((s) => s.openPlayer);
   const { data: games = [] } = useRecentGames(500);
   const game =
     drawerGameId != null ? ((games as unknown as DrawerGame[]).find((g) => g.id === drawerGameId) ?? null) : null;
-
-  const [coachingOpen, setCoachingOpen] = useState(false);
 
   if (!game) return null;
 
@@ -124,10 +126,14 @@ export function GameDrawer() {
   const stocks = 4;
 
   const onGetCoaching = () => setCoachingOpen(true);
-
   const onWatchReplay = () => {
     if (!game?.replayPath) return;
-    window.clippi.openInDolphin(game.replayPath);
+    setCoachingOpen(true);
+    const totalFrames =
+      typeof game.durationSeconds === "number" && game.durationSeconds > 0
+        ? Math.floor(game.durationSeconds * 60)
+        : undefined;
+    openPlayer(game.replayPath, 0, game.playerCharacter, game.opponentCharacter, totalFrames);
   };
 
   return (
@@ -161,19 +167,18 @@ export function GameDrawer() {
           </button>
         </div>
 
-        <Card title="Stock Timeline">
-          <div className="drawer-stock-strip">
-            {Array.from({ length: stocks }).map((_, i) => {
-              const taken = i >= (game.playerFinalStocks ?? 0);
-              return (
-                <div key={i} className={`drawer-stock ${taken ? "taken" : "alive"}`}>
-                  <div className="drawer-stock-label">Stock {i + 1}</div>
-                  <div className="drawer-stock-state mono">{taken ? "—" : "alive"}</div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+        {game.replayPath && (
+          <StockTimeline
+            replayPath={game.replayPath}
+            playerCharacter={game.playerCharacter || "Player"}
+            opponentCharacter={game.opponentCharacter || "Opponent"}
+            totalFrames={
+              typeof game.durationSeconds === "number" && game.durationSeconds > 0
+                ? Math.floor(game.durationSeconds * 60)
+                : undefined
+            }
+          />
+        )}
 
         {stats.map((s) => (
           <StatGroupCard key={s.group} title={s.group} items={s.items} />
@@ -187,6 +192,9 @@ export function GameDrawer() {
         id={game.id}
         title={`${game.playerCharacter ?? "—"} vs ${game.opponentCharacter} on ${game.stage}`}
         replayPath={game.replayPath}
+        playerCharacter={game.playerCharacter}
+        opponentCharacter={game.opponentCharacter}
+        durationSeconds={game.durationSeconds}
         variant="alongsideDrawer"
       />
     </>

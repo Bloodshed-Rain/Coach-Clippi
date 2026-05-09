@@ -2,10 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Compass, Play } from "lucide-react";
 import { CoachingCards } from "./CoachingCards";
-import {
-  makeTimestampComponents,
-  injectTimestampLinks,
-} from "../utils/timestampLinks";
+import { makeTimestampComponents, injectTimestampLinks } from "../utils/timestampLinks";
+import { useReplayPlayerStore } from "../stores/useReplayPlayerStore";
 
 interface CoachingModalProps {
   isOpen: boolean;
@@ -17,12 +15,15 @@ interface CoachingModalProps {
   preloadedText?: string;
   /** Replay path for timestamp click-to-Dolphin support */
   replayPath?: string;
+  playerCharacter?: string;
+  opponentCharacter?: string;
   /**
    * "fullscreen" (default): slides in from the right, has its own backdrop.
    * "alongsideDrawer": positioned to the LEFT of the open GameDrawer, no
    * backdrop — drawer stays interactive on the right.
    */
   variant?: "fullscreen" | "alongsideDrawer";
+  durationSeconds?: number;
 }
 
 export function CoachingModal({
@@ -33,14 +34,21 @@ export function CoachingModal({
   title,
   preloadedText,
   replayPath,
+  playerCharacter,
+  opponentCharacter,
   variant = "fullscreen",
+  durationSeconds,
 }: CoachingModalProps) {
+  const totalFrames =
+    typeof durationSeconds === "number" && durationSeconds > 0
+      ? Math.floor(durationSeconds * 60)
+      : undefined;
   const [analysis, setAnalysis] = useState(preloadedText ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [queuePos, setQueuePos] = useState<number>(0);
-  const [dolphinLoading, setDolphinLoading] = useState(false);
-  const [dolphinError, setDolphinError] = useState<string | null>(null);
+  const openPlayer = useReplayPlayerStore((s) => s.openPlayer);
+  const isReplayOpen = useReplayPlayerStore((s) => s.open);
 
   const runAnalysis = useCallback(async () => {
     if (preloadedText) return;
@@ -50,7 +58,10 @@ export function CoachingModal({
     setQueuePos(0);
 
     try {
-      window.clippi.getQueueStatus().then(s => setQueuePos(s.pending)).catch(() => {});
+      window.clippi
+        .getQueueStatus()
+        .then((s) => setQueuePos(s.pending))
+        .catch(() => {});
 
       const streamId = crypto.randomUUID();
       const removeListener = window.clippi.onAnalysisStream((chunk, sid) => {
@@ -89,7 +100,7 @@ export function CoachingModal({
   if (!isOpen) return null;
 
   const isAlongside = variant === "alongsideDrawer";
-  const modalClass = `coaching-modal${isAlongside ? " coaching-modal--alongside" : ""}`;
+  const modalClass = `coaching-modal${isAlongside ? " coaching-modal--alongside" : ""}${isReplayOpen ? " coaching-modal--replay-open" : ""}`;
   // Alongside mode slides in from the left edge of its anchor (right side of viewport
   // minus drawer width); fullscreen slides from the right edge of the viewport.
   const slideX = isAlongside ? "-30px" : "100%";
@@ -97,76 +108,63 @@ export function CoachingModal({
   const panel = (
     <motion.div
       className={modalClass}
-      onClick={e => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
       initial={{ x: slideX, opacity: isAlongside ? 0 : 1 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: slideX, opacity: isAlongside ? 0 : 1 }}
       transition={{ type: "spring", damping: 30, stiffness: 300 }}
     >
-        <header className="coaching-header">
-          <div className="coaching-title-row">
-            <div className="coaching-icon">
-              <Compass size={20} />
-            </div>
-            <div>
-              <h2 className="coaching-heading">MAGI Coaching</h2>
-              <p className="coaching-subtitle">{title}</p>
-            </div>
+      <header className="coaching-header">
+        <div className="coaching-title-row">
+          <div className="coaching-icon">
+            <Compass size={20} />
           </div>
-          <button className="coaching-close" onClick={onClose}>&times;</button>
-        </header>
-
-        <div className="coaching-body custom-scrollbar">
-          {error && (
-            <div className="coaching-error">
-              {error}
-            </div>
-          )}
-
-          {!analysis && loading && (
-            <div className="coaching-loading">
-              <div className="spinner spinner-lg" />
-              <p className="coaching-loading-text">
-                {queuePos > 0 ? `Queued (position ${queuePos})...` : "Consulting MAGI mainframe..."}
-              </p>
-            </div>
-          )}
-
-          <CoachingCards
-            text={replayPath ? injectTimestampLinks(analysis) : analysis}
-            isStreaming={loading && !!analysis}
-            markdownComponents={replayPath ? makeTimestampComponents(replayPath) : undefined}
-          />
+          <div>
+            <h2 className="coaching-heading">MAGI Coaching</h2>
+            <p className="coaching-subtitle">{title}</p>
+          </div>
         </div>
+        <button className="coaching-close" onClick={onClose}>
+          &times;
+        </button>
+      </header>
 
-        <footer className="coaching-footer">
-          <p className="coaching-disclaimer">
-            AI analysis may occasionally hallucinate frame-perfect tech.
-          </p>
-          <div className="coaching-footer-actions">
-            {replayPath && (
-              <button
-                className="btn game-card-watch-btn"
-                disabled={dolphinLoading}
-                onClick={async () => {
-                  setDolphinError(null);
-                  setDolphinLoading(true);
-                  try {
-                    await window.clippi.openInDolphin(replayPath);
-                  } catch (err: unknown) {
-                    setDolphinError(err instanceof Error ? err.message : String(err));
-                  }
-                  setDolphinLoading(false);
-                }}
-              >
-                <Play size={14} />
-                {dolphinLoading ? "Launching..." : "Watch Replay"}
-              </button>
-            )}
-            {dolphinError && <span className="game-card-error">{dolphinError}</span>}
-            <button className="btn" onClick={onClose}>Close</button>
+      <div className="coaching-body custom-scrollbar">
+        {error && <div className="coaching-error">{error}</div>}
+
+        {!analysis && loading && (
+          <div className="coaching-loading">
+            <div className="spinner spinner-lg" />
+            <p className="coaching-loading-text">
+              {queuePos > 0 ? `Queued (position ${queuePos})...` : "Consulting MAGI mainframe..."}
+            </p>
           </div>
-        </footer>
+        )}
+
+        <CoachingCards
+          text={replayPath ? injectTimestampLinks(analysis) : analysis}
+          isStreaming={loading && !!analysis}
+          markdownComponents={replayPath ? makeTimestampComponents(replayPath, totalFrames) : undefined}
+        />
+      </div>
+
+      <footer className="coaching-footer">
+        <p className="coaching-disclaimer">AI analysis may occasionally hallucinate frame-perfect tech.</p>
+        <div className="coaching-footer-actions">
+          {replayPath && (
+            <button
+              className="btn game-card-watch-btn"
+              onClick={() => openPlayer(replayPath, 0, playerCharacter, opponentCharacter, totalFrames)}
+            >
+              <Play size={14} />
+              Watch Replay
+            </button>
+          )}
+          <button className="btn" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </footer>
     </motion.div>
   );
 

@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
+import { useReplayPlayerStore } from "../stores/useReplayPlayerStore";
+import { timestampToFrame } from "../utils/timestampLinks";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -60,10 +62,7 @@ function computeIntensity(damageDealt: number, minDmg: number, maxDmg: number): 
 }
 
 /** Detect momentum shifts: a stock where one player dealt significantly more damage */
-function detectMomentumShifts(
-  playerStocks: StockData[],
-  opponentStocks: StockData[],
-): Set<number> {
+function detectMomentumShifts(playerStocks: StockData[], opponentStocks: StockData[]): Set<number> {
   const shifts = new Set<number>();
   // A stock where the player dealt 2x their average is a momentum spike
   const avgPlayerDmg = playerStocks.reduce((s, st) => s + st.damageDealt, 0) / (playerStocks.length || 1);
@@ -93,6 +92,8 @@ function StockRow({
   maxDmg,
   isPlayer,
   momentumStocks,
+  replayPath,
+  totalFrames,
 }: {
   stocks: StockData[];
   totalDuration: number;
@@ -102,18 +103,24 @@ function StockRow({
   maxDmg: number;
   isPlayer: boolean;
   momentumStocks: Set<number>;
+  replayPath: string;
+  totalFrames?: number;
 }) {
+  const openPlayer = useReplayPlayerStore((s) => s.openPlayer);
+
   return (
     <div className="stock-timeline-row">
       {stocks.map((stock, i) => {
-        const widthPercent = totalDuration > 0
-          ? Math.max(8, (stock.duration / totalDuration) * 100)
-          : 100 / stocks.length;
+        const widthPercent =
+          totalDuration > 0 ? Math.max(8, (stock.duration / totalDuration) * 100) : 100 / stocks.length;
         const intensity = computeIntensity(stock.damageDealt, minDmg, maxDmg);
-        const hasMomentum = isPlayer
-          ? momentumStocks.has(stock.stockNumber)
-          : momentumStocks.has(-stock.stockNumber);
+        const hasMomentum = isPlayer ? momentumStocks.has(stock.stockNumber) : momentumStocks.has(-stock.stockNumber);
         const isDeath = stock.killMove !== null;
+
+        const onStockClick = () => {
+          const frame = timestampToFrame(stock.startTime);
+          openPlayer(replayPath, frame, undefined, undefined, totalFrames);
+        };
 
         return (
           <motion.div
@@ -126,14 +133,18 @@ function StockRow({
               duration: 0.4,
               ease: [0.22, 1, 0.36, 1],
             }}
-            style={{
-              width: `${widthPercent}%`,
-              transformOrigin: "left center",
-              "--segment-color": color,
-              "--segment-rgb": colorRgb,
-              "--segment-intensity": intensity,
-            } as React.CSSProperties}
-            title={`Stock ${stock.stockNumber}: ${stock.damageDealt.toFixed(0)}% dealt, ${stock.percentLost.toFixed(0)}% taken${isDeath ? ` — Killed by ${stock.killMove}` : " — Survived"}`}
+            style={
+              {
+                width: `${widthPercent}%`,
+                transformOrigin: "left center",
+                "--segment-color": color,
+                "--segment-rgb": colorRgb,
+                "--segment-intensity": intensity,
+                cursor: "pointer",
+              } as React.CSSProperties
+            }
+            title={`Stock ${stock.stockNumber}: ${stock.damageDealt.toFixed(0)}% dealt, ${stock.percentLost.toFixed(0)}% taken${isDeath ? ` — Killed by ${stock.killMove}` : " — Survived"}\nClick to watch`}
+            onClick={onStockClick}
           >
             <div className="stock-segment-fill" />
 
@@ -141,9 +152,7 @@ function StockRow({
             <span className="stock-segment-number">{stock.stockNumber}</span>
 
             {/* Damage dealt label */}
-            <span className="stock-segment-dmg">
-              {stock.damageDealt.toFixed(0)}%
-            </span>
+            <span className="stock-segment-dmg">{stock.damageDealt.toFixed(0)}%</span>
 
             {/* Kill move label at the end of each dead stock */}
             {isDeath && (
@@ -155,9 +164,7 @@ function StockRow({
             )}
 
             {/* Momentum indicator */}
-            {hasMomentum && (
-              <div className="stock-momentum-pip" />
-            )}
+            {hasMomentum && <div className="stock-momentum-pip" />}
           </motion.div>
         );
       })}
@@ -169,10 +176,12 @@ export function StockTimeline({
   replayPath,
   playerCharacter,
   opponentCharacter,
+  totalFrames,
 }: {
   replayPath: string;
   playerCharacter: string;
   opponentCharacter: string;
+  totalFrames?: number;
 }) {
   const [data, setData] = useState<StockTimelineData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -183,7 +192,8 @@ export function StockTimeline({
     setLoading(true);
     setError(null);
 
-    window.clippi.getStockTimeline(replayPath)
+    window.clippi
+      .getStockTimeline(replayPath)
       .then((result: StockTimelineData) => {
         if (!cancelled) setData(result);
       })
@@ -194,14 +204,16 @@ export function StockTimeline({
         if (!cancelled) setLoading(false);
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [replayPath]);
 
   const analysis = useMemo(() => {
     if (!data) return null;
 
     const allStocks = [...data.player.stocks, ...data.opponent.stocks];
-    const allDmg = allStocks.map(s => s.damageDealt);
+    const allDmg = allStocks.map((s) => s.damageDealt);
     const minDmg = Math.min(...allDmg);
     const maxDmg = Math.max(...allDmg);
     const momentumShifts = detectMomentumShifts(data.player.stocks, data.opponent.stocks);
@@ -235,9 +247,7 @@ export function StockTimeline({
       <div className="stock-timeline-chart">
         {/* Player row */}
         <div className="stock-timeline-lane">
-          <span className="stock-timeline-label stock-timeline-label-player">
-            {playerCharacter}
-          </span>
+          <span className="stock-timeline-label stock-timeline-label-player">{playerCharacter}</span>
           <StockRow
             stocks={data.player.stocks}
             totalDuration={data.gameDuration}
@@ -247,6 +257,8 @@ export function StockTimeline({
             maxDmg={analysis.maxDmg}
             isPlayer={true}
             momentumStocks={analysis.momentumShifts}
+            replayPath={replayPath}
+            totalFrames={totalFrames}
           />
         </div>
 
@@ -255,9 +267,7 @@ export function StockTimeline({
 
         {/* Opponent row */}
         <div className="stock-timeline-lane">
-          <span className="stock-timeline-label stock-timeline-label-opponent">
-            {opponentCharacter}
-          </span>
+          <span className="stock-timeline-label stock-timeline-label-opponent">{opponentCharacter}</span>
           <StockRow
             stocks={data.opponent.stocks}
             totalDuration={data.gameDuration}
@@ -267,6 +277,8 @@ export function StockTimeline({
             maxDmg={analysis.maxDmg}
             isPlayer={false}
             momentumStocks={analysis.momentumShifts}
+            replayPath={replayPath}
+            totalFrames={totalFrames}
           />
         </div>
       </div>
