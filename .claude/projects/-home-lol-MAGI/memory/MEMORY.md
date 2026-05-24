@@ -1,2 +1,0 @@
-- [Tooling ecosystem](tooling_ecosystem.md) — MCP server, skills, hooks, and agents configured for MAGI
-- [User profile](user_profile.md) — Project owner building AI Melee coaching app

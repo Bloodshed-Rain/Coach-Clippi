@@ -168,9 +168,18 @@ build.env
 # Claude Code per-machine settings
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+.claude/agent-memory/
+.claude/projects/
 
 # Local Superpowers runtime state
 .superpowers/
+docs/superpowers/
+dogfood-output/
+.mcp.json
+
+# Accidental shell/npm leftovers
+magi-melee@*
+/node
 
 # Native module rebuilds
 build/
