@@ -3,16 +3,27 @@ import fs from "fs";
 import { pipeline } from "stream/promises";
 import { loadConfig } from "../../config.js";
 import {
-  getDb, insertCoachingAnalysis, getPlayerHistory,
-  getGamesBySession, getGameById, getAggregateStats,
-  getDeepInsightsData, insertGame, insertGameStats,
-  insertSignatureStats, insertHighlights
+  getDb,
+  insertCoachingAnalysis,
+  getPlayerHistory,
+  getGamesBySession,
+  getGameById,
+  getAggregateStats,
+  getDeepInsightsData,
+  insertGame,
+  insertGameStats,
+  insertSignatureStats,
+  insertHighlights,
 } from "../../db.js";
 import {
-  computeAdaptationSignals, findPlayerIdx,
-  assembleUserPrompt, SYSTEM_PROMPT,
-  assembleAggregatePrompt, SYSTEM_PROMPT_AGGREGATE,
-  assembleDiscoveryPrompt, SYSTEM_PROMPT_DISCOVERY,
+  computeAdaptationSignals,
+  findPlayerIdx,
+  assembleUserPrompt,
+  SYSTEM_PROMPT,
+  assembleAggregatePrompt,
+  SYSTEM_PROMPT_AGGREGATE,
+  assembleDiscoveryPrompt,
+  SYSTEM_PROMPT_DISCOVERY,
   type GameResult,
 } from "../../pipeline/index.js";
 import { callLLM, callLLMStream, getActiveModelId, type LLMConfig } from "../../llm.js";
@@ -47,9 +58,8 @@ function runMultiGameAnalysis(
   targetPlayer: string,
 ): { targetTag: string; userPrompt: string } {
   const firstGame = gameResults[0]!.gameSummary;
-  const targetTag = targetPlayer ||
-    firstGame.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ||
-    firstGame.players[0].tag;
+  const targetTag =
+    targetPlayer || firstGame.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag || firstGame.players[0].tag;
 
   if (gameResults.length >= 2) {
     const p0Tag = firstGame.players[0].tag;
@@ -82,14 +92,15 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
     if (safePaths.length === 1) {
       const db = getDb();
       const fileHash = await hashFileAsync(safePaths[0]!);
-      const currentModelId = llmConfig.modelId;
-      const existingGame = db.prepare(
-        "SELECT id FROM games WHERE replay_hash = ?",
-      ).get(fileHash) as { id: number } | undefined;
+      const existingGame = db.prepare("SELECT id FROM games WHERE replay_hash = ?").get(fileHash) as
+        | { id: number }
+        | undefined;
       if (existingGame) {
-        const cachedAnalysis = db.prepare(
-          "SELECT analysis_text FROM coaching_analyses WHERE game_id = ? AND model_used = ? ORDER BY created_at DESC LIMIT 1",
-        ).get(existingGame.id, currentModelId) as { analysis_text: string } | undefined;
+        const cachedAnalysis = db
+          .prepare(
+            "SELECT analysis_text FROM coaching_analyses WHERE game_id = ? ORDER BY created_at DESC LIMIT 1",
+          )
+          .get(existingGame.id) as { analysis_text: string } | undefined;
         if (cachedAnalysis) {
           return cachedAnalysis.analysis_text;
         }
@@ -108,16 +119,13 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
 
     // Use streaming when a window is available to receive chunks
     const analysis = await llmQueue.enqueue(() =>
-      callLLMStream(
-        { systemPrompt: SYSTEM_PROMPT, userPrompt, config: llmConfig },
-        (chunk) => {
-          try {
-            win?.webContents.send("analyze:stream", chunk, streamId);
-          } catch {
-            // Window may have been closed during streaming — ignore
-          }
-        },
-      ),
+      callLLMStream({ systemPrompt: SYSTEM_PROMPT, userPrompt, config: llmConfig }, (chunk) => {
+        try {
+          win?.webContents.send("analyze:stream", chunk, streamId);
+        } catch {
+          // Window may have been closed during streaming — ignore
+        }
+      }),
     );
 
     // Signal streaming is done
@@ -135,9 +143,9 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
       const filePath = safePaths[i]!;
       const fileHash = await hashFileAsync(filePath);
 
-      const existing = db.prepare(
-        "SELECT id FROM games WHERE replay_hash = ?",
-      ).get(fileHash) as { id: number } | undefined;
+      const existing = db.prepare("SELECT id FROM games WHERE replay_hash = ?").get(fileHash) as
+        | { id: number }
+        | undefined;
 
       if (existing) {
         gameIds.push(existing.id);
@@ -158,7 +166,7 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
       }
     }
 
-    insertCoachingAnalysis(gameIds[0] ?? null, null, llmConfig.modelId!, analysis);
+    insertCoachingAnalysis(gameIds[0] ?? null, null, llmConfig.modelId || "pollinations", analysis);
 
     return analysis;
   });
@@ -169,6 +177,17 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
     const win = getMainWindow();
     const db = getDb();
 
+    // Check cache for ALL scopes (ignore model_used to reuse any past analysis)
+    let cached: { analysis_text: string } | undefined;
+    if (scope === "game") {
+      cached = db.prepare("SELECT analysis_text FROM coaching_analyses WHERE game_id = ? ORDER BY created_at DESC LIMIT 1").get(Number(id)) as any;
+    } else if (scope === "session") {
+      cached = db.prepare("SELECT analysis_text FROM coaching_analyses WHERE session_id = ? ORDER BY created_at DESC LIMIT 1").get(Number(id)) as any;
+    } else {
+      cached = db.prepare("SELECT analysis_text FROM coaching_analyses WHERE scope = ? AND scope_identifier = ? ORDER BY created_at DESC LIMIT 1").get(scope, String(id)) as any;
+    }
+    if (cached) return cached.analysis_text;
+
     let systemPrompt = SYSTEM_PROMPT;
     let userPrompt = "";
     let gameIdForCache: number | null = null;
@@ -177,36 +196,19 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
     if (scope === "game") {
       const game = getGameById(Number(id));
       if (!game) throw new Error("Game not found");
-      
-      // Check cache
-      const cached = db.prepare(
-        "SELECT analysis_text FROM coaching_analyses WHERE game_id = ? AND model_used = ? ORDER BY created_at DESC LIMIT 1"
-      ).get(game.id, llmConfig.modelId) as { analysis_text: string } | undefined;
-      if (cached) return cached.analysis_text;
-
       const result = await parsePool.parse(game.replay_path, 1);
       const playerHistory = getPlayerHistory(targetPlayer || game.player_tag) ?? undefined;
       userPrompt = assembleUserPrompt([result], targetPlayer || game.player_tag, playerHistory);
       gameIdForCache = game.id;
-    } 
-    else if (scope === "session") {
+    } else if (scope === "session") {
       const sessionId = Number(id);
-      
-      // Check cache
-      const cached = db.prepare(
-        "SELECT analysis_text FROM coaching_analyses WHERE session_id = ? AND model_used = ? ORDER BY created_at DESC LIMIT 1"
-      ).get(sessionId, llmConfig.modelId) as { analysis_text: string } | undefined;
-      if (cached) return cached.analysis_text;
-
       const games = getGamesBySession(sessionId);
       if (games.length === 0) throw new Error("No games found for session");
-      
       const gameResults = await parsePool.parseMany(games.map((g) => g.replay_path));
       const { userPrompt: prompt } = runMultiGameAnalysis(gameResults, targetPlayer || "");
       userPrompt = prompt;
       sessionIdForCache = sessionId;
-    }
-    else if (["character", "stage", "opponent", "career"].includes(scope)) {
+    } else if (["character", "stage", "opponent", "career"].includes(scope)) {
       const filters: any = {};
       if (scope === "character") filters.character = String(id);
       if (scope === "stage") filters.stage = String(id);
@@ -218,23 +220,24 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
 
       const playerHistory = getPlayerHistory(targetPlayer || "") ?? undefined;
       systemPrompt = SYSTEM_PROMPT_AGGREGATE;
-      userPrompt = assembleAggregatePrompt(stats, scope as any, scope === "career" ? "Lifetime" : String(id), playerHistory);
-    }
-    else {
+      userPrompt = assembleAggregatePrompt(
+        stats,
+        scope as any,
+        scope === "career" ? "Lifetime" : String(id),
+        playerHistory,
+      );
+    } else {
       throw new Error(`Invalid analysis scope: ${scope}`);
     }
 
     const analysis = await llmQueue.enqueue(() =>
-      callLLMStream(
-        { systemPrompt, userPrompt, config: llmConfig },
-        (chunk) => {
-          try {
-            win?.webContents.send("analyze:stream", chunk, streamId);
-          } catch {
-            // ignore
-          }
+      callLLMStream({ systemPrompt, userPrompt, config: llmConfig }, (chunk) => {
+        try {
+          win?.webContents.send("analyze:stream", chunk, streamId);
+        } catch {
+          // ignore
         }
-      )
+      }),
     );
 
     try {
@@ -243,7 +246,14 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
       // ignore
     }
 
-    insertCoachingAnalysis(gameIdForCache, sessionIdForCache, llmConfig.modelId!, analysis);
+    insertCoachingAnalysis(
+      gameIdForCache,
+      sessionIdForCache,
+      llmConfig.modelId || "pollinations",
+      analysis,
+      scope,
+      String(id),
+    );
     return analysis;
   });
 
@@ -258,16 +268,13 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
     const userPrompt = assembleDiscoveryPrompt(dbData, playerHistory);
 
     const analysis = await llmQueue.enqueue(() =>
-      callLLMStream(
-        { systemPrompt, userPrompt, config: llmConfig },
-        (chunk) => {
-          try {
-            win?.webContents.send("analyze:stream", chunk, streamId);
-          } catch {
-            // ignore
-          }
+      callLLMStream({ systemPrompt, userPrompt, config: llmConfig }, (chunk) => {
+        try {
+          win?.webContents.send("analyze:stream", chunk, streamId);
+        } catch {
+          // ignore
         }
-      )
+      }),
     );
 
     try {
@@ -281,12 +288,16 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
 
   // Analyze recent games from the DB (by replay paths)
   safeHandle("analyze:recent", async (_e, count: number, targetPlayer: string, streamId?: string) => {
-    const games = getDb().prepare(`
+    const games = getDb()
+      .prepare(
+        `
       SELECT id, replay_path FROM games
       WHERE played_at IS NOT NULL
       ORDER BY played_at DESC
       LIMIT ?
-    `).all(count) as { id: number; replay_path: string }[];
+    `,
+      )
+      .all(count) as { id: number; replay_path: string }[];
 
     if (games.length === 0) {
       throw new Error("No games in database to analyze.");
@@ -303,23 +314,20 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
     const { userPrompt } = runMultiGameAnalysis(gameResults, targetPlayer);
     const win = getMainWindow();
     const analysis = await llmQueue.enqueue(() =>
-      callLLMStream(
-        { systemPrompt: SYSTEM_PROMPT, userPrompt, config: llmConfig },
-        (chunk) => {
-          try {
-            win?.webContents.send("analyze:stream", chunk, streamId);
-          } catch {
-            // ignore
-          }
-        },
-      ),
+      callLLMStream({ systemPrompt: SYSTEM_PROMPT, userPrompt, config: llmConfig }, (chunk) => {
+        try {
+          win?.webContents.send("analyze:stream", chunk, streamId);
+        } catch {
+          // ignore
+        }
+      }),
     );
     try {
       win?.webContents.send("analyze:stream-end", streamId);
     } catch {
       // ignore
     }
-    insertCoachingAnalysis(games[0]?.id ?? null, null, llmConfig.modelId!, analysis);
+    insertCoachingAnalysis(games[0]?.id ?? null, null, llmConfig.modelId || "pollinations", analysis);
 
     return analysis;
   });

@@ -1,7 +1,13 @@
 // CLI entry point for the analysis pipeline.
 // Usage: npx tsx src/pipeline-cli.ts <file.slp> [--target player] [--json]
 
-import { processGame, computeAdaptationSignals, findPlayerIdx, assembleUserPrompt, SYSTEM_PROMPT } from "./pipeline/index.js";
+import {
+  processGame,
+  computeAdaptationSignals,
+  findPlayerIdx,
+  assembleUserPrompt,
+  SYSTEM_PROMPT,
+} from "./pipeline/index.js";
 import type { GameResult } from "./pipeline/index.js";
 
 function parseArgs(argv: string[]): {
@@ -54,8 +60,7 @@ function dumpJson(gameResults: GameResult[]): void {
 }
 
 async function main() {
-  const { filePaths, targetPlayer, jsonMode, dir, setNumber, listSets } =
-    parseArgs(process.argv);
+  const { filePaths, targetPlayer, jsonMode, dir, setNumber, listSets } = parseArgs(process.argv);
 
   // --dir mode: auto-detect sets from a replay folder
   if (dir || listSets) {
@@ -73,9 +78,7 @@ async function main() {
           if (g.winner === set.players[0]) wins[0]!++;
           else if (g.winner === set.players[1]) wins[1]!++;
         }
-        const chars = set.games.map(
-          (g) => `${g.players[0].character}/${g.players[1].character}`,
-        );
+        const chars = set.games.map((g) => `${g.players[0].character}/${g.players[1].character}`);
         console.error(
           `  ${(i + 1).toString().padStart(2)}. ${set.players[0]} vs ${set.players[1]} — ${set.games.length} game${set.games.length > 1 ? "s" : ""} (${wins[0]}-${wins[1]}) [${chars.join(", ")}]`,
         );
@@ -122,9 +125,7 @@ async function main() {
 
   // Resolve target player tag (default to first named player)
   const targetTag =
-    targetPlayer ??
-    firstGame.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ??
-    firstGame.players[0].tag;
+    targetPlayer ?? firstGame.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ?? firstGame.players[0].tag;
 
   // Compute adaptation signals for multi-game sets
   if (gameResults.length >= 2) {

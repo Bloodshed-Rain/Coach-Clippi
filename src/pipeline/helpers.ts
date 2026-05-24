@@ -26,12 +26,7 @@ export function frameToTimestamp(frame: number): string {
 }
 
 export function getPlayerTag(player: PlayerType): string {
-  return (
-    player.displayName ||
-    player.nametag ||
-    player.connectCode ||
-    `P${player.port}`
-  );
+  return player.displayName || player.nametag || player.connectCode || `P${player.port}`;
 }
 
 export function getCharacterName(id: number | undefined): string {
@@ -63,9 +58,7 @@ export function entropy(options: { frequency: number }[]): number {
   return Math.round((h / Math.log2(n)) * 10000) / 10000;
 }
 
-export function endMethodString(
-  gameEnd: GameEndType | undefined,
-): string {
+export function endMethodString(gameEnd: GameEndType | undefined): string {
   if (!gameEnd) return "unknown";
   switch (gameEnd.gameEndMethod) {
     case GameEndMethod.TIME:
@@ -85,13 +78,11 @@ export function endMethodString(
 export function isAirborne(actionState: number): boolean {
   // Aerial states, falling, jumping, air dodge
   return (
-    (actionState >= State.CONTROLLED_JUMP_START &&
-      actionState <= State.CONTROLLED_JUMP_END) ||
+    (actionState >= State.CONTROLLED_JUMP_START && actionState <= State.CONTROLLED_JUMP_END) ||
     (actionState >= State.FALL && actionState <= State.FALL_BACKWARD) ||
     actionState === State.DAMAGE_FALL ||
     actionState === State.AIR_DODGE ||
-    (actionState >= State.AERIAL_ATTACK_START &&
-      actionState <= State.AERIAL_DAIR) ||
+    (actionState >= State.AERIAL_ATTACK_START && actionState <= State.AERIAL_DAIR) ||
     actionState === State.LANDING_FALL_SPECIAL
   );
 }
@@ -103,11 +94,11 @@ export function isOnLedge(actionState: number): boolean {
 // Lowest platform height per legal stage. If posY is above this threshold,
 // the player is standing on a platform rather than the main stage.
 export const PLATFORM_MIN_HEIGHT: Record<number, number> = {
-  2: 15,    // Fountain of Dreams — side platforms ~15-27, top ~42
-  3: 25,    // Pokemon Stadium — platforms ~25
-  8: 23,    // Yoshi's Story — side platforms ~23, top ~42
-  28: 27,   // Dreamland — side platforms ~27, top ~51
-  31: 27,   // Battlefield — side platforms ~27, top ~54
+  2: 15, // Fountain of Dreams — side platforms ~15-27, top ~42
+  3: 25, // Pokemon Stadium — platforms ~25
+  8: 23, // Yoshi's Story — side platforms ~23, top ~42
+  28: 27, // Dreamland — side platforms ~27, top ~51
+  31: 27, // Battlefield — side platforms ~27, top ~54
   // FD (32) has no platforms
 };
 
@@ -117,16 +108,10 @@ export function isOnPlatform(posY: number, stageId: number): boolean {
   return posY > threshold;
 }
 
-export function isOffstage(
-  posX: number,
-  posY: number,
-  stageId: number,
-): boolean {
+export function isOffstage(posX: number, posY: number, stageId: number): boolean {
   // Approximate stage boundaries for legal stages
   const bounds = stageBounds(stageId);
-  return (
-    Math.abs(posX) > bounds.x || posY < bounds.yMin
-  );
+  return Math.abs(posX) > bounds.x || posY < bounds.yMin;
 }
 
 export function stageBounds(stageId: number): {
@@ -147,9 +132,7 @@ export function stageBounds(stageId: number): {
 
 // Detect "knockdown" — player is in a downed/missed-tech state
 export function isKnockdown(actionState: number): boolean {
-  return (
-    actionState >= State.DOWN_START && actionState <= State.DOWN_END
-  );
+  return actionState >= State.DOWN_START && actionState <= State.DOWN_END;
 }
 
 // Detect ledge grab
@@ -159,9 +142,7 @@ export function isLedgeGrab(actionState: number): boolean {
 
 // Detect shield (guarding)
 export function isShielding(actionState: number): boolean {
-  return (
-    actionState >= State.GUARD_START && actionState <= State.GUARD_END
-  );
+  return actionState >= State.GUARD_START && actionState <= State.GUARD_END;
 }
 
 export function isDashDancing(actionState: number): boolean {

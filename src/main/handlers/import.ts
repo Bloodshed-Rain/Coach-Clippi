@@ -40,9 +40,10 @@ export function registerImportHandlers(safeHandle: SafeHandleFn): void {
     walk(safePath);
 
     if (files.length === 0) {
-      const extra = unreadableDirs.length > 0
-        ? ` (${unreadableDirs.length} subdirectories were unreadable — check permissions)`
-        : "";
+      const extra =
+        unreadableDirs.length > 0
+          ? ` (${unreadableDirs.length} subdirectories were unreadable — check permissions)`
+          : "";
       throw new Error(`No .slp replay files found in: ${safePath}${extra}`);
     }
 

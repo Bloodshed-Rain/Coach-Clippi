@@ -59,8 +59,14 @@ export class ParsePool {
       const job: ParseJob = {
         filePath,
         gameNumber,
-        resolve: (result) => { clearTimeout(job.timer); resolve(result); },
-        reject: (err) => { clearTimeout(job.timer); reject(err); },
+        resolve: (result) => {
+          clearTimeout(job.timer);
+          resolve(result);
+        },
+        reject: (err) => {
+          clearTimeout(job.timer);
+          reject(err);
+        },
       };
       job.timer = setTimeout(() => {
         // Remove from queue if still pending

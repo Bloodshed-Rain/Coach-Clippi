@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useRecentGames } from "../hooks/queries";
-import { useGlobalStore } from "../stores/useGlobalStore";
 import { Card } from "../components/ui/Card";
 import { DataTable } from "../components/ui/DataTable";
 import { KPI } from "../components/ui/KPI";
@@ -11,7 +11,7 @@ import { filterGames, LibraryFilters, LibraryGame } from "./library/filter";
 const RESULTS: Array<LibraryFilters["result"]> = ["all", "win", "loss"];
 
 export function Library({ refreshKey: _ }: { refreshKey: number }) {
-  const openDrawer = useGlobalStore((s) => s.openDrawer);
+  const navigate = useNavigate();
   const { data: games = [], isLoading } = useRecentGames(500);
 
   const [search, setSearch] = useState("");
@@ -66,7 +66,7 @@ export function Library({ refreshKey: _ }: { refreshKey: number }) {
       })()}
 
       <Card>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12 }}>
+        <div className="library-filter-grid">
           <div>
             <div className="tweaks-label">Search opponent</div>
             <input
@@ -155,7 +155,20 @@ export function Library({ refreshKey: _ }: { refreshKey: number }) {
                   playedAt?: string;
                 };
                 return (
-                  <tr key={g.id} onClick={() => openDrawer(g.id)} style={{ cursor: "pointer" }}>
+                  <tr
+                    key={g.id}
+                    onClick={() => navigate(`/game/${g.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(`/game/${g.id}`);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Open ${g.opponentTag} game on ${g.stage}`}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td>
                       <ResultDot result={g.result} />
                     </td>

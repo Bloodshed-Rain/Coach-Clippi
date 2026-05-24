@@ -74,6 +74,7 @@ declare global {
         losses: number;
         opponents: string[];
         gameIds: number[];
+        gameResults: Array<{ id: number; result: "win" | "loss" | "draw" | string }>;
       }>>;
       getTrendSeries: (
         metric:
@@ -97,15 +98,11 @@ declare global {
         sessionId: string,
         bounds: { x: number; y: number; width: number; height: number },
       ) => Promise<boolean>;
-      embedReplaySeek: (
-        sessionId: string,
-        frame: number,
-      ) => Promise<{ ok: boolean; mode?: "respawn"; reason?: string }>;
       embedReplayClose: (sessionId: string) => Promise<boolean>;
+      embedReplaySendKey: (sessionId: string, vk: number) => Promise<boolean>;
       onEmbedReplayReady: (callback: (sessionId: string) => void) => () => void;
       onEmbedReplayError: (callback: (sessionId: string, message: string) => void) => () => void;
       onEmbedReplayExited: (callback: (sessionId: string) => void) => () => void;
-      onEmbedReplaySeeked: (callback: (sessionId: string, frame: number) => void) => () => void;
       getStockTimeline: (replayPath: string) => Promise<any>;
       openFileDialog: (title: string, filters: { name: string; extensions: string[] }[]) => Promise<string | null>;
       startWatcher: (replayFolder: string, targetPlayer: string) => Promise<boolean>;

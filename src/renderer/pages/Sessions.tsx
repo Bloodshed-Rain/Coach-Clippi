@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Markdown from "react-markdown";
 import { useSessionsByDay } from "../hooks/queries";
-import { useGlobalStore } from "../stores/useGlobalStore";
 import { Card } from "../components/ui/Card";
 import { WinrateBar } from "../components/ui/WinrateBar";
 import { ResultDot } from "../components/ui/ResultDot";
@@ -15,6 +14,7 @@ interface Day {
   losses: number;
   opponents: string[];
   gameIds: number[];
+  gameResults?: Array<{ id: number; result: "win" | "loss" | "draw" | string }>;
 }
 
 function formatDate(iso: string): string {
@@ -30,7 +30,7 @@ function formatDate(iso: string): string {
 }
 
 function DayCard({ day }: { day: Day }) {
-  const openDrawer = useGlobalStore((s) => s.openDrawer);
+  const navigate = useNavigate();
   const [report, setReport] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -63,10 +63,17 @@ function DayCard({ day }: { day: Day }) {
         <span style={{ color: "var(--loss)" }}>{day.losses}L</span>
       </div>
       <div className="session-card-dots">
-        {day.gameIds.map((id, idx) => (
-          <span key={id} onClick={() => openDrawer(id)} style={{ cursor: "pointer" }}>
-            <ResultDot result={idx < day.wins ? "win" : "loss"} />
-          </span>
+        {(day.gameResults ?? day.gameIds.map((id) => ({ id, result: "draw" }))).map((game) => (
+          <button
+            key={game.id}
+            type="button"
+            className="result-dot-button"
+            onClick={() => navigate(`/game/${game.id}`)}
+            aria-label={`Open ${game.result} game`}
+            title={`Open ${game.result} game`}
+          >
+            <ResultDot result={game.result === "win" ? "win" : "loss"} />
+          </button>
         ))}
       </div>
       <WinrateBar value={wr} />

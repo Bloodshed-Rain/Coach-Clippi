@@ -172,7 +172,19 @@ function MiniChart({
   const improving = metric.invert ? delta < 0 : delta > 0;
 
   return (
-    <Card onClick={onSelect} style={{ cursor: "pointer" }}>
+    <Card
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      tabIndex={0}
+      role="button"
+      aria-label={`Select ${metric.label} trend`}
+      style={{ cursor: "pointer" }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
         <div className="card-title" style={{ marginBottom: 0 }}>
           {metric.label}

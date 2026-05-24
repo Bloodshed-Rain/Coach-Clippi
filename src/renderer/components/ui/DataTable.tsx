@@ -6,8 +6,10 @@ export function DataTable({
   ...rest
 }: { children: ReactNode } & TableHTMLAttributes<HTMLTableElement>) {
   return (
-    <table className={["data-table", className].filter(Boolean).join(" ")} {...rest}>
-      {children}
-    </table>
+    <div className="data-table-wrap">
+      <table className={["data-table", className].filter(Boolean).join(" ")} {...rest}>
+        {children}
+      </table>
+    </div>
   );
 }

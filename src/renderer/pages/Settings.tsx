@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Card } from "../components/ui/Card";
 import { PROVIDERS, PROVIDER_BY_ID, type ProviderId } from "../../llmProviders";
+import { useGlobalStore } from "../stores/useGlobalStore";
 
 /** Config as returned by the main process — apiKeys are redacted to booleans */
 interface Config {
@@ -33,16 +34,13 @@ const FALLBACK_MODELS: Record<ProviderId, FetchedModel[]> = {
     { id: "deepseek/deepseek-chat", label: "DeepSeek V3", provider: "openrouter" },
     { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4 (via OpenRouter)", provider: "openrouter" },
   ],
-  anthropic: [
-    { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4", provider: "anthropic" },
-  ],
+  anthropic: [{ id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4", provider: "anthropic" }],
   gemini: [
     { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "gemini" },
     { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", provider: "gemini" },
   ],
-  local: [
-    { id: "local", label: "Local Model (Ollama / LM Studio)", provider: "local" },
-  ],
+  local: [{ id: "local", label: "Local Model", provider: "local" }],
+  pollinations: [{ id: "pollinations", label: "Pollinations Free AI", provider: "pollinations" }],
 };
 
 // ── Component ────────────────────────────────────────────────────────
@@ -86,6 +84,7 @@ export function Settings({ onImport }: SettingsProps) {
   const [dynamicModels, setDynamicModels] = useState<Record<string, FetchedModel[]> | null>(null);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [customModelInputs, setCustomModelInputs] = useState<Partial<Record<ProviderId, boolean>>>({});
+  const setWatcherActive = useGlobalStore((state) => state.setWatcherActive);
 
   // Load user config
   useEffect(() => {
@@ -137,15 +136,23 @@ export function Settings({ onImport }: SettingsProps) {
   // Watcher events
   useEffect(() => {
     if (!watching) return;
-    const unsub = window.clippi.onImported((result: unknown) => {
+    const unsubImported = window.clippi.onImported((result: unknown) => {
       const r = result as { skipped: boolean; filePath: string };
       if (!r.skipped) {
         setImportStatus(`Auto-imported: ${r.filePath.split("/").pop()}`);
         onImport();
       }
     });
-    return unsub;
-  }, [watching, onImport]);
+    const unsubWatcherError = window.clippi.onWatcherError((message) => {
+      setWatching(false);
+      setWatcherActive(false);
+      setImportStatus(`Watcher error: ${message}`);
+    });
+    return () => {
+      unsubImported();
+      unsubWatcherError();
+    };
+  }, [watching, onImport, setWatcherActive]);
 
   const handleSave = useCallback(async () => {
     try {
@@ -238,6 +245,7 @@ export function Settings({ onImport }: SettingsProps) {
       if (watching) {
         await window.clippi.stopWatcher();
         setWatching(false);
+        setWatcherActive(false);
         setImportStatus("Watcher stopped.");
       } else {
         if (!config.replayFolder || !config.targetPlayer) {
@@ -246,9 +254,11 @@ export function Settings({ onImport }: SettingsProps) {
         }
         await window.clippi.startWatcher(config.replayFolder, config.connectCode ?? config.targetPlayer);
         setWatching(true);
+        setWatcherActive(true);
         setImportStatus("Watching for new replays...");
       }
     } catch (err: unknown) {
+      setWatcherActive(false);
       setImportStatus(`Watcher error: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
@@ -476,9 +486,7 @@ export function Settings({ onImport }: SettingsProps) {
                   />
                   {p.label}
                   {isActive && (
-                    <span style={{ color: "var(--accent, #4ade80)", fontSize: 10, fontWeight: 400 }}>
-                      ACTIVE
-                    </span>
+                    <span style={{ color: "var(--accent, #4ade80)", fontSize: 10, fontWeight: 400 }}>ACTIVE</span>
                   )}
                 </label>
                 {p.signupUrl && (
@@ -533,9 +541,7 @@ export function Settings({ onImport }: SettingsProps) {
                   <button
                     className="btn"
                     style={{ padding: "2px 6px", fontSize: 10 }}
-                    onClick={() =>
-                      setCustomModelInputs({ ...customModelInputs, [p.id]: !customMode })
-                    }
+                    onClick={() => setCustomModelInputs({ ...customModelInputs, [p.id]: !customMode })}
                   >
                     {customMode ? "Dropdown" : "Custom ID"}
                   </button>

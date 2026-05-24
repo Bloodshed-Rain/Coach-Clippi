@@ -53,10 +53,21 @@ describe("database schema", () => {
 
   it("games table has all required columns", () => {
     const requiredColumns = [
-      "replay_path", "replay_hash", "stage", "duration_seconds",
-      "player_character", "opponent_character", "player_tag", "opponent_tag",
-      "result", "end_method", "player_final_stocks", "player_final_percent",
-      "opponent_final_stocks", "opponent_final_percent", "game_number",
+      "replay_path",
+      "replay_hash",
+      "stage",
+      "duration_seconds",
+      "player_character",
+      "opponent_character",
+      "player_tag",
+      "opponent_tag",
+      "result",
+      "end_method",
+      "player_final_stocks",
+      "player_final_percent",
+      "opponent_final_stocks",
+      "opponent_final_percent",
+      "game_number",
     ];
     for (const col of requiredColumns) {
       expect(schema).toContain(col);
@@ -65,11 +76,21 @@ describe("database schema", () => {
 
   it("game_stats table has all stat columns", () => {
     const statColumns = [
-      "neutral_wins", "neutral_losses", "neutral_win_rate",
-      "openings_per_kill", "conversion_rate", "l_cancel_rate",
-      "wavedash_count", "total_damage_taken", "total_damage_dealt",
-      "avg_death_percent", "recovery_attempts", "recovery_success_rate",
-      "ledge_entropy", "knockdown_entropy", "shield_pressure_entropy",
+      "neutral_wins",
+      "neutral_losses",
+      "neutral_win_rate",
+      "openings_per_kill",
+      "conversion_rate",
+      "l_cancel_rate",
+      "wavedash_count",
+      "total_damage_taken",
+      "total_damage_dealt",
+      "avg_death_percent",
+      "recovery_attempts",
+      "recovery_success_rate",
+      "ledge_entropy",
+      "knockdown_entropy",
+      "shield_pressure_entropy",
     ];
     for (const col of statColumns) {
       expect(schema).toContain(col);
@@ -87,11 +108,11 @@ describe("db.ts module structure", () => {
   });
 
   it("uses WAL journal mode", () => {
-    expect(DB_SOURCE).toContain('journal_mode = WAL');
+    expect(DB_SOURCE).toContain("journal_mode = WAL");
   });
 
   it("enables foreign keys", () => {
-    expect(DB_SOURCE).toContain('foreign_keys = ON');
+    expect(DB_SOURCE).toContain("foreign_keys = ON");
   });
 
   it("has error handling on db init", () => {
@@ -100,5 +121,10 @@ describe("db.ts module structure", () => {
 
   it("data directory is in ~/.magi-melee/", () => {
     expect(DB_SOURCE).toContain(".magi-melee");
+  });
+
+  it("day session summaries preserve each game result next to its id", () => {
+    expect(DB_SOURCE).toMatch(/gameResults:\s*\{\s*id:\s*number;\s*result:\s*string;?\s*\}\s*\[\]/);
+    expect(DB_SOURCE).toContain("existing.gameResults.push({ id: r.id, result: r.result });");
   });
 });

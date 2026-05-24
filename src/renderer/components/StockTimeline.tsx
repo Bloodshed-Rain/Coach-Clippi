@@ -93,7 +93,7 @@ function StockRow({
   isPlayer,
   momentumStocks,
   replayPath,
-  totalFrames,
+  onSeekFrame,
 }: {
   stocks: StockData[];
   totalDuration: number;
@@ -104,7 +104,7 @@ function StockRow({
   isPlayer: boolean;
   momentumStocks: Set<number>;
   replayPath: string;
-  totalFrames?: number;
+  onSeekFrame?: (frame: number) => void;
 }) {
   const openPlayer = useReplayPlayerStore((s) => s.openPlayer);
 
@@ -119,7 +119,11 @@ function StockRow({
 
         const onStockClick = () => {
           const frame = timestampToFrame(stock.startTime);
-          openPlayer(replayPath, frame, undefined, undefined, totalFrames);
+          if (onSeekFrame) {
+            onSeekFrame(frame);
+          } else {
+            openPlayer(replayPath, frame, undefined, undefined);
+          }
         };
 
         return (
@@ -176,12 +180,12 @@ export function StockTimeline({
   replayPath,
   playerCharacter,
   opponentCharacter,
-  totalFrames,
+  onSeekFrame,
 }: {
   replayPath: string;
   playerCharacter: string;
   opponentCharacter: string;
-  totalFrames?: number;
+  onSeekFrame?: (frame: number) => void;
 }) {
   const [data, setData] = useState<StockTimelineData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -258,7 +262,7 @@ export function StockTimeline({
             isPlayer={true}
             momentumStocks={analysis.momentumShifts}
             replayPath={replayPath}
-            totalFrames={totalFrames}
+            onSeekFrame={onSeekFrame}
           />
         </div>
 
@@ -278,7 +282,7 @@ export function StockTimeline({
             isPlayer={false}
             momentumStocks={analysis.momentumShifts}
             replayPath={replayPath}
-            totalFrames={totalFrames}
+            onSeekFrame={onSeekFrame}
           />
         </div>
       </div>

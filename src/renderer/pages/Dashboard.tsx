@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Markdown from "react-markdown";
 import { useRecentGames, useOverallRecord, useDashboardHighlights } from "../hooks/queries";
-import { useGlobalStore } from "../stores/useGlobalStore";
 import { Card } from "../components/ui/Card";
 import { KPI } from "../components/ui/KPI";
 import { DataTable } from "../components/ui/DataTable";
@@ -64,7 +63,6 @@ function buildRecentSummary(games: RecentGame[]): string {
 
 export function Dashboard({ refreshKey }: { refreshKey: number }) {
   const navigate = useNavigate();
-  const openDrawer = useGlobalStore((s) => s.openDrawer);
   const { data: games = [], isLoading, refetch } = useRecentGames(100);
   const { data: record, refetch: refetchRecord } = useOverallRecord();
   const { data: highlights, refetch: refetchHighlights } = useDashboardHighlights();
@@ -140,35 +138,76 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
         </div>
       </div>
 
-      <div className="kpi-grid">
-        <KPI label="Win Rate" value={`${overallWR.toFixed(0)}%`} sub={`${wins}W · ${losses}L`} />
-        <KPI
-          label="Neutral WR"
-          value={`${(avgNeutral * 100).toFixed(1)}%`}
-          sub={neutralD.label}
-          subTone={neutralD.tone}
-        />
-        <KPI
-          label="L-Cancel"
-          value={`${(avgLCancel * 100).toFixed(1)}%`}
-          sub={lcancelD.label}
-          subTone={lcancelD.tone}
-        />
-        <KPI label="Dmg / Opening" value={avgDmg.toFixed(1)} sub={dmgD.label} subTone={dmgD.tone} />
-      </div>
+      <motion.div
+        className="kpi-grid"
+        variants={{
+          hidden: { opacity: 0 },
+          show: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 },
+          },
+        }}
+        initial="hidden"
+        animate="show"
+      >
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 10 },
+            show: { opacity: 1, y: 0, transition: { type: "spring", bounce: 0.4 } },
+          }}
+        >
+          <KPI label="Win Rate" value={`${overallWR.toFixed(0)}%`} sub={`${wins}W · ${losses}L`} />
+        </motion.div>
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 10 },
+            show: { opacity: 1, y: 0, transition: { type: "spring", bounce: 0.4 } },
+          }}
+        >
+          <KPI
+            label="Neutral WR"
+            value={`${(avgNeutral * 100).toFixed(1)}%`}
+            sub={neutralD.label}
+            subTone={neutralD.tone}
+          />
+        </motion.div>
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 10 },
+            show: { opacity: 1, y: 0, transition: { type: "spring", bounce: 0.4 } },
+          }}
+        >
+          <KPI
+            label="L-Cancel"
+            value={`${(avgLCancel * 100).toFixed(1)}%`}
+            sub={lcancelD.label}
+            subTone={lcancelD.tone}
+          />
+        </motion.div>
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 10 },
+            show: { opacity: 1, y: 0, transition: { type: "spring", bounce: 0.4 } },
+          }}
+        >
+          <KPI label="Dmg / Opening" value={avgDmg.toFixed(1)} sub={dmgD.label} subTone={dmgD.tone} />
+        </motion.div>
+      </motion.div>
 
       <div className="dash-split">
         <Card title="Recent Form">
           <div className="dash-dot-strip">
             {last10.map((g) => (
-              <span
+              <button
                 key={g.id}
-                onClick={() => openDrawer(g.id)}
-                style={{ cursor: "pointer" }}
+                type="button"
+                className="result-dot-button"
+                onClick={() => navigate(`/game/${g.id}`)}
+                aria-label={`Open ${g.result} vs ${g.opponentTag}`}
                 title={`${g.result} vs ${g.opponentTag}`}
               >
                 <ResultDot result={g.result === "win" ? "win" : "loss"} />
-              </span>
+              </button>
             ))}
             <span style={{ marginLeft: 12, fontSize: 12, color: "var(--text-muted)" }}>
               Last 10 ·{" "}
@@ -209,12 +248,7 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
               <div className="dash-spark-head">
                 <span className="dash-spark-label">Conversion</span>
                 <span className="dash-spark-value mono">
-                  {(
-                    (recent.reduce((s, g) => s + g.conversionRate, 0) /
-                      Math.max(recent.length, 1)) *
-                    100
-                  ).toFixed(1)}
-                  %
+                  {((recent.reduce((s, g) => s + g.conversionRate, 0) / Math.max(recent.length, 1)) * 100).toFixed(1)}%
                 </span>
               </div>
               <Sparkline
@@ -256,7 +290,20 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
           </thead>
           <tbody>
             {recent.slice(0, 10).map((g) => (
-              <tr key={g.id} onClick={() => openDrawer(g.id)} style={{ cursor: "pointer" }}>
+              <tr
+                key={g.id}
+                onClick={() => navigate(`/game/${g.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate(`/game/${g.id}`);
+                  }
+                }}
+                tabIndex={0}
+                role="button"
+                aria-label={`Open ${g.playerCharacter} versus ${g.opponentCharacter} game`}
+                style={{ cursor: "pointer" }}
+              >
                 <td>
                   <ResultDot result={g.result === "win" ? "win" : "loss"} />
                 </td>
@@ -315,7 +362,7 @@ function OracleInsightCard({ games }: { games: RecentGame[] }) {
   }, [gameKey]);
 
   return (
-    <Card title="MAGI Oracle">
+    <Card title="MAGI Oracle" className="clippi-card">
       {loading && (
         <div className="analyze-loading">
           <div className="spinner" />

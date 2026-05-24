@@ -47,7 +47,7 @@ export function watchReplays(options: WatcherOptions): { close: () => void } {
     const existing = findSlpFiles(replayFolder);
     if (existing.length > 0) {
       console.log(`Found ${existing.length} existing replay(s), importing...`);
-      
+
       // Use an async IIFE to handle the initial import without blocking the return
       (async () => {
         let imported = 0;
@@ -86,7 +86,7 @@ export function watchReplays(options: WatcherOptions): { close: () => void } {
       pollInterval: 500,
     },
     ignored: (filePath: string, stats?: fs.Stats) => {
-      if (!stats) return false;                        // allow directories through
+      if (!stats) return false; // allow directories through
       return stats.isFile() && !filePath.endsWith(".slp");
     },
   });
@@ -101,9 +101,7 @@ export function watchReplays(options: WatcherOptions): { close: () => void } {
       if (result.skipped) {
         console.log(`[skip] Already imported: ${basename}`);
       } else {
-        console.log(
-          `[imported] ${basename} → game #${result.gameId}`,
-        );
+        console.log(`[imported] ${basename} → game #${result.gameId}`);
       }
 
       onImport?.({
@@ -149,9 +147,7 @@ function main() {
   const targetPlayer = resolveTarget(cliTarget);
 
   if (!replayFolder) {
-    console.error(
-      "Usage: npx tsx src/watcher.ts [replay-folder] [--target player]",
-    );
+    console.error("Usage: npx tsx src/watcher.ts [replay-folder] [--target player]");
     console.error("");
     console.error("Tip: Run 'npx tsx src/setup.ts --tag YourTag --folder /path/to/replays' once,");
     console.error("     then just run 'npx tsx src/watcher.ts' with no args.");

@@ -30,6 +30,7 @@ import { parsePool } from "../parsePool";
 import { setMainWindow, getFileWatcher } from "./state";
 import { setupIPC } from "./ipc";
 import { resolveLLMConfig } from "./handlers/analysis";
+import { shutdownEmbeddedReplay } from "./handlers/embeddedReplay";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -183,6 +184,7 @@ app.on("window-all-closed", () => {
   if (watcher) {
     watcher.close();
   }
+  shutdownEmbeddedReplay();
   llmQueue.clear();
   parsePool.terminate();
   closeDb();

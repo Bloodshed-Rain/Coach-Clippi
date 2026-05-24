@@ -410,11 +410,31 @@ export function getCharacterData(characterName: string): CharacterPhysics | unde
 export function getCharacterDataById(characterId: number): CharacterPhysics | undefined {
   // Map character ID to short name (same as slippi-js)
   const ID_TO_NAME: Record<number, string> = {
-    0: "Falcon", 1: "DK", 2: "Fox", 3: "G&W", 4: "Kirby",
-    5: "Bowser", 6: "Link", 7: "Luigi", 8: "Mario", 9: "Marth",
-    10: "Mewtwo", 11: "Ness", 12: "Peach", 13: "Pikachu", 14: "ICs",
-    15: "Puff", 16: "Samus", 17: "Yoshi", 18: "Zelda", 19: "Sheik",
-    20: "Falco", 21: "YLink", 22: "Doc", 23: "Roy", 24: "Pichu",
+    0: "Falcon",
+    1: "DK",
+    2: "Fox",
+    3: "G&W",
+    4: "Kirby",
+    5: "Bowser",
+    6: "Link",
+    7: "Luigi",
+    8: "Mario",
+    9: "Marth",
+    10: "Mewtwo",
+    11: "Ness",
+    12: "Peach",
+    13: "Pikachu",
+    14: "ICs",
+    15: "Puff",
+    16: "Samus",
+    17: "Yoshi",
+    18: "Zelda",
+    19: "Sheik",
+    20: "Falco",
+    21: "YLink",
+    22: "Doc",
+    23: "Roy",
+    24: "Pichu",
     25: "Ganon",
   };
   const name = ID_TO_NAME[characterId];
@@ -431,32 +451,32 @@ export function getCharacterDataById(characterId: number): CharacterPhysics | un
 // Falco has the best combo game (pillars) and is also extreme combo food.
 
 export const COMBO_GAME_STRENGTH: Readonly<Record<string, number>> = {
-  Fox:     1.30,  // Shine combos, uthrow uair, drill shine
-  Falco:   1.35,  // Pillar combos, dair shine loops — best combo game
-  Marth:   1.20,  // Chain grabs, tipper kill setups, ken combos
-  Sheik:   1.15,  // Tech chases, fair chains, guaranteed followups
-  Falcon:  1.25,  // Stomp knee, uthrow knee, massive punish game
-  Puff:    0.70,  // Rest kills in 1 hit, bair strings are short
-  Peach:   0.85,  // Float cancel combos, dsmash — moderate
-  ICs:     1.40,  // Wobbling is infinite; even without, strong grab game
-  Pikachu: 1.05,  // Uair chains, decent combos
-  Samus:   0.80,  // Charge shot kills, limited combo extensions
-  Luigi:   0.90,  // Shoryuken kills, moderate combos
-  Mario:   0.90,
-  Doc:     0.90,
-  Yoshi:   0.85,
-  Ganon:   0.95,  // Stomp followups but limited
-  Link:    0.80,
-  YLink:   0.85,
-  Zelda:   0.65,  // Lightning kick kills, very few true combos
-  Roy:     0.85,
-  Mewtwo:  0.80,
-  "G&W":   0.80,
-  Ness:    0.85,
-  Bowser:  0.75,
-  Kirby:   0.75,
-  DK:      1.00,  // Cargo throw combos, decent
-  Pichu:   0.80,
+  Fox: 1.3, // Shine combos, uthrow uair, drill shine
+  Falco: 1.35, // Pillar combos, dair shine loops — best combo game
+  Marth: 1.2, // Chain grabs, tipper kill setups, ken combos
+  Sheik: 1.15, // Tech chases, fair chains, guaranteed followups
+  Falcon: 1.25, // Stomp knee, uthrow knee, massive punish game
+  Puff: 0.7, // Rest kills in 1 hit, bair strings are short
+  Peach: 0.85, // Float cancel combos, dsmash — moderate
+  ICs: 1.4, // Wobbling is infinite; even without, strong grab game
+  Pikachu: 1.05, // Uair chains, decent combos
+  Samus: 0.8, // Charge shot kills, limited combo extensions
+  Luigi: 0.9, // Shoryuken kills, moderate combos
+  Mario: 0.9,
+  Doc: 0.9,
+  Yoshi: 0.85,
+  Ganon: 0.95, // Stomp followups but limited
+  Link: 0.8,
+  YLink: 0.85,
+  Zelda: 0.65, // Lightning kick kills, very few true combos
+  Roy: 0.85,
+  Mewtwo: 0.8,
+  "G&W": 0.8,
+  Ness: 0.85,
+  Bowser: 0.75,
+  Kirby: 0.75,
+  DK: 1.0, // Cargo throw combos, decent
+  Pichu: 0.8,
 };
 
 /**
@@ -525,10 +545,7 @@ export function computeComboDIScore(
  *
  * @returns 0-1 score (0 = terrible survival, 0.5 = expected, 1 = excellent)
  */
-export function computeSurvivalDIScore(
-  characterName: string,
-  avgDeathPercent: number,
-): number {
+export function computeSurvivalDIScore(characterName: string, avgDeathPercent: number): number {
   const data = getCharacterData(characterName);
   if (!data || avgDeathPercent <= 0) return 0.5;
 

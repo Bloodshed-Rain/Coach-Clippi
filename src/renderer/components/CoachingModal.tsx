@@ -17,13 +17,6 @@ interface CoachingModalProps {
   replayPath?: string;
   playerCharacter?: string;
   opponentCharacter?: string;
-  /**
-   * "fullscreen" (default): slides in from the right, has its own backdrop.
-   * "alongsideDrawer": positioned to the LEFT of the open GameDrawer, no
-   * backdrop — drawer stays interactive on the right.
-   */
-  variant?: "fullscreen" | "alongsideDrawer";
-  durationSeconds?: number;
 }
 
 export function CoachingModal({
@@ -36,13 +29,7 @@ export function CoachingModal({
   replayPath,
   playerCharacter,
   opponentCharacter,
-  variant = "fullscreen",
-  durationSeconds,
 }: CoachingModalProps) {
-  const totalFrames =
-    typeof durationSeconds === "number" && durationSeconds > 0
-      ? Math.floor(durationSeconds * 60)
-      : undefined;
   const [analysis, setAnalysis] = useState(preloadedText ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,8 +72,8 @@ export function CoachingModal({
         removeListener();
         removeEndListener();
       }
-    } catch (err: any) {
-      setError(err.message || String(err));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
       setLoading(false);
     }
   }, [scope, id, preloadedText]);
@@ -99,81 +86,70 @@ export function CoachingModal({
 
   if (!isOpen) return null;
 
-  const isAlongside = variant === "alongsideDrawer";
-  const modalClass = `coaching-modal${isAlongside ? " coaching-modal--alongside" : ""}${isReplayOpen ? " coaching-modal--replay-open" : ""}`;
-  // Alongside mode slides in from the left edge of its anchor (right side of viewport
-  // minus drawer width); fullscreen slides from the right edge of the viewport.
-  const slideX = isAlongside ? "-30px" : "100%";
+  const modalClass = `coaching-modal${isReplayOpen ? " coaching-modal--replay-open" : ""}`;
 
-  const panel = (
-    <motion.div
-      className={modalClass}
-      onClick={(e) => e.stopPropagation()}
-      initial={{ x: slideX, opacity: isAlongside ? 0 : 1 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: slideX, opacity: isAlongside ? 0 : 1 }}
-      transition={{ type: "spring", damping: 30, stiffness: 300 }}
-    >
-      <header className="coaching-header">
-        <div className="coaching-title-row">
-          <div className="coaching-icon">
-            <Compass size={20} />
-          </div>
-          <div>
-            <h2 className="coaching-heading">MAGI Coaching</h2>
-            <p className="coaching-subtitle">{title}</p>
-          </div>
-        </div>
-        <button className="coaching-close" onClick={onClose}>
-          &times;
-        </button>
-      </header>
-
-      <div className="coaching-body custom-scrollbar">
-        {error && <div className="coaching-error">{error}</div>}
-
-        {!analysis && loading && (
-          <div className="coaching-loading">
-            <div className="spinner spinner-lg" />
-            <p className="coaching-loading-text">
-              {queuePos > 0 ? `Queued (position ${queuePos})...` : "Consulting MAGI mainframe..."}
-            </p>
-          </div>
-        )}
-
-        <CoachingCards
-          text={replayPath ? injectTimestampLinks(analysis) : analysis}
-          isStreaming={loading && !!analysis}
-          markdownComponents={replayPath ? makeTimestampComponents(replayPath, totalFrames) : undefined}
-        />
-      </div>
-
-      <footer className="coaching-footer">
-        <p className="coaching-disclaimer">AI analysis may occasionally hallucinate frame-perfect tech.</p>
-        <div className="coaching-footer-actions">
-          {replayPath && (
-            <button
-              className="btn game-card-watch-btn"
-              onClick={() => openPlayer(replayPath, 0, playerCharacter, opponentCharacter, totalFrames)}
-            >
-              <Play size={14} />
-              Watch Replay
-            </button>
-          )}
-          <button className="btn" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </footer>
-    </motion.div>
-  );
-
-  if (isAlongside) {
-    return panel;
-  }
   return (
     <div className="modal-overlay" onClick={onClose}>
-      {panel}
+      <motion.div
+        className={modalClass}
+        onClick={(e) => e.stopPropagation()}
+        initial={{ x: "100%", opacity: 1 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: "100%", opacity: 1 }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+      >
+        <header className="coaching-header">
+          <div className="coaching-title-row">
+            <div className="coaching-icon">
+              <Compass size={20} />
+            </div>
+            <div>
+              <h2 className="coaching-heading">MAGI Coaching</h2>
+              <p className="coaching-subtitle">{title}</p>
+            </div>
+          </div>
+          <button className="coaching-close" onClick={onClose}>
+            &times;
+          </button>
+        </header>
+
+        <div className="coaching-body custom-scrollbar">
+          {error && <div className="coaching-error">{error}</div>}
+
+          {!analysis && loading && (
+            <div className="coaching-loading">
+              <div className="spinner spinner-lg" />
+              <p className="coaching-loading-text">
+                {queuePos > 0 ? `Queued (position ${queuePos})...` : "Consulting MAGI mainframe..."}
+              </p>
+            </div>
+          )}
+
+          <CoachingCards
+            text={replayPath ? injectTimestampLinks(analysis) : analysis}
+            isStreaming={loading && !!analysis}
+            markdownComponents={replayPath ? makeTimestampComponents(replayPath) : undefined}
+          />
+        </div>
+
+        <footer className="coaching-footer">
+          <p className="coaching-disclaimer">AI analysis may occasionally hallucinate frame-perfect tech.</p>
+          <div className="coaching-footer-actions">
+            {replayPath && (
+              <button
+                className="btn game-card-watch-btn"
+                onClick={() => openPlayer(replayPath, 0, playerCharacter, opponentCharacter)}
+              >
+                <Play size={14} />
+                Watch Replay
+              </button>
+            )}
+            <button className="btn" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </footer>
+      </motion.div>
     </div>
   );
 }

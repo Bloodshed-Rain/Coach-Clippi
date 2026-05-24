@@ -9,6 +9,7 @@ const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m
 const Characters = lazy(() => import("./pages/Characters").then((m) => ({ default: m.Characters })));
 const Practice = lazy(() => import("./pages/Practice").then((m) => ({ default: m.Practice })));
 const Oracle = lazy(() => import("./pages/Oracle").then((m) => ({ default: m.Oracle })));
+const GameTheater = lazy(() => import("./pages/GameTheater").then((m) => ({ default: m.GameTheater })));
 
 import { applyTheme, getResolvedTheme, THEMES, type ColorMode } from "./themes";
 import {
@@ -24,8 +25,9 @@ import {
 import { CommandPalette } from "./components/CommandPalette";
 import { LiquidShell, type NavItem as LiquidNavItem } from "./components/LiquidShell";
 import { TweaksPanel } from "./components/TweaksPanel";
-import { GameDrawer } from "./components/GameDrawer";
+import { ReplayPlayer } from "./components/ReplayPlayer";
 import { useGlobalStore, type Density } from "./stores/useGlobalStore";
+import { useOverallRecord } from "./hooks/queries";
 
 type Page = "dashboard" | "sessions" | "library" | "trends" | "characters" | "practice" | "oracle" | "settings";
 
@@ -53,8 +55,12 @@ export function App() {
   const setColorMode = useGlobalStore((state) => state.setColorMode);
   const density = useGlobalStore((state) => state.density);
   const setDensity = useGlobalStore((state) => state.setDensity);
+  const watcherActive = useGlobalStore((state) => state.watcherActive);
+  const gamesCount = useGlobalStore((state) => state.gamesCount);
+  const setGamesCount = useGlobalStore((state) => state.setGamesCount);
   const refreshKey = useGlobalStore((state) => state.refreshKey);
   const triggerRefresh = useGlobalStore((state) => state.triggerRefresh);
+  const { data: record, refetch: refetchRecord } = useOverallRecord();
 
   useEffect(() => {
     async function loadTheme() {
@@ -87,6 +93,14 @@ export function App() {
   useEffect(() => {
     document.body.setAttribute("data-density", density);
   }, [density]);
+
+  useEffect(() => {
+    setGamesCount(record?.totalGames ?? 0);
+  }, [record?.totalGames, setGamesCount]);
+
+  useEffect(() => {
+    refetchRecord();
+  }, [refreshKey, refetchRecord]);
 
   const handleCommandImport = useCallback(() => {
     navigate("/settings");
@@ -126,6 +140,7 @@ export function App() {
           <Route path="/practice" element={<Practice refreshKey={refreshKey} />} />
           <Route path="/oracle" element={<Oracle refreshKey={refreshKey} />} />
           <Route path="/settings" element={<Settings onImport={triggerRefresh} />} />
+          <Route path="/game/:id" element={<GameTheater />} />
         </Routes>
       </Suspense>
     ),
@@ -139,13 +154,13 @@ export function App() {
         analyzeItems={ANALYZE_ITEMS}
         systemItems={SYSTEM_ITEMS}
         onNavigate={handleNavigate}
-        watcherActive={true /* TODO: no centralized watcher status surface yet; see Task 30. */}
-        gamesCount={0 /* TODO: no cheap games-count hook yet; see Task 30. */}
+        watcherActive={watcherActive}
+        gamesCount={gamesCount}
       >
         {routes}
       </LiquidShell>
       <TweaksPanel />
-      <GameDrawer />
+      <ReplayPlayer />
     </>
   );
 }

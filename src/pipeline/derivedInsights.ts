@@ -9,8 +9,15 @@ import {
 
 import type { DerivedInsights, HabitProfile } from "./types.js";
 import {
-  ratio, entropy, frameToTimestamp, moveIdToName, getMoveName,
-  isKnockdown, isLedgeGrab, isShielding, isOffstage,
+  ratio,
+  entropy,
+  frameToTimestamp,
+  moveIdToName,
+  getMoveName,
+  isKnockdown,
+  isLedgeGrab,
+  isShielding,
+  isOffstage,
 } from "./helpers.js";
 
 // ── Derived insights ──────────────────────────────────────────────────
@@ -20,13 +27,8 @@ function classifyPostState(actionState: number): string | null {
   if (actionState === State.NEUTRAL_TECH) return "tech in place";
   if (actionState === State.FORWARD_TECH) return "tech forward";
   if (actionState === State.BACKWARD_TECH) return "tech backward";
-  if (
-    actionState === State.TECH_MISS_UP ||
-    actionState === State.TECH_MISS_DOWN
-  )
-    return "missed tech";
-  if (actionState === State.JAB_RESET_UP || actionState === State.JAB_RESET_DOWN)
-    return "jab reset";
+  if (actionState === State.TECH_MISS_UP || actionState === State.TECH_MISS_DOWN) return "missed tech";
+  if (actionState === State.JAB_RESET_UP || actionState === State.JAB_RESET_DOWN) return "jab reset";
 
   // Getup attacks (195-198 range)
   if (actionState >= 195 && actionState <= 198) return "getup attack";
@@ -51,22 +53,12 @@ function classifyShieldOption(actionState: number): string | null {
   if (actionState === State.ROLL_FORWARD) return "roll forward";
   if (actionState === State.ROLL_BACKWARD) return "roll backward";
   if (actionState === State.SPOT_DODGE) return "spot dodge";
-  if (actionState === State.GRAB || actionState === State.DASH_GRAB)
-    return "grab OOS";
-  if (
-    actionState >= State.CONTROLLED_JUMP_START &&
-    actionState <= State.CONTROLLED_JUMP_END
-  )
-    return "jump OOS";
+  if (actionState === State.GRAB || actionState === State.DASH_GRAB) return "grab OOS";
+  if (actionState >= State.CONTROLLED_JUMP_START && actionState <= State.CONTROLLED_JUMP_END) return "jump OOS";
   // Aerial OOS
-  if (
-    actionState >= State.AERIAL_ATTACK_START &&
-    actionState <= State.AERIAL_DAIR
-  )
-    return "aerial OOS";
+  if (actionState >= State.AERIAL_ATTACK_START && actionState <= State.AERIAL_DAIR) return "aerial OOS";
   // Shine OOS would appear as a special move — hard to distinguish without character check
-  if (actionState >= State.GROUND_ATTACK_START && actionState <= State.GROUND_ATTACK_END)
-    return "attack OOS";
+  if (actionState >= State.GROUND_ATTACK_START && actionState <= State.GROUND_ATTACK_END) return "attack OOS";
   return null;
 }
 
@@ -121,35 +113,22 @@ function computePerformanceByStock(
     // conversion.playerIndex = victim
     // My attacks (opponent is victim) = neutral wins for me
     const myAttacks = conversions.filter(
-      (c) =>
-        c.playerIndex === opponentIndex &&
-        c.startFrame >= startF &&
-        c.startFrame <= endF,
+      (c) => c.playerIndex === opponentIndex && c.startFrame >= startF && c.startFrame <= endF,
     );
     // Opponent's attacks (I am victim) = neutral losses for me
     const oppAttacks = conversions.filter(
-      (c) =>
-        c.playerIndex === playerIndex &&
-        c.startFrame >= startF &&
-        c.startFrame <= endF,
+      (c) => c.playerIndex === playerIndex && c.startFrame >= startF && c.startFrame <= endF,
     );
 
-    const dmgDealt = myAttacks.reduce(
-      (s, c) => s + ((c.endPercent ?? c.currentPercent) - c.startPercent),
-      0,
-    );
-    const dmgTaken = oppAttacks.reduce(
-      (s, c) => s + ((c.endPercent ?? c.currentPercent) - c.startPercent),
-      0,
-    );
+    const dmgDealt = myAttacks.reduce((s, c) => s + ((c.endPercent ?? c.currentPercent) - c.startPercent), 0);
+    const dmgTaken = oppAttacks.reduce((s, c) => s + ((c.endPercent ?? c.currentPercent) - c.startPercent), 0);
 
     const totalNeutral = myAttacks.length + oppAttacks.length;
 
     return {
       stock: stock.count,
       neutralWinRate: ratio(myAttacks.length, totalNeutral),
-      damageEfficiency:
-        dmgTaken > 0 ? Math.round((dmgDealt / dmgTaken) * 100) / 100 : dmgDealt > 0 ? 999 : 0,
+      damageEfficiency: dmgTaken > 0 ? Math.round((dmgDealt / dmgTaken) * 100) / 100 : dmgDealt > 0 ? 999 : 0,
     };
   });
 }
@@ -160,9 +139,7 @@ function findBestConversion(
   opponentIndex: number,
 ): DerivedInsights["bestConversion"] {
   // conversion.playerIndex = victim. My best conversion = opponent is victim.
-  const playerConvs = conversions.filter(
-    (c) => c.playerIndex === opponentIndex && c.moves.length > 0,
-  );
+  const playerConvs = conversions.filter((c) => c.playerIndex === opponentIndex && c.moves.length > 0);
 
   let best: ConversionType | undefined;
   let bestDmg = 0;
@@ -186,9 +163,7 @@ function findBestConversion(
   }
 
   return {
-    moves: best.moves.map(
-      (m) => moveIdToName[m.moveId] ?? getMoveName(m.moveId),
-    ),
+    moves: best.moves.map((m) => moveIdToName[m.moveId] ?? getMoveName(m.moveId)),
     totalDamage: Math.round(bestDmg),
     startPercent: Math.round(best.startPercent),
     endedInKill: best.didKill,
@@ -202,9 +177,7 @@ function findWorstMissedPunish(
   opponentIndex: number,
 ): DerivedInsights["worstMissedPunish"] {
   // conversion.playerIndex = victim. My missed punish = opponent is victim but I did low damage.
-  const playerConvs = conversions.filter(
-    (c) => c.playerIndex === opponentIndex && c.moves.length > 0,
-  );
+  const playerConvs = conversions.filter((c) => c.playerIndex === opponentIndex && c.moves.length > 0);
 
   let worst: ConversionType | undefined;
   let worstScore = -Infinity;
@@ -228,9 +201,7 @@ function findWorstMissedPunish(
   const firstMove = worst.moves[0]!;
   return {
     opener: moveIdToName[firstMove.moveId] ?? getMoveName(firstMove.moveId),
-    damageDealt: Math.round(
-      (worst.endPercent ?? worst.currentPercent) - worst.startPercent,
-    ),
+    damageDealt: Math.round((worst.endPercent ?? worst.currentPercent) - worst.startPercent),
     opponentPercent: Math.round(worst.startPercent),
     timestamp: frameToTimestamp(worst.startFrame),
   };
@@ -244,33 +215,13 @@ export function buildDerivedInsights(
   lastFrame: number,
   stageId: number,
 ): DerivedInsights {
-  const playerStocks = stats.stocks.filter(
-    (s) => s.playerIndex === playerIndex,
-  );
+  const playerStocks = stats.stocks.filter((s) => s.playerIndex === playerIndex);
 
-  const afterKnockdown = buildHabitProfile(
-    playerIndex,
-    frames,
-    lastFrame,
-    isKnockdown,
-    classifyPostState,
-  );
+  const afterKnockdown = buildHabitProfile(playerIndex, frames, lastFrame, isKnockdown, classifyPostState);
 
-  const afterLedgeGrab = buildHabitProfile(
-    playerIndex,
-    frames,
-    lastFrame,
-    isLedgeGrab,
-    classifyLedgeOption,
-  );
+  const afterLedgeGrab = buildHabitProfile(playerIndex, frames, lastFrame, isLedgeGrab, classifyLedgeOption);
 
-  const afterShieldPressure = buildHabitProfile(
-    playerIndex,
-    frames,
-    lastFrame,
-    isShielding,
-    classifyShieldOption,
-  );
+  const afterShieldPressure = buildHabitProfile(playerIndex, frames, lastFrame, isShielding, classifyShieldOption);
 
   const performanceByStock = computePerformanceByStock(
     playerIndex,
@@ -281,11 +232,7 @@ export function buildDerivedInsights(
   );
 
   const bestConversion = findBestConversion(stats.conversions, playerIndex, opponentIndex);
-  const worstMissedPunish = findWorstMissedPunish(
-    stats.conversions,
-    playerIndex,
-    opponentIndex,
-  );
+  const worstMissedPunish = findWorstMissedPunish(stats.conversions, playerIndex, opponentIndex);
 
   // Build chronological timeline of key moments for timestamp-backed analysis
   const keyMoments: DerivedInsights["keyMoments"] = [];
@@ -333,9 +280,7 @@ export function buildDerivedInsights(
     if (c.playerIndex === opponentIndex && c.moves.length > 0) {
       const dmg = (c.endPercent ?? c.currentPercent) - c.startPercent;
       if (dmg >= 40 && !c.didKill) {
-        const moves = c.moves.map(
-          (m) => moveIdToName[m.moveId] ?? getMoveName(m.moveId),
-        );
+        const moves = c.moves.map((m) => moveIdToName[m.moveId] ?? getMoveName(m.moveId));
         const opener = moves[0] ?? "unknown";
         keyMoments.push({
           timestamp: frameToTimestamp(c.startFrame),
@@ -349,12 +294,7 @@ export function buildDerivedInsights(
 
   // Missed punishes (opening at high % that did <15% and didn't kill)
   for (const c of stats.conversions) {
-    if (
-      c.playerIndex === opponentIndex &&
-      c.moves.length > 0 &&
-      c.startPercent >= 80 &&
-      !c.didKill
-    ) {
+    if (c.playerIndex === opponentIndex && c.moves.length > 0 && c.startPercent >= 80 && !c.didKill) {
       const dmg = (c.endPercent ?? c.currentPercent) - c.startPercent;
       if (dmg < 15) {
         const opener = moveIdToName[c.moves[0]!.moveId] ?? getMoveName(c.moves[0]!.moveId);

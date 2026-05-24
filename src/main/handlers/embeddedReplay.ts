@@ -1,16 +1,3 @@
-// ─── Seek strategy ────────────────────────────────────────────────────
-// Slippi Dolphin's playback build does not live-watch the comm file after
-// startup. A spike on isRealTimeMode + queue-mode comm-file rewrites was
-// considered (2026-05-09) but skipped — even if it worked, the Branch B
-// kill+respawn path here is reliable, and the user-visible flash is masked
-// by a "Seeking…" overlay rendered by ReplayPlayer.tsx.
-//
-// Therefore: replay:embed:seek tears down the active session and spawns a
-// fresh one at the requested frame with the same stage-rect bounds the
-// renderer last reported. The renderer waits for replay:embed:ready (also
-// fires on the new session) to clear seekState.
-// ──────────────────────────────────────────────────────────────────────
-
 // IPC handlers for in-app embedded Slippi Dolphin replay playback (Windows).
 // On non-Windows platforms the handler returns { embedded: false } and the
 // renderer falls back to launching Dolphin externally.
@@ -38,11 +25,6 @@ interface EmbedSession {
 }
 
 let activeSession: EmbedSession | null = null;
-
-/** Last bounds the renderer reported for the active session. Cached so
- *  seek can respawn at the same stage rect without the renderer needing
- *  to re-send them. Cleared when no session is active. */
-let lastSessionBounds: { x: number; y: number; width: number; height: number } | null = null;
 
 // Resolve Dolphin path + Melee ISO from config or auto-detect (mirrors logic
 // in dolphin.ts so embedded mode shares the same discovery rules).
@@ -188,9 +170,6 @@ async function spawnEmbedSession(
   replayPath: string,
   bounds: { x: number; y: number; width: number; height: number },
   startFrame: number,
-  /** When provided (seek path), the new session re-uses this id so the
-   *  renderer's sessionIdRef stays valid across kill+respawn cycles. */
-  reuseSessionId?: string,
 ): Promise<OpenResult> {
   const mainWindow = getMainWindow();
   if (!mainWindow) throw new Error("Main window unavailable");
@@ -215,9 +194,7 @@ async function spawnEmbedSession(
     stderrBuf += chunk.toString();
   });
 
-  // For seek respawns, preserve the caller's sessionId so the renderer's
-  // sessionIdRef stays valid and its onEmbedReplayReady listener fires.
-  const sessionId = reuseSessionId ?? `s_${child.pid}_${Date.now()}`;
+  const sessionId = `s_${child.pid}_${Date.now()}`;
   const session: EmbedSession = {
     id: sessionId,
     replayPath,
@@ -235,7 +212,6 @@ async function spawnEmbedSession(
       const win = getMainWindow();
       win?.webContents.send("replay:embed:exited", { sessionId, stderr: stderrBuf });
       activeSession = null;
-      lastSessionBounds = null;
     }
   });
 
@@ -251,10 +227,6 @@ async function spawnEmbedSession(
       session.renderHwnd = dolphinWindows.renderIsChild ? dolphinWindows.renderHwnd : dolphinWindows.mainHwnd;
       session.parentHwnd = parentHwnd;
       const screenBounds = clientToScreen(mainWindow, bounds);
-      console.log(
-        `[embed] Floating Dolphin main 0x${dolphinWindows.mainHwnd.toString(16)} at screen ` +
-          `${screenBounds.x},${screenBounds.y} ${screenBounds.width}x${screenBounds.height}`,
-      );
       floatOver(
         parentHwnd,
         dolphinWindows.mainHwnd,
@@ -276,7 +248,6 @@ async function spawnEmbedSession(
       killSession(session);
       if (activeSession?.id === sessionId) {
         activeSession = null;
-        lastSessionBounds = null;
       }
     });
 
@@ -296,7 +267,6 @@ export function registerEmbeddedReplayHandlers(safeHandle: SafeHandleFn): void {
       activeSession = null;
     }
 
-    lastSessionBounds = args.bounds;
     return spawnEmbedSession(safeReplayPath, args.bounds, args.startFrame ?? 0);
   });
 
@@ -309,7 +279,6 @@ export function registerEmbeddedReplayHandlers(safeHandle: SafeHandleFn): void {
       if (!win) return false;
       const { setFloatBounds, refitRender } =
         require("../native/win32Embed.js") as typeof import("../native/win32Embed.js");
-      lastSessionBounds = bounds;
       const screenBounds = clientToScreen(win, bounds);
       setFloatBounds(activeSession.mainHwnd, screenBounds.x, screenBounds.y, screenBounds.width, screenBounds.height);
       // Re-stretch the inner render panel to fill the resized main client.
@@ -320,48 +289,10 @@ export function registerEmbeddedReplayHandlers(safeHandle: SafeHandleFn): void {
     },
   );
 
-  safeHandle("replay:embed:seek", async (_e, sessionId: string, frame: number) => {
-    if (process.platform !== "win32") {
-      return { ok: false as const, reason: "windows-only" };
-    }
-    if (!activeSession || activeSession.id !== sessionId) {
-      return { ok: false as const, reason: "no session" };
-    }
-
-    const replayPath = activeSession.replayPath;
-    const bounds = lastSessionBounds;
-    if (!bounds) {
-      return { ok: false as const, reason: "no bounds snapshot" };
-    }
-
-    // Tear down current session — kill+respawn is the only seek path until
-    // Slippi Dolphin gains live-seek support (see file header).
-    const oldSessionId = activeSession.id;
-    killSession(activeSession);
-    activeSession = null;
-    // Leave lastSessionBounds intact — this spawn uses the local `bounds`,
-    // but a subsequent seek before setBounds fires for the new session would
-    // need it.
-
-    const seekFrame = Math.max(0, Math.floor(frame));
-    // Pass the old sessionId so spawnEmbedSession re-uses it. This ensures
-    // the renderer's sessionIdRef stays valid: replay:embed:ready will carry
-    // the same id the renderer is already listening for.
-    await spawnEmbedSession(replayPath, bounds, seekFrame, oldSessionId);
-
-    // Inform the renderer; ready event from the new spawn also serves as
-    // "seek complete," but seeked is the explicit signal.
-    const win = getMainWindow();
-    win?.webContents.send("replay:embed:seeked", { sessionId: oldSessionId, frame: seekFrame });
-
-    return { ok: true as const, mode: "respawn" as const };
-  });
-
   safeHandle("replay:embed:close", async (_e, sessionId: string) => {
     if (!activeSession || activeSession.id !== sessionId) return false;
     killSession(activeSession);
     activeSession = null;
-    lastSessionBounds = null;
     return true;
   });
 
@@ -380,5 +311,4 @@ export function shutdownEmbeddedReplay(): void {
     killSession(activeSession);
     activeSession = null;
   }
-  lastSessionBounds = null;
 }

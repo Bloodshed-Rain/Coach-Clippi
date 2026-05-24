@@ -54,7 +54,10 @@ export function useCountUp(target: number, duration: number = 1000) {
   const [value, setValue] = useState(0);
 
   useEffect(() => {
-    if (target === 0) { setValue(0); return; }
+    if (target === 0) {
+      setValue(0);
+      return;
+    }
     const start = performance.now();
     let raf: number;
 

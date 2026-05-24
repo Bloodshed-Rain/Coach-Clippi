@@ -80,7 +80,6 @@ const api = {
   ) => ipcRenderer.invoke("replay:embed:open", { replayPath, bounds, startFrame }),
   embedReplaySetBounds: (sessionId: string, bounds: { x: number; y: number; width: number; height: number }) =>
     ipcRenderer.invoke("replay:embed:setBounds", sessionId, bounds),
-  embedReplaySeek: (sessionId: string, frame: number) => ipcRenderer.invoke("replay:embed:seek", sessionId, frame),
   embedReplayClose: (sessionId: string) => ipcRenderer.invoke("replay:embed:close", sessionId),
   embedReplaySendKey: (sessionId: string, vk: number) => ipcRenderer.invoke("replay:embed:sendKey", sessionId, vk),
   onEmbedReplayReady: (callback: (sessionId: string) => void) => {
@@ -97,11 +96,6 @@ const api = {
     const listener = (_e: unknown, p: { sessionId: string }) => callback(p.sessionId);
     ipcRenderer.on("replay:embed:exited", listener);
     return () => ipcRenderer.removeListener("replay:embed:exited", listener);
-  },
-  onEmbedReplaySeeked: (callback: (sessionId: string, frame: number) => void) => {
-    const listener = (_e: unknown, p: { sessionId: string; frame: number }) => callback(p.sessionId, p.frame);
-    ipcRenderer.on("replay:embed:seeked", listener);
-    return () => ipcRenderer.removeListener("replay:embed:seeked", listener);
   },
   openFileDialog: (title: string, filters: { name: string; extensions: string[] }[]) =>
     ipcRenderer.invoke("dialog:openFile", title, filters),

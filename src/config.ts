@@ -10,9 +10,9 @@ export interface Config {
   connectCode: string | null;
   replayFolder: string | null;
   // LLM
-  llmModelId: string | null;                                  // legacy; mirrors active model when activeProvider is set
-  activeProvider: ProviderId | null;                          // which provider is used for LLM calls
-  modelByProvider: Partial<Record<ProviderId, string>>;       // remembered model selection per provider
+  llmModelId: string | null; // legacy; mirrors active model when activeProvider is set
+  activeProvider: ProviderId | null; // which provider is used for LLM calls
+  modelByProvider: Partial<Record<ProviderId, string>>; // remembered model selection per provider
   apiKeys: Partial<Record<ProviderId, string>>;
   localEndpoint: string | null;
   // Dolphin

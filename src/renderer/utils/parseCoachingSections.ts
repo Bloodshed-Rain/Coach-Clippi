@@ -77,10 +77,7 @@ function headingToId(heading: string, index: number): string {
  * Parse coaching markdown into sections. Handles streaming (incomplete last section).
  * Splits on `## ` headers. Content before the first header becomes an "overview" section.
  */
-export function parseCoachingSections(
-  text: string,
-  streaming = false,
-): CoachingSection[] {
+export function parseCoachingSections(text: string, streaming = false): CoachingSection[] {
   if (!text.trim()) return [];
 
   const sections: CoachingSection[] = [];
@@ -139,7 +136,8 @@ export const SECTION_META: Record<SectionType, SectionMeta> = {
   lowlights: {
     label: "Misplays",
     color: "var(--red)",
-    iconPath: "M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01",
+    iconPath:
+      "M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01",
   },
   improvement: {
     label: "Key Improvement",
@@ -149,7 +147,8 @@ export const SECTION_META: Record<SectionType, SectionMeta> = {
   neutral: {
     label: "Neutral Game",
     color: "var(--accent)",
-    iconPath: "M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z",
+    iconPath:
+      "M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z",
   },
   punish: {
     label: "Punish Game",
@@ -181,7 +180,8 @@ export const SECTION_META: Record<SectionType, SectionMeta> = {
   wisdom: {
     label: "Coach's Wisdom",
     color: "var(--accent)",
-    iconPath: "M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zM9 21h6",
+    iconPath:
+      "M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zM9 21h6",
   },
   "executive-summary": {
     label: "Executive Summary",

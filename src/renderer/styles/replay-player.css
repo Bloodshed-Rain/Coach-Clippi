@@ -199,101 +199,157 @@ body[data-theme="liquid"] .replay-player-modal {
   }
 }
 
-/* ─── Scrubber ─────────────────────────────────────────────────────── */
+/* ─── Inline ReplayEmbed (used in GameTheater) ─────────────────────── */
 
-.replay-scrubber-row {
+.replay-embed {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--surface, #0a0c10);
+  border-right: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  overflow: hidden;
+}
+
+.replay-embed .replay-embed-stage {
+  flex: 1;
+  min-height: 0; /* allow shrink inside flex column without forcing 360px */
+}
+
+/* ─── Game Theater split-pane layout ───────────────────────────────── */
+
+/* Cancel LiquidShell's main-content padding when Theater is mounted so the
+   embed can occupy the full viewport without dead space or scrollbars.
+   Uses :has() — supported in all modern Chromium / Safari / Firefox. */
+.liquid-shell .main-content:has(.game-theater),
+body[data-theme="liquid"] .liquid-shell .main-content:has(.game-theater) {
+  padding: 0;
+}
+
+.game-theater {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) min(520px, 38vw);
+  /* minmax(0, 1fr) prevents the row from growing to fit content — required
+     so .game-theater-side-col's overflow-y: auto actually engages. */
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  height: 100vh;
+  background: var(--surface, #0a0c10);
+}
+
+.game-theater-stage-col {
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  min-width: 0;
+  min-height: 0;
+  background: #000;
+}
+
+.game-theater-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 18px 24px;
+  overflow-y: auto;
+  min-height: 0;
+  background: var(--bg, var(--surface, #0a0c10));
+  border-left: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+}
+
+/* Keep children at their natural height so the column overflows and scrolls.
+   Without this, .coaching-panel (which has overflow: hidden, giving it a flex
+   auto-minimum of 0) gets crushed to fit the bounded column — clipping its
+   analysis text and leaving the column with nothing to scroll. */
+.game-theater-side-col > * {
+  flex-shrink: 0;
+}
+
+.game-theater-side-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+}
+
+.game-theater-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px 4px 6px;
+  font-size: 12px;
+}
+
+.game-theater-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.game-theater-heading {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.game-theater-meta {
+  font-size: 12px;
+  color: var(--text-secondary, #9ca3af);
+}
+
+.theater-error,
+.theater-no-replay {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  height: calc(100vh - 80px);
+  color: var(--text-muted, #9ca3af);
+  text-align: center;
+  padding: 0 24px;
+}
+
+/* ─── Inline CoachingPanel (used in GameTheater) ───────────────────── */
+
+.coaching-panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.coaching-panel-header {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 18px 4px;
-  flex-shrink: 0;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
 }
 
-.replay-scrubber-track {
-  position: relative;
-  flex: 1;
-  height: 18px; /* generous click target around a 4px visual bar */
-  cursor: pointer;
-  touch-action: none; /* let pointer events handle drag */
-}
-
-.replay-scrubber-track::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 2px;
-  transform: translateY(-50%);
-}
-
-.replay-scrubber-fill {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  height: 4px;
-  background: var(--accent, #6ea8ff);
-  border-radius: 2px;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.replay-scrubber-puck {
-  position: absolute;
-  top: 50%;
-  width: 12px;
-  height: 12px;
-  margin-left: -6px;
-  border-radius: 50%;
-  background: var(--accent, #6ea8ff);
-  border: 2px solid var(--surface, #0a0c10);
-  transform: translateY(-50%);
-  pointer-events: none;
-  transition: transform 0.08s ease;
-}
-
-.replay-scrubber-track:hover .replay-scrubber-puck {
-  transform: translateY(-50%) scale(1.18);
-}
-
-.replay-scrubber-tooltip {
-  position: absolute;
-  bottom: 22px;
-  transform: translateX(-50%);
-  background: rgba(15, 18, 26, 0.96);
-  color: var(--text, #f3f4f6);
-  font-size: 11px;
-  font-family: ui-monospace, "JetBrains Mono", monospace;
-  padding: 3px 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-.replay-scrubber-time {
-  font-size: 11px;
-  font-family: ui-monospace, "JetBrains Mono", monospace;
-  color: var(--text-muted, #6b7280);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* ─── Seeking overlay ──────────────────────────────────────────────── */
-
-.replay-player-seeking-overlay {
-  position: absolute;
-  inset: 0;
+.coaching-panel-body {
+  padding: 12px 14px 16px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.92);
-  color: var(--text-muted, #9ca3af);
-  font-size: 13px;
-  z-index: 1;
-  pointer-events: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 1100px) {
+  .game-theater {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(280px, 55vh) minmax(0, 1fr);
+    height: 100vh;
+  }
+  .game-theater-side-col {
+    border-left: none;
+    border-top: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  }
 }
 
 /* ─── Hotkey help ──────────────────────────────────────────────────── */

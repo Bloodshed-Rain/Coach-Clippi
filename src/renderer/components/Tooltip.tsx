@@ -71,7 +71,7 @@ export function Tooltip({ text, children, position = "top", delay = 300 }: Toolt
           >
             {text}
           </span>,
-          document.body
+          document.body,
         )}
     </span>
   );

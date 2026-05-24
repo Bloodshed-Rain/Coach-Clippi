@@ -70,9 +70,7 @@ async function main() {
     if (folder) {
       resolvedInputs = [folder];
     } else {
-      console.error(
-        "Usage: npx tsx src/import-cli.ts <file.slp | folder> [...] [--target player] [--analyze]",
-      );
+      console.error("Usage: npx tsx src/import-cli.ts <file.slp | folder> [...] [--target player] [--analyze]");
       console.error("");
       console.error("Options:");
       console.error("  --target <player>  Analyze from this player's perspective (or set via setup)");
@@ -99,9 +97,7 @@ async function main() {
       const { batchResult, analysis } = await importAndAnalyze(filePaths, targetPlayer);
 
       const imported = batchResult.imported.filter((r) => !r.skipped);
-      console.error(
-        `Imported: ${imported.length}, Skipped (duplicate): ${batchResult.skipped}`,
-      );
+      console.error(`Imported: ${imported.length}, Skipped (duplicate): ${batchResult.skipped}`);
 
       if (analysis) {
         console.log(analysis);

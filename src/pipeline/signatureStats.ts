@@ -1,9 +1,4 @@
-import {
-  State,
-  Frames,
-  type FramesType,
-  type ConversionType,
-} from "@slippi/slippi-js/node";
+import { State, Frames, type FramesType, type ConversionType } from "@slippi/slippi-js/node";
 
 import type { CharacterSignatureStats, TurnipPullStats, KenComboStats } from "./types.js";
 import { moveIdToName, getMoveName, stageBounds } from "./helpers.js";
@@ -137,7 +132,15 @@ export function detectSignatureStats(
         }
       }
 
-      return { character: "Fox", multiShineCombos, waveshineToUpsmash, upthrowUpairs, upthrowUpairKills, drillShines, shineSpikeKills };
+      return {
+        character: "Fox",
+        multiShineCombos,
+        waveshineToUpsmash,
+        upthrowUpairs,
+        upthrowUpairKills,
+        drillShines,
+        shineSpikeKills,
+      };
     }
 
     case "Falco": {
@@ -177,7 +180,7 @@ export function detectSignatureStats(
         if (maxConsecutive(moves, MOVE_FAIR) >= 3) fairChains++;
 
         // Tech chase: conversion with a throw that has the opponent in tech/down state
-        const hasThrow = moves.some(m => m.moveId === MOVE_DTHROW || m.moveId === MOVE_FTHROW);
+        const hasThrow = moves.some((m) => m.moveId === MOVE_DTHROW || m.moveId === MOVE_FTHROW);
         if (!hasThrow || moves.length < 2) continue;
 
         const startFrame = conv.startFrame;
@@ -227,7 +230,8 @@ export function detectSignatureStats(
         // Stomp to knee: dair → fair
         if (hasSequence(moves, MOVE_DAIR, MOVE_FAIR)) stompKnees++;
         // Upthrow → knee kill: starts with uthrow, ends with fair kill
-        if (moves.some(m => m.moveId === MOVE_UTHROW) && lastMove.moveId === MOVE_FAIR && conv.didKill) upthrowKnees++;
+        if (moves.some((m) => m.moveId === MOVE_UTHROW) && lastMove.moveId === MOVE_FAIR && conv.didKill)
+          upthrowKnees++;
         // Tech chase grabs: starts with grab and opponent was in tech/down state
         if (moves[0]!.moveId !== MOVE_GRAB) continue;
 
@@ -356,11 +360,13 @@ export function detectSignatureStats(
         const nanaAttacking =
           (nanaState >= State.GROUND_ATTACK_START && nanaState <= State.GROUND_ATTACK_END) ||
           (nanaState >= State.AERIAL_ATTACK_START && nanaState <= State.AERIAL_DAIR) ||
-          nanaState === State.GRAB || nanaState === State.DASH_GRAB;
+          nanaState === State.GRAB ||
+          nanaState === State.DASH_GRAB;
         const popoAttacking =
           (popoState >= State.GROUND_ATTACK_START && popoState <= State.GROUND_ATTACK_END) ||
           (popoState >= State.AERIAL_ATTACK_START && popoState <= State.AERIAL_DAIR) ||
-          popoState === State.GRAB || popoState === State.DASH_GRAB;
+          popoState === State.GRAB ||
+          popoState === State.DASH_GRAB;
 
         const isDesync = nanaAttacking && (!popoAttacking || Math.abs(popoState - nanaState) > 2);
 
@@ -570,7 +576,14 @@ export function detectSignatureStats(
       const marioFireBallEntry = moveUsageMap.get("neutral b");
       const marioFireBallCount = marioFireBallEntry?.count ?? 0;
 
-      return { character: "Mario", capeCount, fireBallCount: marioFireBallCount, fsmashKills, upSmashKills, fairSpikeKills };
+      return {
+        character: "Mario",
+        capeCount,
+        fireBallCount: marioFireBallCount,
+        fsmashKills,
+        upSmashKills,
+        fairSpikeKills,
+      };
     }
 
     case "Doc": {

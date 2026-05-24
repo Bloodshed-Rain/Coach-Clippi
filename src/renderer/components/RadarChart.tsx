@@ -1,7 +1,13 @@
 import { useState, useMemo } from "react";
 import {
-  Radar, RadarChart as RechartsRadarChart, PolarGrid,
-  PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip, Legend,
+  Radar,
+  RadarChart as RechartsRadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
 } from "recharts";
 import type { RadarStats, RadarGameStats } from "../radarStats";
 import { computeRadarForPeriod } from "../radarStats";
@@ -101,27 +107,29 @@ function RadarTooltip({ active, payload }: any) {
   if (!active || !payload || !payload.length) return null;
   const { axis } = payload[0].payload;
   return (
-    <div style={{
-      background: "var(--bg-card)",
-      border: "1px solid var(--border)",
-      borderRadius: 6,
-      padding: "8px 12px",
-      fontSize: 12,
-      fontFamily: "var(--font-mono)",
-    }}>
+    <div
+      style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--border)",
+        borderRadius: 6,
+        padding: "8px 12px",
+        fontSize: 12,
+        fontFamily: "var(--font-mono)",
+      }}
+    >
       <div style={{ color: "var(--text-dim)", fontSize: 10, marginBottom: 4 }}>{axis}</div>
       {payload.map((p: any) => (
         <div key={p.dataKey} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-          <span style={{
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background: p.stroke || p.color,
-            display: "inline-block",
-          }} />
-          <span style={{ color: p.stroke || "var(--accent)", fontWeight: 700 }}>
-            {Math.round(p.value)}
-          </span>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: p.stroke || p.color,
+              display: "inline-block",
+            }}
+          />
+          <span style={{ color: p.stroke || "var(--accent)", fontWeight: 700 }}>{Math.round(p.value)}</span>
         </div>
       ))}
     </div>
@@ -160,15 +168,8 @@ export function PlayerRadar({ stats, games, hideComparison }: RadarProps) {
     <div>
       <ResponsiveContainer width="100%" height={300}>
         <RechartsRadarChart data={data} cx="50%" cy="50%" outerRadius="68%">
-          <PolarGrid
-            stroke="var(--border)"
-            strokeDasharray="3 3"
-            gridType="polygon"
-          />
-          <PolarAngleAxis
-            dataKey="axis"
-            tick={RadarAxisTick as any}
-          />
+          <PolarGrid stroke="var(--border)" strokeDasharray="3 3" gridType="polygon" />
+          <PolarAngleAxis dataKey="axis" tick={RadarAxisTick as any} />
           <PolarRadiusAxis
             angle={90}
             domain={[0, 100]}
@@ -204,9 +205,7 @@ export function PlayerRadar({ stats, games, hideComparison }: RadarProps) {
 
           <Tooltip content={<RadarTooltip />} />
           {showComparison && (
-            <Legend
-              wrapperStyle={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-dim)" }}
-            />
+            <Legend wrapperStyle={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-dim)" }} />
           )}
         </RechartsRadarChart>
       </ResponsiveContainer>
@@ -215,12 +214,14 @@ export function PlayerRadar({ stats, games, hideComparison }: RadarProps) {
       {!hideComparison && games && games.length >= 6 && (
         <div className="radar-period-selector">
           {(["none", "week", "month", "3months"] as Period[]).map((p) => (
-            <button
-              key={p}
-              className={`radar-period-btn ${period === p ? "active" : ""}`}
-              onClick={() => setPeriod(p)}
-            >
-              {p === "none" ? "All Time" : p === "week" ? "vs Last Week" : p === "month" ? "vs Last Month" : "vs Last 3mo"}
+            <button key={p} className={`radar-period-btn ${period === p ? "active" : ""}`} onClick={() => setPeriod(p)}>
+              {p === "none"
+                ? "All Time"
+                : p === "week"
+                  ? "vs Last Week"
+                  : p === "month"
+                    ? "vs Last Month"
+                    : "vs Last 3mo"}
             </button>
           ))}
         </div>

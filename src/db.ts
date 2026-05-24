@@ -2359,6 +2359,7 @@ export interface DaySession {
   losses: number;
   opponents: string[];
   gameIds: number[];
+  gameResults: { id: number; result: string }[];
 }
 
 export function getSessionsByDay(daysBack: number = 90): DaySession[] {
@@ -2386,11 +2387,13 @@ export function getSessionsByDay(daysBack: number = 90): DaySession[] {
       losses: 0,
       opponents: [] as string[],
       gameIds: [] as number[],
+      gameResults: [] as { id: number; result: string }[],
     };
     existing.games += 1;
     if (r.result === "win") existing.wins += 1;
     else if (r.result === "loss") existing.losses += 1;
     existing.gameIds.push(r.id);
+    existing.gameResults.push({ id: r.id, result: r.result });
     if (!existing.opponents.includes(r.opponentTag)) existing.opponents.push(r.opponentTag);
     map.set(r.date, existing);
   }

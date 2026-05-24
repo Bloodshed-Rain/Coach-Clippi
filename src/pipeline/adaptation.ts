@@ -62,10 +62,7 @@ function matchScore(
   return 0;
 }
 
-export function findPlayerIdx(
-  gameSummary: GameSummary,
-  playerIdentifier: string,
-): 0 | 1 {
+export function findPlayerIdx(gameSummary: GameSummary, playerIdentifier: string): 0 | 1 {
   const id = playerIdentifier.trim();
   if (!id) {
     console.warn("[findPlayerIdx] Empty player identifier — defaulting to player 0");
@@ -94,8 +91,8 @@ export function findPlayerIdx(
 
   console.error(
     `[findPlayerIdx] MATCH FAILED for "${id}" — ` +
-    `p0="${p0.tag}" (${p0.connectCode || "no code"}), ` +
-    `p1="${p1.tag}" (${p1.connectCode || "no code"}). Defaulting to player 0.`,
+      `p0="${p0.tag}" (${p0.connectCode || "no code"}), ` +
+      `p1="${p1.tag}" (${p1.connectCode || "no code"}). Defaulting to player 0.`,
   );
   return 0;
 }
@@ -155,8 +152,7 @@ export function computeAdaptationSignals(
 
   return metrics.map(({ metric, game1Value, lastGameValue, higherIsBetter, trajectory }) => {
     const delta = lastGameValue - game1Value;
-    const relativeDelta =
-      game1Value !== 0 ? Math.abs(delta / game1Value) : Math.abs(delta);
+    const relativeDelta = game1Value !== 0 ? Math.abs(delta / game1Value) : Math.abs(delta);
 
     let direction: "improving" | "declining" | "stable";
     if (relativeDelta < THRESHOLD) {

@@ -18,10 +18,10 @@ export type { ProviderId } from "./llmProviders";
 import { PROVIDER_BY_ID, type ProviderId } from "./llmProviders";
 
 export interface ModelOption {
-  id: string;          // model identifier sent to the API
-  label: string;       // human-readable name for the UI
+  id: string; // model identifier sent to the API
+  label: string; // human-readable name for the UI
   provider: ProviderId;
-  costPer1kInput?: number;   // USD per 1k input tokens (for cost estimates)
+  costPer1kInput?: number; // USD per 1k input tokens (for cost estimates)
   costPer1kOutput?: number;
 }
 
@@ -62,6 +62,11 @@ export const MODELS: ModelOption[] = [
     label: "Local Model (Ollama / LM Studio)",
     provider: "local",
   },
+  {
+    id: "pollinations",
+    label: "Pollinations Free AI",
+    provider: "pollinations",
+  },
 ];
 
 /** No default — users must pick a provider and model in Settings. */
@@ -75,6 +80,7 @@ export function getModelProvider(modelId: string): ProviderId {
   if (modelId.includes("/")) return "openrouter";
   if (modelId.startsWith("gemini")) return "gemini";
   if (modelId.startsWith("claude")) return "anthropic";
+  if (modelId === "pollinations") return "pollinations";
   if (modelId.startsWith("gpt-") || modelId.startsWith("o1") || modelId.startsWith("o3")) return "openai";
   return "local";
 }
@@ -87,9 +93,9 @@ export function getModelLabel(modelId: string): string {
 // ── Provider config (stored in user config) ──────────────────────────
 
 export interface LLMConfig {
-  modelId: string | null;        // null = no provider/model selected yet
+  modelId: string | null; // null = no provider/model selected yet
   apiKeys: Partial<Record<ProviderId, string>>;
-  localEndpoint: string | null;   // e.g. "http://localhost:1234/v1"
+  localEndpoint: string | null; // e.g. "http://localhost:1234/v1"
 }
 
 export const LLM_DEFAULTS: LLMConfig = {
@@ -138,9 +144,7 @@ function sleep(ms: number): Promise<void> {
 function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  return fetch(url, { ...init, signal: controller.signal }).finally(() =>
-    clearTimeout(timeout),
-  );
+  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timeout));
 }
 
 class EmptyResponseError extends Error {
@@ -162,22 +166,34 @@ export interface CallLLMOptions {
 
 export async function callLLM(opts: CallLLMOptions): Promise<string> {
   const modelId = opts.modelOverride ?? opts.config.modelId;
+
   if (!modelId) {
-    throw new Error("No AI model selected. Open Settings → AI Provider and pick a provider, add an API key, and choose a model.");
+    console.warn("No AI model selected, falling back to free Pollinations API.");
+    return callPollinations(opts.systemPrompt, opts.userPrompt, "pollinations", opts.config);
   }
+
   const provider = getModelProvider(modelId);
 
-  switch (provider) {
-    case "openrouter":
-      return callOpenRouter(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-    case "gemini":
-      return callGemini(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-    case "anthropic":
-      return callAnthropic(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-    case "openai":
-      return callOpenAI(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-    case "local":
-      return callLocal(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+  try {
+    switch (provider) {
+      case "openrouter":
+        return await callOpenRouter(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+      case "gemini":
+        return await callGemini(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+      case "anthropic":
+        return await callAnthropic(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+      case "openai":
+        return await callOpenAI(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+      case "pollinations":
+        return await callPollinations(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+      case "local":
+        return await callLocal(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+      default:
+        throw new Error(`Unknown provider: ${provider}`);
+    }
+  } catch (error) {
+    console.warn(`Primary LLM provider (${provider}) failed. Falling back to free Pollinations API. Error:`, error);
+    return callPollinations(opts.systemPrompt, opts.userPrompt, "pollinations", opts.config);
   }
 }
 
@@ -190,27 +206,39 @@ export type StreamChunkCallback = (chunk: string) => void;
  * Stream an LLM response, calling onChunk for each text fragment as it arrives.
  * Returns the full accumulated text when complete.
  */
-export async function callLLMStream(
-  opts: CallLLMOptions,
-  onChunk: StreamChunkCallback,
-): Promise<string> {
+export async function callLLMStream(opts: CallLLMOptions, onChunk: StreamChunkCallback): Promise<string> {
   const modelId = opts.modelOverride ?? opts.config.modelId;
+
   if (!modelId) {
-    throw new Error("No AI model selected. Open Settings → AI Provider and pick a provider, add an API key, and choose a model.");
+    console.warn("No AI model selected, falling back to free Pollinations API.");
+    return callPollinationsStream(opts.systemPrompt, opts.userPrompt, "pollinations", opts.config, onChunk);
   }
+
   const provider = getModelProvider(modelId);
 
-  switch (provider) {
-    case "gemini":
-      return callGeminiStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
-    case "openrouter":
-      return callOpenRouterStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
-    case "anthropic":
-      return callAnthropicStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
-    case "openai":
-      return callOpenAIStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
-    case "local":
-      return callLocalStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+  try {
+    switch (provider) {
+      case "gemini":
+        return await callGeminiStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+      case "openrouter":
+        return await callOpenRouterStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+      case "anthropic":
+        return await callAnthropicStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+      case "openai":
+        return await callOpenAIStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+      case "pollinations":
+        return await callPollinationsStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+      case "local":
+        return await callLocalStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+      default:
+        throw new Error(`Unknown provider: ${provider}`);
+    }
+  } catch (error) {
+    console.warn(
+      `Primary LLM provider (${provider}) stream failed. Falling back to free Pollinations API. Error:`,
+      error,
+    );
+    return callPollinationsStream(opts.systemPrompt, opts.userPrompt, "pollinations", opts.config, onChunk);
   }
 }
 
@@ -295,7 +323,7 @@ async function callOpenRouter(
     const response = await fetchWithTimeout(url, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": "https://github.com/Bloodshed-Rain/TheMAGI",
         "X-Title": "MAGI",
@@ -306,7 +334,7 @@ async function callOpenRouter(
     if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
       if (attempt < MAX_RETRIES) {
         const retryAfter = parseInt(response.headers.get("retry-after") ?? "", 10);
-        await sleep((Number.isFinite(retryAfter) ? retryAfter * 1000 : RETRY_DELAY_MS * attempt * 2));
+        await sleep(Number.isFinite(retryAfter) ? retryAfter * 1000 : RETRY_DELAY_MS * attempt * 2);
         continue;
       }
       if (response.status === 429) {
@@ -350,7 +378,9 @@ async function callOpenRouterStream(
 ): Promise<string> {
   const apiKey = getApiKey("openrouter", config);
   if (!apiKey) {
-    throw new Error("OpenRouter API key is not set. Add it in Settings or set the OPENROUTER_API_KEY environment variable.");
+    throw new Error(
+      "OpenRouter API key is not set. Add it in Settings or set the OPENROUTER_API_KEY environment variable.",
+    );
   }
 
   const url = "https://openrouter.ai/api/v1/chat/completions";
@@ -365,7 +395,10 @@ async function callOpenRouterStream(
   });
 
   let anyChunksSent = false;
-  const wrappedOnChunk: StreamChunkCallback = (chunk) => { anyChunksSent = true; onChunk(chunk); };
+  const wrappedOnChunk: StreamChunkCallback = (chunk) => {
+    anyChunksSent = true;
+    onChunk(chunk);
+  };
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const controller = new AbortController();
@@ -376,7 +409,7 @@ async function callOpenRouterStream(
       response = await fetch(url, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
           "HTTP-Referer": "https://github.com/Bloodshed-Rain/TheMAGI",
           "X-Title": "MAGI",
@@ -434,9 +467,7 @@ async function callGemini(
 ): Promise<string> {
   const apiKey = getApiKey("gemini", config);
   if (!apiKey) {
-    throw new Error(
-      "Gemini API key is not set. Add it in Settings or set the GEMINI_API_KEY environment variable.",
-    );
+    throw new Error("Gemini API key is not set. Add it in Settings or set the GEMINI_API_KEY environment variable.");
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`;
@@ -508,9 +539,7 @@ async function callGeminiStream(
 ): Promise<string> {
   const apiKey = getApiKey("gemini", config);
   if (!apiKey) {
-    throw new Error(
-      "Gemini API key is not set. Add it in Settings or set the GEMINI_API_KEY environment variable.",
-    );
+    throw new Error("Gemini API key is not set. Add it in Settings or set the GEMINI_API_KEY environment variable.");
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:streamGenerateContent?alt=sse`;
@@ -619,9 +648,7 @@ async function callGeminiStream(
     if (anyChunksSent) throw new EmptyResponseError("streaming returned partial text");
 
     if (attempt < MAX_RETRIES) {
-      console.error(
-        `Gemini stream returned empty response, retrying (${attempt}/${MAX_RETRIES})...`,
-      );
+      console.error(`Gemini stream returned empty response, retrying (${attempt}/${MAX_RETRIES})...`);
       await sleep(RETRY_DELAY_MS * attempt);
     } else {
       throw new EmptyResponseError("streaming returned no text");
@@ -651,9 +678,7 @@ async function callAnthropic(
     model: modelId,
     max_tokens: 8192,
     system: systemPrompt,
-    messages: [
-      { role: "user", content: userPrompt },
-    ],
+    messages: [{ role: "user", content: userPrompt }],
   });
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -670,7 +695,7 @@ async function callAnthropic(
     if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
       if (attempt < MAX_RETRIES) {
         const retryAfter = parseInt(response.headers.get("retry-after") ?? "", 10);
-        await sleep((Number.isFinite(retryAfter) ? retryAfter * 1000 : RETRY_DELAY_MS * attempt * 2));
+        await sleep(Number.isFinite(retryAfter) ? retryAfter * 1000 : RETRY_DELAY_MS * attempt * 2);
         continue;
       }
       if (response.status === 429) {
@@ -714,7 +739,9 @@ async function callAnthropicStream(
 ): Promise<string> {
   const apiKey = getApiKey("anthropic", config);
   if (!apiKey) {
-    throw new Error("Anthropic API key is not set. Add it in Settings or set the ANTHROPIC_API_KEY environment variable.");
+    throw new Error(
+      "Anthropic API key is not set. Add it in Settings or set the ANTHROPIC_API_KEY environment variable.",
+    );
   }
 
   const url = "https://api.anthropic.com/v1/messages";
@@ -771,7 +798,10 @@ async function callAnthropicStream(
     let accumulated = "";
     try {
       const reader = response.body?.getReader();
-      if (!reader) { clearTimeout(timeout); throw new Error("Streaming response has no body"); }
+      if (!reader) {
+        clearTimeout(timeout);
+        throw new Error("Streaming response has no body");
+      }
 
       const decoder = new TextDecoder();
       let buffer = "";
@@ -828,14 +858,12 @@ async function callAnthropicStream(
 function resolveOpenAIEndpoint(config: LLMConfig): { url: string; headers: Record<string, string> } {
   const apiKey = getApiKey("openai", config);
   if (!apiKey) {
-    throw new Error(
-      "OpenAI API key is not set. Add it in Settings or set the OPENAI_API_KEY environment variable.",
-    );
+    throw new Error("OpenAI API key is not set. Add it in Settings or set the OPENAI_API_KEY environment variable.");
   }
   return {
     url: "https://api.openai.com/v1/chat/completions",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
   };
@@ -867,7 +895,7 @@ async function callOpenAI(
     if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
       if (attempt < MAX_RETRIES) {
         const retryAfter = parseInt(response.headers.get("retry-after") ?? "", 10);
-        await sleep((Number.isFinite(retryAfter) ? retryAfter * 1000 : RETRY_DELAY_MS * attempt * 2));
+        await sleep(Number.isFinite(retryAfter) ? retryAfter * 1000 : RETRY_DELAY_MS * attempt * 2);
         continue;
       }
       if (response.status === 429) {
@@ -921,7 +949,10 @@ async function callOpenAIStream(
   const { url, headers } = resolveOpenAIEndpoint(config);
 
   let anyChunksSent = false;
-  const wrappedOnChunk: StreamChunkCallback = (chunk) => { anyChunksSent = true; onChunk(chunk); };
+  const wrappedOnChunk: StreamChunkCallback = (chunk) => {
+    anyChunksSent = true;
+    onChunk(chunk);
+  };
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const controller = new AbortController();
@@ -1005,7 +1036,9 @@ async function callLocal(
       });
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
-        throw new Error(`Local model at ${endpoint} timed out after ${FETCH_TIMEOUT_MS / 1000}s. The model may be loading or the request may be too large.`);
+        throw new Error(
+          `Local model at ${endpoint} timed out after ${FETCH_TIMEOUT_MS / 1000}s. The model may be loading or the request may be too large.`,
+        );
       }
       throw new Error(
         `Could not reach local model at ${endpoint}. Is Ollama or LM Studio running?\n${err instanceof Error ? err.message : String(err)}`,
@@ -1071,7 +1104,9 @@ async function callLocalStream(
   } catch (err) {
     clearTimeout(timeout);
     if (err instanceof DOMException && err.name === "AbortError") {
-      throw new Error(`Local model at ${endpoint} timed out after ${FETCH_TIMEOUT_MS / 1000}s. The model may be loading or the request may be too large.`);
+      throw new Error(
+        `Local model at ${endpoint} timed out after ${FETCH_TIMEOUT_MS / 1000}s. The model may be loading or the request may be too large.`,
+      );
     }
     throw new Error(
       `Could not reach local model at ${endpoint}. Is Ollama or LM Studio running?\n${err instanceof Error ? err.message : String(err)}`,
@@ -1082,6 +1117,121 @@ async function callLocalStream(
     clearTimeout(timeout);
     const errorBody = await response.text();
     throw new Error(`Local model API error (${response.status}): ${errorBody}`);
+  }
+
+  const accumulated = await readOpenAICompatibleStream(response, onChunk, timeout);
+  if (accumulated) return accumulated;
+  throw new EmptyResponseError("streaming returned no text");
+}
+
+// ── Pollinations (Free, OpenAI-compatible) ───────────────────────────
+
+async function callPollinations(
+  systemPrompt: string,
+  userPrompt: string,
+  modelId: string,
+  config: LLMConfig,
+): Promise<string> {
+  const url = "https://text.pollinations.ai/openai";
+  const body = JSON.stringify({
+    model: modelId === "pollinations" ? "openai" : modelId,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+  });
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        throw new Error(`Pollinations timed out after ${FETCH_TIMEOUT_MS / 1000}s.`);
+      }
+      throw new Error(`Could not reach Pollinations API.\n${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
+      if (attempt < MAX_RETRIES) {
+        await sleep(RETRY_DELAY_MS * attempt * 2);
+        continue;
+      }
+      throw new Error(`Pollinations rate limit/server error (${response.status}). Please try again later.`);
+    }
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Pollinations API error (${response.status}): ${errorBody}`);
+    }
+
+    const data = (await response.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+
+    const text = data.choices?.[0]?.message?.content;
+    if (text) return text;
+
+    if (attempt < MAX_RETRIES) {
+      console.error(`Pollinations returned empty response, retrying (${attempt}/${MAX_RETRIES})...`);
+      await sleep(RETRY_DELAY_MS * attempt);
+    } else {
+      throw new EmptyResponseError("empty choices");
+    }
+  }
+
+  throw new EmptyResponseError("unknown");
+}
+
+async function callPollinationsStream(
+  systemPrompt: string,
+  userPrompt: string,
+  modelId: string,
+  config: LLMConfig,
+  onChunk: StreamChunkCallback,
+): Promise<string> {
+  const url = "https://text.pollinations.ai/openai";
+  const body = JSON.stringify({
+    model: modelId === "pollinations" ? "openai" : modelId,
+    stream: true,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+  });
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error(`Pollinations timed out after ${FETCH_TIMEOUT_MS / 1000}s.`);
+    }
+    throw new Error(`Could not reach Pollinations API.\n${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
+    clearTimeout(timeout);
+    throw new Error(`Pollinations rate limit/server error (${response.status}). Please try again later.`);
+  }
+
+  if (!response.ok) {
+    clearTimeout(timeout);
+    const errorBody = await response.text();
+    throw new Error(`Pollinations API error (${response.status}): ${errorBody}`);
   }
 
   const accumulated = await readOpenAICompatibleStream(response, onChunk, timeout);

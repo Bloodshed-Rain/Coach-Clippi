@@ -80,9 +80,7 @@ export async function importReplay(
   let targetTag = targetPlayer ?? "";
   if (!targetTag) {
     console.warn(`[importReplay] No target player for ${path.basename(absolutePath)} — guessing from replay`);
-    targetTag =
-      gameSummary.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ??
-      gameSummary.players[0].tag;
+    targetTag = gameSummary.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ?? gameSummary.players[0].tag;
   }
 
   const playerIdx = findPlayerIdx(gameSummary, targetTag);
@@ -275,7 +273,7 @@ export async function importReplays(
   // Step 1: Hash and filter duplicates in parallel (with limit)
   const toParse: { filePath: string; hash: string; gameNumber: number }[] = [];
   const HASH_CONCURRENCY = 16;
-  
+
   for (let i = 0; i < filePaths.length; i += HASH_CONCURRENCY) {
     const chunk = filePaths.slice(i, i + HASH_CONCURRENCY);
     const hashes = await Promise.all(
@@ -286,7 +284,7 @@ export async function importReplays(
         } catch (err) {
           return { fp, err };
         }
-      })
+      }),
     );
 
     for (const { fp, hash, err } of hashes as any[]) {
@@ -336,7 +334,7 @@ export async function importReplays(
   const DB_BATCH_SIZE = 50;
   for (let i = 0; i < toParse.length; i += DB_BATCH_SIZE) {
     const chunk = toParse.slice(i, i + DB_BATCH_SIZE);
-    
+
     // Parse the chunk in parallel
     const parseResults = await Promise.all(
       chunk.map(async (item) => {
@@ -346,7 +344,7 @@ export async function importReplays(
         } catch (err) {
           return { success: false, item, error: err };
         }
-      })
+      }),
     );
 
     // Insert into DB in a single transaction
@@ -360,8 +358,7 @@ export async function importReplays(
         let targetTag = targetPlayer ?? "";
         if (!targetTag) {
           targetTag =
-            gameSummary.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ??
-            gameSummary.players[0].tag;
+            gameSummary.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ?? gameSummary.players[0].tag;
         }
 
         const playerIdx = findPlayerIdx(gameSummary, targetTag);
@@ -570,9 +567,7 @@ export async function importAndAnalyze(
 
   const firstGame = gameResults[0]!.gameSummary;
   const targetTag =
-    targetPlayer ??
-    firstGame.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ??
-    firstGame.players[0].tag;
+    targetPlayer ?? firstGame.players.find((p) => p.tag.toLowerCase() !== "unknown")?.tag ?? firstGame.players[0].tag;
 
   if (gameResults.length >= 2) {
     const p0Tag = firstGame.players[0].tag;
@@ -594,10 +589,6 @@ export async function importAndAnalyze(
     apiKeys: userCfg.apiKeys,
     localEndpoint: userCfg.localEndpoint,
   };
-  if (!llmConfig.modelId) {
-    // No model configured — skip LLM coaching but return successful import
-    return { batchResult, analysis: null };
-  }
   const analysis = await callLLM({
     systemPrompt: SYSTEM_PROMPT,
     userPrompt,
@@ -605,9 +596,8 @@ export async function importAndAnalyze(
   });
 
   if (batchResult.sessionId) {
-    insertCoachingAnalysis(null, batchResult.sessionId, llmConfig.modelId, analysis);
+    insertCoachingAnalysis(null, batchResult.sessionId, llmConfig.modelId || "pollinations", analysis);
   }
 
   return { batchResult, analysis };
 }
-

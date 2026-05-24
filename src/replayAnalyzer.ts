@@ -89,8 +89,26 @@ let _generateAnalysis: AnalysisGenerator = async (filePath: string) => {
         ],
       },
       derivedInsights: [
-        { afterKnockdown: { options: [], entropy: 0 }, afterLedgeGrab: { options: [], entropy: 0 }, afterShieldPressure: { options: [], entropy: 0 }, performanceByStock: [], bestConversion: { moves: [], totalDamage: 0, startPercent: 0, endedInKill: false, timestamp: "0:00" }, worstMissedPunish: null, keyMoments: [], adaptationSignals: [] },
-        { afterKnockdown: { options: [], entropy: 0 }, afterLedgeGrab: { options: [], entropy: 0 }, afterShieldPressure: { options: [], entropy: 0 }, performanceByStock: [], bestConversion: { moves: [], totalDamage: 0, startPercent: 0, endedInKill: false, timestamp: "0:00" }, worstMissedPunish: null, keyMoments: [], adaptationSignals: [] },
+        {
+          afterKnockdown: { options: [], entropy: 0 },
+          afterLedgeGrab: { options: [], entropy: 0 },
+          afterShieldPressure: { options: [], entropy: 0 },
+          performanceByStock: [],
+          bestConversion: { moves: [], totalDamage: 0, startPercent: 0, endedInKill: false, timestamp: "0:00" },
+          worstMissedPunish: null,
+          keyMoments: [],
+          adaptationSignals: [],
+        },
+        {
+          afterKnockdown: { options: [], entropy: 0 },
+          afterLedgeGrab: { options: [], entropy: 0 },
+          afterShieldPressure: { options: [], entropy: 0 },
+          performanceByStock: [],
+          bestConversion: { moves: [], totalDamage: 0, startPercent: 0, endedInKill: false, timestamp: "0:00" },
+          worstMissedPunish: null,
+          keyMoments: [],
+          adaptationSignals: [],
+        },
       ] as [DerivedInsights, DerivedInsights],
       highlights: [[], []] as [GameHighlight[], GameHighlight[]],
       startAt: null,
@@ -235,21 +253,25 @@ export async function processReplay(
 
   // ── 1. Check if this replay is already in the database ─────────────
 
-  const existingGame = db.prepare(
-    "SELECT id, replay_path, replay_hash, session_id FROM games WHERE replay_hash = ?",
-  ).get(fileHash) as GameRow | undefined;
+  const existingGame = db
+    .prepare("SELECT id, replay_path, replay_hash, session_id FROM games WHERE replay_hash = ?")
+    .get(fileHash) as GameRow | undefined;
 
   if (existingGame) {
     // ── 2. Game exists — look for cached analysis ────────────────────
 
     const currentModelId = getActiveModelId(loadConfig());
-    const cachedAnalysis = db.prepare(`
+    const cachedAnalysis = db
+      .prepare(
+        `
       SELECT id, game_id, analysis_text, model_used, created_at
       FROM coaching_analyses
       WHERE game_id = ? AND model_used = ?
       ORDER BY created_at DESC
       LIMIT 1
-    `).get(existingGame.id, currentModelId) as AnalysisRow | undefined;
+    `,
+      )
+      .get(existingGame.id, currentModelId) as AnalysisRow | undefined;
 
     if (cachedAnalysis) {
       // Cache hit — zero cost, return immediately
@@ -264,15 +286,12 @@ export async function processReplay(
 
     const { analysisText } = await _generateAnalysis(filePath);
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO coaching_analyses (game_id, session_id, model_used, analysis_text)
       VALUES (?, ?, ?, ?)
-    `).run(
-      existingGame.id,
-      existingGame.session_id,
-      getActiveModelId(loadConfig()),
-      analysisText,
-    );
+    `,
+    ).run(existingGame.id, existingGame.session_id, getActiveModelId(loadConfig()), analysisText);
 
     return {
       gameId: existingGame.id,
@@ -309,10 +328,12 @@ export async function processReplay(
     }
 
     // Insert coaching analysis
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO coaching_analyses (game_id, session_id, model_used, analysis_text)
       VALUES (?, ?, ?, ?)
-    `).run(gameId, sessionId, getActiveModelId(loadConfig()), text);
+    `,
+    ).run(gameId, sessionId, getActiveModelId(loadConfig()), text);
 
     return gameId;
   });

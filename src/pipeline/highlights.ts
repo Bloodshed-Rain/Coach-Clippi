@@ -1,12 +1,7 @@
 import type { ConversionType, FramesType } from "@slippi/slippi-js/node";
 
 import type { GameSummary } from "./types.js";
-import {
-  moveIdToName,
-  getMoveName,
-  frameToTimestamp,
-  stageBounds,
-} from "./helpers.js";
+import { moveIdToName, getMoveName, frameToTimestamp, stageBounds } from "./helpers.js";
 import {
   hasSequence,
   hasAdjacentSequence,
@@ -72,11 +67,7 @@ function convDamage(c: ConversionType): number {
 
 // ── Stock number from frame data ────────────────────────────────────
 
-function getStockNumber(
-  attackerIndex: number,
-  frame: number,
-  frames: FramesType,
-): number | null {
+function getStockNumber(attackerIndex: number, frame: number, frames: FramesType): number | null {
   const fd = frames[frame];
   if (!fd) return null;
   const post = fd.players[attackerIndex]?.post;
@@ -101,9 +92,7 @@ function detectUniversalHighlights(
   const highlights: GameHighlight[] = [];
 
   // Filter to conversions this player landed (opponent is victim)
-  const myConversions = conversions.filter(
-    (c) => c.playerIndex === opponentIndex && c.moves.length > 0,
-  );
+  const myConversions = conversions.filter((c) => c.playerIndex === opponentIndex && c.moves.length > 0);
 
   for (const conv of myConversions) {
     const damage = convDamage(conv);
@@ -186,10 +175,7 @@ function detectUniversalHighlights(
 
 // ── Game-result highlights ──────────────────────────────────────────
 
-function detectGameResultHighlights(
-  gameSummary: GameSummary,
-  playerIndex: number,
-): GameHighlight[] {
+function detectGameResultHighlights(gameSummary: GameSummary, playerIndex: number): GameHighlight[] {
   const highlights: GameHighlight[] = [];
   const player = gameSummary.players[playerIndex]!;
   const opponentIdx = playerIndex === 0 ? 1 : 0;
@@ -220,11 +206,7 @@ function detectGameResultHighlights(
   }
 
   // JV4: won with 4 stocks and 0%
-  if (
-    playerStocksLeft === 4 &&
-    opponentStocksLeft === 0 &&
-    gameSummary.result.finalPercents[playerIndex] === 0
-  ) {
+  if (playerStocksLeft === 4 && opponentStocksLeft === 0 && gameSummary.result.finalPercents[playerIndex] === 0) {
     // Upgrade from 4-stock to JV5 (melee players call a 4-stock with 0% a "JV5")
     const existing = highlights.find((h) => h.type === "four-stock");
     if (existing) {
@@ -235,11 +217,7 @@ function detectGameResultHighlights(
   }
 
   // JV4: won with 3 stocks and 0% (took 1 stock but at 0%)
-  if (
-    playerStocksLeft === 3 &&
-    opponentStocksLeft === 0 &&
-    gameSummary.result.finalPercents[playerIndex] === 0
-  ) {
+  if (playerStocksLeft === 3 && opponentStocksLeft === 0 && gameSummary.result.finalPercents[playerIndex] === 0) {
     highlights.push({
       type: "jv4",
       label: "JV4",
@@ -293,9 +271,7 @@ function detectCharacterHighlights(
 ): GameHighlight[] {
   const highlights: GameHighlight[] = [];
 
-  const myConversions = conversions.filter(
-    (c) => c.playerIndex === opponentIndex && c.moves.length > 0,
-  );
+  const myConversions = conversions.filter((c) => c.playerIndex === opponentIndex && c.moves.length > 0);
 
   for (const conv of myConversions) {
     const { moves } = conv;
@@ -410,10 +386,7 @@ function detectCharacterHighlights(
               const victimPost = fd?.players[opponentIndex]?.post;
               if (victimPost) {
                 const bounds = stageBounds(stageId);
-                if (
-                  Math.abs(victimPost.positionX ?? 0) > bounds.x ||
-                  (victimPost.positionY ?? 0) < bounds.yMin
-                ) {
+                if (Math.abs(victimPost.positionX ?? 0) > bounds.x || (victimPost.positionY ?? 0) < bounds.yMin) {
                   highlights.push({
                     ...base,
                     type: "shine-spike",
@@ -456,8 +429,7 @@ function detectCharacterHighlights(
         if (conv.didKill && moves.some((m) => m.moveId === MOVE_DOWN_B)) {
           // Find what move preceded rest
           const restIdx = moves.findIndex((m) => m.moveId === MOVE_DOWN_B);
-          const setup =
-            restIdx > 0 ? moveName(moves[restIdx - 1]!.moveId) : "raw";
+          const setup = restIdx > 0 ? moveName(moves[restIdx - 1]!.moveId) : "raw";
           highlights.push({
             ...base,
             type: "rest-kill",
@@ -535,11 +507,7 @@ function detectCharacterHighlights(
       case "Ganon":
       case "Ganondorf": {
         // Stomp kill (dair)
-        if (
-          conv.didKill &&
-          moves.length > 0 &&
-          moves[moves.length - 1]!.moveId === MOVE_DAIR
-        ) {
+        if (conv.didKill && moves.length > 0 && moves[moves.length - 1]!.moveId === MOVE_DAIR) {
           highlights.push({
             ...base,
             type: "ganon-stomp",
@@ -548,10 +516,7 @@ function detectCharacterHighlights(
           });
         }
         // Side-B kill (Gerudo Dragon / Flame Choke)
-        if (
-          conv.didKill &&
-          moves.some((m) => m.moveId === MOVE_SIDE_B)
-        ) {
+        if (conv.didKill && moves.some((m) => m.moveId === MOVE_SIDE_B)) {
           highlights.push({
             ...base,
             type: "ganoncide",
@@ -564,11 +529,7 @@ function detectCharacterHighlights(
 
       case "Luigi": {
         // Shoryuken kill (up-B kill)
-        if (
-          conv.didKill &&
-          moves.length > 0 &&
-          moves[moves.length - 1]!.moveId === MOVE_UP_B
-        ) {
+        if (conv.didKill && moves.length > 0 && moves[moves.length - 1]!.moveId === MOVE_UP_B) {
           highlights.push({
             ...base,
             type: "shoryuken",
@@ -598,10 +559,7 @@ function detectCharacterHighlights(
       case "G&W":
       case "Mr. Game & Watch": {
         // Judgement kill (side-B / hammer)
-        if (
-          conv.didKill &&
-          moves.some((m) => m.moveId === MOVE_SIDE_B)
-        ) {
+        if (conv.didKill && moves.some((m) => m.moveId === MOVE_SIDE_B)) {
           highlights.push({
             ...base,
             type: "judgement-kill",
@@ -656,9 +614,7 @@ export function detectHighlights(
   );
 
   // Game result highlights (4-stock, JV4/JV5, comeback)
-  highlights.push(
-    ...detectGameResultHighlights(gameSummary, targetPlayerIndex),
-  );
+  highlights.push(...detectGameResultHighlights(gameSummary, targetPlayerIndex));
 
   // Character-specific highlights
   highlights.push(

@@ -33,12 +33,7 @@ export interface DetectedSet {
 // ── Lightweight metadata scan ────────────────────────────────────────
 
 function getTag(player: PlayerType): string {
-  return (
-    player.displayName ||
-    player.nametag ||
-    player.connectCode ||
-    `P${player.port}`
-  );
+  return player.displayName || player.nametag || player.connectCode || `P${player.port}`;
 }
 
 function scanGame(filePath: string): GameMeta | null {
@@ -70,14 +65,8 @@ function scanGame(filePath: string): GameMeta | null {
       }
     }
 
-    const winnerIdx =
-      winners.length > 0 ? winners[0]!.playerIndex : null;
-    const winner =
-      winnerIdx === p0.playerIndex
-        ? getTag(p0)
-        : winnerIdx === p1.playerIndex
-          ? getTag(p1)
-          : null;
+    const winnerIdx = winners.length > 0 ? winners[0]!.playerIndex : null;
+    const winner = winnerIdx === p0.playerIndex ? getTag(p0) : winnerIdx === p1.playerIndex ? getTag(p1) : null;
 
     return {
       filePath,

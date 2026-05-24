@@ -23,8 +23,16 @@ export function injectTimestampLinks(text: string): string {
   return text.replace(/\[(\d{1,2}:\d{2})\]/g, "`ts:$1`");
 }
 
-/** Create react-markdown components that render timestamp code spans as clickable buttons */
-export function makeTimestampComponents(replayPath: string, totalFrames?: number): Components {
+/**
+ * Create react-markdown components that render timestamp code spans as clickable buttons.
+ *
+ * When `onSeek` is provided, clicks call it instead of opening the global ReplayPlayer.
+ * Used by GameTheater to route timestamp clicks to its inline embed.
+ */
+export function makeTimestampComponents(
+  replayPath: string,
+  onSeek?: (frame: number) => void,
+): Components {
   return {
     code: ({ children }) => {
       const text = String(children);
@@ -35,7 +43,11 @@ export function makeTimestampComponents(replayPath: string, totalFrames?: number
         const handleClick = (e: React.MouseEvent | React.KeyboardEvent) => {
           e.preventDefault();
           e.stopPropagation();
-          useReplayPlayerStore.getState().openPlayer(replayPath, frame, undefined, undefined, totalFrames);
+          if (onSeek) {
+            onSeek(frame);
+          } else {
+            useReplayPlayerStore.getState().openPlayer(replayPath, frame, undefined, undefined);
+          }
         };
         return (
           <span

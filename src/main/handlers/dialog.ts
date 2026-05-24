@@ -10,7 +10,7 @@ export function registerDialogHandlers(safeHandle: SafeHandleFn): void {
       properties: ["openDirectory"],
       title: "Select Slippi Replay Folder",
     });
-    return result.canceled ? null : result.filePaths[0] ?? null;
+    return result.canceled ? null : (result.filePaths[0] ?? null);
   });
 
   safeHandle("dialog:openFile", async (_e, title: string, filters: { name: string; extensions: string[] }[]) => {
@@ -21,6 +21,6 @@ export function registerDialogHandlers(safeHandle: SafeHandleFn): void {
       title,
       filters,
     });
-    return result.canceled ? null : result.filePaths[0] ?? null;
+    return result.canceled ? null : (result.filePaths[0] ?? null);
   });
 }

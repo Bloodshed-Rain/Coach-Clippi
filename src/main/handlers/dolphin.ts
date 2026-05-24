@@ -12,34 +12,42 @@ function launchDolphin(replayPath: string, startFrame?: number): true {
   if (!dolphinPath) {
     const { execSync } = require("child_process") as typeof import("child_process");
     const home = require("os").homedir();
-    const candidates = process.platform === "linux"
-      ? [
-          // Slippi Launcher standard paths (most common)
-          path.join(home, ".config/Slippi Launcher/playback/Slippi_Playback-x86_64.AppImage"),
-          path.join(home, ".config/Slippi Launcher/netplay/Slippi_Online-x86_64.AppImage"),
-          // Flatpak / system installs
-          "/usr/bin/slippi-dolphin",
-          "/usr/local/bin/slippi-dolphin",
-          path.join(home, "Slippi-Dolphin/squashfs-root/usr/bin/dolphin-emu"),
-          path.join(home, ".local/bin/slippi-dolphin"),
-        ]
-      : process.platform === "darwin"
+    const candidates =
+      process.platform === "linux"
         ? [
-            "/Applications/Slippi Dolphin.app/Contents/MacOS/Slippi Dolphin",
-            path.join(home, "Applications/Slippi Dolphin.app/Contents/MacOS/Slippi Dolphin"),
-            path.join(home, "Library/Application Support/Slippi Launcher/playback/Slippi Dolphin.app/Contents/MacOS/Slippi Dolphin"),
+            // Slippi Launcher standard paths (most common)
+            path.join(home, ".config/Slippi Launcher/playback/Slippi_Playback-x86_64.AppImage"),
+            path.join(home, ".config/Slippi Launcher/netplay/Slippi_Online-x86_64.AppImage"),
+            // Flatpak / system installs
+            "/usr/bin/slippi-dolphin",
+            "/usr/local/bin/slippi-dolphin",
+            path.join(home, "Slippi-Dolphin/squashfs-root/usr/bin/dolphin-emu"),
+            path.join(home, ".local/bin/slippi-dolphin"),
           ]
-        : [
-            path.join(home, "AppData", "Roaming", "Slippi Launcher", "playback", "Slippi Dolphin.exe"),
-            "C:\\Program Files\\Slippi Dolphin\\Slippi Dolphin.exe",
-          ];
+        : process.platform === "darwin"
+          ? [
+              "/Applications/Slippi Dolphin.app/Contents/MacOS/Slippi Dolphin",
+              path.join(home, "Applications/Slippi Dolphin.app/Contents/MacOS/Slippi Dolphin"),
+              path.join(
+                home,
+                "Library/Application Support/Slippi Launcher/playback/Slippi Dolphin.app/Contents/MacOS/Slippi Dolphin",
+              ),
+            ]
+          : [
+              path.join(home, "AppData", "Roaming", "Slippi Launcher", "playback", "Slippi Dolphin.exe"),
+              "C:\\Program Files\\Slippi Dolphin\\Slippi Dolphin.exe",
+            ];
 
     // Also try `which` on unix
     if (process.platform !== "win32") {
       try {
-        const found = execSync("which slippi-dolphin 2>/dev/null || which dolphin-emu 2>/dev/null", { encoding: "utf-8" }).trim();
+        const found = execSync("which slippi-dolphin 2>/dev/null || which dolphin-emu 2>/dev/null", {
+          encoding: "utf-8",
+        }).trim();
         if (found) candidates.unshift(found);
-      } catch { /* not found */ }
+      } catch {
+        /* not found */
+      }
     }
 
     for (const candidate of candidates) {
@@ -51,15 +59,11 @@ function launchDolphin(replayPath: string, startFrame?: number): true {
   }
 
   if (!dolphinPath) {
-    throw new Error(
-      "Slippi Dolphin not found. Set the Dolphin path in Settings."
-    );
+    throw new Error("Slippi Dolphin not found. Set the Dolphin path in Settings.");
   }
 
   if (!fs.existsSync(dolphinPath)) {
-    throw new Error(
-      `Dolphin not found at: ${dolphinPath}. Update the path in Settings.`
-    );
+    throw new Error(`Dolphin not found at: ${dolphinPath}. Update the path in Settings.`);
   }
 
   if (!fs.existsSync(safeReplayPath)) {
@@ -110,23 +114,27 @@ function launchDolphin(replayPath: string, startFrame?: number): true {
   }
 
   // Fall back to Slippi Launcher settings
-  if (!isoPath) try {
-    const slippiSettingsCandidates = process.platform === "darwin"
-      ? [path.join(home, "Library/Application Support/Slippi Launcher/Settings")]
-      : process.platform === "win32"
-        ? [path.join(home, "AppData/Roaming/Slippi Launcher/Settings")]
-        : [path.join(home, ".config/Slippi Launcher/Settings")];
+  if (!isoPath)
+    try {
+      const slippiSettingsCandidates =
+        process.platform === "darwin"
+          ? [path.join(home, "Library/Application Support/Slippi Launcher/Settings")]
+          : process.platform === "win32"
+            ? [path.join(home, "AppData/Roaming/Slippi Launcher/Settings")]
+            : [path.join(home, ".config/Slippi Launcher/Settings")];
 
-    for (const slippiSettingsPath of slippiSettingsCandidates) {
-      if (fs.existsSync(slippiSettingsPath)) {
-        const slippiSettings = JSON.parse(fs.readFileSync(slippiSettingsPath, "utf-8"));
-        if (slippiSettings?.settings?.isoPath && fs.existsSync(slippiSettings.settings.isoPath)) {
-          isoPath = slippiSettings.settings.isoPath;
-          break;
+      for (const slippiSettingsPath of slippiSettingsCandidates) {
+        if (fs.existsSync(slippiSettingsPath)) {
+          const slippiSettings = JSON.parse(fs.readFileSync(slippiSettingsPath, "utf-8"));
+          if (slippiSettings?.settings?.isoPath && fs.existsSync(slippiSettings.settings.isoPath)) {
+            isoPath = slippiSettings.settings.isoPath;
+            break;
+          }
         }
       }
+    } catch {
+      /* ignore parse errors */
     }
-  } catch { /* ignore parse errors */ }
 
   if (!isoPath) {
     throw new Error("Melee ISO not found. Set your Melee ISO path in MAGI Settings (Slippi Dolphin section).");
@@ -146,7 +154,9 @@ function launchDolphin(replayPath: string, startFrame?: number): true {
 
   // Log any Dolphin errors
   let stderrData = "";
-  child.stderr?.on("data", (chunk: Buffer) => { stderrData += chunk.toString(); });
+  child.stderr?.on("data", (chunk: Buffer) => {
+    stderrData += chunk.toString();
+  });
   child.on("exit", (code) => {
     if (code !== 0 && stderrData) {
       console.error("[MAGI] Dolphin exited with code", code, "stderr:", stderrData);

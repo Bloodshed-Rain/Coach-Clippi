@@ -6,7 +6,7 @@ import {
   ChevronsUp,
   AlertTriangle,
   Layers,
-  Infinity,
+  Infinity as InfinityIcon,
   Zap,
   Shield,
   BarChart3,
@@ -31,7 +31,7 @@ const SECTION_ICONS: Record<SectionType, LucideIcon> = {
   highlights: ChevronsUp,
   lowlights: AlertTriangle,
   improvement: Layers,
-  neutral: Infinity,
+  neutral: InfinityIcon,
   punish: Zap,
   defense: Shield,
   "shield-pressure": Layers,
@@ -86,11 +86,7 @@ function CoachingCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.05, 0.3), duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
     >
-      <button
-        className="cc-card-header"
-        onClick={() => setExpanded((e) => !e)}
-        aria-expanded={expanded}
-      >
+      <button className="cc-card-header" onClick={() => setExpanded((e) => !e)} aria-expanded={expanded}>
         <div className="cc-card-icon">
           <SectionIcon type={section.type} />
         </div>
@@ -108,11 +104,7 @@ function CoachingCard({
       </button>
 
       {/* Collapsed summary */}
-      {!expanded && (
-        <div className="cc-card-summary">
-          {summary}
-        </div>
-      )}
+      {!expanded && <div className="cc-card-summary">{summary}</div>}
 
       {/* Expanded body */}
       <AnimatePresence initial={false}>
@@ -145,10 +137,7 @@ export interface CoachingCardsProps {
 }
 
 export function CoachingCards({ text, isStreaming, markdownComponents }: CoachingCardsProps) {
-  const sections = useMemo(
-    () => parseCoachingSections(text, isStreaming),
-    [text, isStreaming],
-  );
+  const sections = useMemo(() => parseCoachingSections(text, isStreaming), [text, isStreaming]);
 
   if (sections.length === 0 && !isStreaming) return null;
 

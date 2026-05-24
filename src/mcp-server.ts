@@ -1,9 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  ListToolsRequestSchema,
-  CallToolRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 import {
   getDb,
@@ -134,7 +131,8 @@ const TOOLS = [
   },
   {
     name: "magi_db_query",
-    description: "Run a read-only SQL SELECT query against the MAGI SQLite database. Only SELECT statements are allowed.",
+    description:
+      "Run a read-only SQL SELECT query against the MAGI SQLite database. Only SELECT statements are allowed.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -289,10 +287,7 @@ function handleTool(name: string, args: Args) {
 
 // ── Server setup ────────────────────────────────────────────────────
 
-const server = new Server(
-  { name: "magi-melee", version: "1.0.0" },
-  { capabilities: { tools: {} } },
-);
+const server = new Server({ name: "magi-melee", version: "1.0.0" }, { capabilities: { tools: {} } });
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools: [...TOOLS] };

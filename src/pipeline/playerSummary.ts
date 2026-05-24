@@ -11,15 +11,33 @@ import {
 
 import type { PlayerSummary, KenComboStats, TurnipPullStats } from "./types.js";
 import {
-  getPlayerTag, getCharacterName, getMoveName, ratio, framesToSeconds,
-  frameToTimestamp, isAirborne, isOnLedge, isOnPlatform, isOffstage,
-  isDashDancing, stageBounds, moveIdToName,
-  GUARD_ON, GUARD, GUARD_SET_OFF, GUARD_REFLECT,
-  SHIELD_BREAK_FLY, FULL_SHIELD_SIZE, SHIELD_POKE_THRESHOLD,
+  getPlayerTag,
+  getCharacterName,
+  getMoveName,
+  ratio,
+  framesToSeconds,
+  frameToTimestamp,
+  isAirborne,
+  isOnLedge,
+  isOnPlatform,
+  isOffstage,
+  isDashDancing,
+  stageBounds,
+  moveIdToName,
+  GUARD_ON,
+  GUARD,
+  GUARD_SET_OFF,
+  GUARD_REFLECT,
+  SHIELD_BREAK_FLY,
+  FULL_SHIELD_SIZE,
+  SHIELD_POKE_THRESHOLD,
 } from "./helpers.js";
 import { detectSignatureStats } from "./signatureStats.js";
 import {
-  getCharacterData, computeComboDIScore, computeSurvivalDIScore, getComboGameStrength,
+  getCharacterData,
+  computeComboDIScore,
+  computeSurvivalDIScore,
+  getComboGameStrength,
 } from "./characterData.js";
 
 // ── Ken combo detection (Marth only) ─────────────────────────────────
@@ -45,12 +63,8 @@ export function detectKenCombos(
 
     // Ken combo: at least one fair, ending with dair
     if (hasFair && lastMoveId === DAIR_MOVE_ID) {
-      const moveNames = conv.moves.map(
-        (m) => moveIdToName[m.moveId] ?? getMoveName(m.moveId),
-      );
-      const totalDamage = Math.round(
-        (conv.endPercent ?? conv.currentPercent) - conv.startPercent,
-      );
+      const moveNames = conv.moves.map((m) => moveIdToName[m.moveId] ?? getMoveName(m.moveId));
+      const totalDamage = Math.round((conv.endPercent ?? conv.currentPercent) - conv.startPercent);
 
       combos.push({
         moves: moveNames,
@@ -122,14 +136,9 @@ export function buildPlayerSummary(
   // are conversions where the opponent is the victim (playerIndex !== me).
   const openingsPerKill = overall.openingsPerKill.ratio ?? 0;
   const totalOpenings = overall.openingsPerKill.count; // openings I created
-  const myConversions = conversions.filter(
-    (c) => c.playerIndex !== playerIndex,
-  );
+  const myConversions = conversions.filter((c) => c.playerIndex !== playerIndex);
   const totalConversions = overall.successfulConversions.count;
-  const conversionRate = ratio(
-    totalConversions,
-    overall.successfulConversions.total,
-  );
+  const conversionRate = ratio(totalConversions, overall.successfulConversions.total);
   const averageDamagePerOpening = overall.damagePerOpening.ratio ?? 0;
   const killConversions = myConversions.filter((c) => c.didKill).length;
 
@@ -183,7 +192,12 @@ export function buildPlayerSummary(
     }
     // Physical powershield: transition into GuardSetOff (181) within the 2-frame window
     // Melee's physical powershield window is frames 1-2 of shield activation
-    if (actionState === GUARD_SET_OFF && prevActionState !== GUARD_SET_OFF && shieldFrameCount > 0 && shieldFrameCount <= 2) {
+    if (
+      actionState === GUARD_SET_OFF &&
+      prevActionState !== GUARD_SET_OFF &&
+      shieldFrameCount > 0 &&
+      shieldFrameCount <= 2
+    ) {
       powerShieldCount++;
     }
     // Track total frames in shield (GuardOn or Guard)
@@ -282,8 +296,7 @@ export function buildPlayerSummary(
   const avgX = playableFrames > 0 ? totalX / playableFrames : 0;
   // Normalize to roughly -1..1 (divide by typical stage half-width)
   const bounds = stageBounds(stageId);
-  const normalizedX =
-    Math.round((avgX / bounds.x) * 10000) / 10000;
+  const normalizedX = Math.round((avgX / bounds.x) * 10000) / 10000;
 
   // Defense & recovery
   const totalDamageTaken = playerStocks.reduce((sum, s) => {
@@ -307,10 +320,7 @@ export function buildPlayerSummary(
   );
   const avgDeathPercent =
     deaths.length > 0
-      ? Math.round(
-          deaths.reduce((s, st) => s + (st.endPercent ?? st.currentPercent), 0) /
-            deaths.length,
-        )
+      ? Math.round(deaths.reduce((s, st) => s + (st.endPercent ?? st.currentPercent), 0) / deaths.length)
       : 0;
 
   // Recovery: count times player was knocked into a recovery situation.
@@ -417,8 +427,7 @@ export function buildPlayerSummary(
   const edgeguardSuccessRate = ratio(edgeguardKills, edgeguardAttempts);
 
   // L-cancel rate
-  const lTotal =
-    actionCounts.lCancelCount.success + actionCounts.lCancelCount.fail;
+  const lTotal = actionCounts.lCancelCount.success + actionCounts.lCancelCount.fail;
   const lCancelRate = ratio(actionCounts.lCancelCount.success, lTotal);
 
   // Move usage — build from attack counts + conversion move data
@@ -453,8 +462,7 @@ export function buildPlayerSummary(
   }
 
   // Add grabs
-  const totalGrabs =
-    actionCounts.grabCount.success + actionCounts.grabCount.fail;
+  const totalGrabs = actionCounts.grabCount.success + actionCounts.grabCount.fail;
   if (totalGrabs > 0) {
     moveUsageMap.set("grab", {
       count: totalGrabs,
@@ -507,20 +515,14 @@ export function buildPlayerSummary(
     }
 
     // Detect death: deathAnimation is sometimes 0 even for real deaths
-    const died =
-      (stock.deathAnimation != null && stock.deathAnimation !== 0) ||
-      killingConversion != null;
-    const percentLost = died
-      ? (stock.endPercent ?? stock.currentPercent)
-      : stock.currentPercent;
+    const died = (stock.deathAnimation != null && stock.deathAnimation !== 0) || killingConversion != null;
+    const percentLost = died ? (stock.endPercent ?? stock.currentPercent) : stock.currentPercent;
 
     let killMove: string | null = null;
     if (died) {
       if (killingConversion && killingConversion.moves.length > 0) {
-        const lastMove =
-          killingConversion.moves[killingConversion.moves.length - 1]!;
-        killMove =
-          moveIdToName[lastMove.moveId] ?? getMoveName(lastMove.moveId);
+        const lastMove = killingConversion.moves[killingConversion.moves.length - 1]!;
+        killMove = moveIdToName[lastMove.moveId] ?? getMoveName(lastMove.moveId);
       }
     }
 
@@ -531,21 +533,13 @@ export function buildPlayerSummary(
 
     // Openings given = conversions where THIS player is victim during this stock
     const openingsGiven = allConversions.filter(
-      (c) =>
-        c.playerIndex === playerIndex &&
-        c.startFrame >= startF &&
-        c.startFrame <= endF,
+      (c) => c.playerIndex === playerIndex && c.startFrame >= startF && c.startFrame <= endF,
     ).length;
 
     // Damage dealt = conversions where OPPONENT is victim during this stock
     const damageDealt = myConversions
-      .filter(
-        (c) => c.startFrame >= startF && c.startFrame <= endF,
-      )
-      .reduce(
-        (sum, c) => sum + ((c.endPercent ?? c.currentPercent) - c.startPercent),
-        0,
-      );
+      .filter((c) => c.startFrame >= startF && c.startFrame <= endF)
+      .reduce((sum, c) => sum + ((c.endPercent ?? c.currentPercent) - c.startPercent), 0);
 
     return {
       stockNumber: stockNum,
@@ -633,9 +627,8 @@ export function buildPlayerSummary(
   // ── Shield pressure stats ──────────────────────────────────────────
   const shieldPressure = {
     sequenceCount: shieldPressureSequences,
-    avgShieldDamage: shieldPressureSequences > 0
-      ? Math.round((totalShieldDamageDealt / shieldPressureSequences) * 100) / 100
-      : 0,
+    avgShieldDamage:
+      shieldPressureSequences > 0 ? Math.round((totalShieldDamageDealt / shieldPressureSequences) * 100) / 100 : 0,
     shieldBreaks,
     shieldPokeRate: totalShieldHits > 0 ? ratio(shieldPokeHits, totalShieldHits) : 0,
   };
@@ -644,25 +637,21 @@ export function buildPlayerSummary(
   // conversion.playerIndex = VICTIM. So:
   //   conversions where I am the victim: c.playerIndex === playerIndex
   //   conversions where opponent is the victim: c.playerIndex !== playerIndex (= myConversions)
-  const conversionsReceived = allConversions.filter(
-    (c) => c.playerIndex === playerIndex && c.moves.length > 0,
-  );
-  const avgComboLengthReceived = conversionsReceived.length > 0
-    ? Math.round(
-        (conversionsReceived.reduce((sum, c) => sum + c.moves.length, 0) /
-          conversionsReceived.length) *
-          100,
-      ) / 100
-    : 0;
+  const conversionsReceived = allConversions.filter((c) => c.playerIndex === playerIndex && c.moves.length > 0);
+  const avgComboLengthReceived =
+    conversionsReceived.length > 0
+      ? Math.round(
+          (conversionsReceived.reduce((sum, c) => sum + c.moves.length, 0) / conversionsReceived.length) * 100,
+        ) / 100
+      : 0;
 
   const myConversionsWithMoves = myConversions.filter((c) => c.moves.length > 0);
-  const avgComboLengthDealt = myConversionsWithMoves.length > 0
-    ? Math.round(
-        (myConversionsWithMoves.reduce((sum, c) => sum + c.moves.length, 0) /
-          myConversionsWithMoves.length) *
-          100,
-      ) / 100
-    : 0;
+  const avgComboLengthDealt =
+    myConversionsWithMoves.length > 0
+      ? Math.round(
+          (myConversionsWithMoves.reduce((sum, c) => sum + c.moves.length, 0) / myConversionsWithMoves.length) * 100,
+        ) / 100
+      : 0;
 
   // Character-aware DI scoring using physics data and opponent combo strength
   const opponentCharacter = getCharacterName(opponentCharacterId);

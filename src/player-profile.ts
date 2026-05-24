@@ -75,10 +75,7 @@ function ratio(a: number, b: number): number {
   return b === 0 ? 0 : Math.round((a / b) * 10000) / 10000;
 }
 
-export function buildPlayerProfile(
-  directory: string,
-  playerTag: string,
-): PlayerProfile {
+export function buildPlayerProfile(directory: string, playerTag: string): PlayerProfile {
   const sets = detectSets(directory);
 
   // Filter to sets involving this player
@@ -86,10 +83,7 @@ export function buildPlayerProfile(
     (s) =>
       s.players[0] === playerTag ||
       s.players[1] === playerTag ||
-      s.games.some(
-        (g) =>
-          g.players[0].tag === playerTag || g.players[1].tag === playerTag,
-      ),
+      s.games.some((g) => g.players[0].tag === playerTag || g.players[1].tag === playerTag),
   );
 
   const trends: PerformanceTrend[] = [];
@@ -121,8 +115,7 @@ export function buildPlayerProfile(
 
   for (const set of playerSets) {
     // Determine opponent tag
-    const opponentTag =
-      set.players[0] === playerTag ? set.players[1] : set.players[0];
+    const opponentTag = set.players[0] === playerTag ? set.players[1] : set.players[0];
 
     // Track set record
     let setPlayerWins = 0;
@@ -132,20 +125,14 @@ export function buildPlayerProfile(
       const gameMeta = set.games[i]!;
 
       // Find player index in this game
-      const pIdx =
-        gameMeta.players[0].tag === playerTag ? 0 : 1;
+      const pIdx = gameMeta.players[0].tag === playerTag ? 0 : 1;
       const oIdx = pIdx === 0 ? 1 : 0;
 
       const myChar = gameMeta.players[pIdx].character;
       const oppChar = gameMeta.players[oIdx].character;
 
       // Win/loss
-      const won =
-        gameMeta.winner === playerTag
-          ? true
-          : gameMeta.winner === null
-            ? null
-            : false;
+      const won = gameMeta.winner === playerTag ? true : gameMeta.winner === null ? null : false;
 
       if (won === true) {
         totalWins++;
@@ -185,9 +172,7 @@ export function buildPlayerProfile(
       const insights = result.derivedInsights[playerIdx];
 
       // Performance trend
-      const date = gameMeta.startAt
-        ? gameMeta.startAt.toISOString().slice(0, 10)
-        : "unknown";
+      const date = gameMeta.startAt ? gameMeta.startAt.toISOString().slice(0, 10) : "unknown";
 
       trends.push({
         date,
@@ -265,13 +250,9 @@ export function buildPlayerProfile(
   }
 
   // Build sorted outputs
-  const characters = [...charMap.values()].sort(
-    (a, b) => b.gamesPlayed - a.gamesPlayed,
-  );
+  const characters = [...charMap.values()].sort((a, b) => b.gamesPlayed - a.gamesPlayed);
 
-  const matchups = [...matchupMap.values()].sort(
-    (a, b) => b.games - a.games,
-  );
+  const matchups = [...matchupMap.values()].sort((a, b) => b.games - a.games);
 
   const toHabitList = (m: Map<string, number>): HabitAggregate[] =>
     [...m.entries()]
@@ -319,8 +300,12 @@ export function buildPlayerProfile(
 function printProfile(profile: PlayerProfile): void {
   const p = profile;
   console.log(`\n=== Player Profile: ${p.tag} ===\n`);
-  console.log(`Games: ${p.totalGames} (${p.overallRecord.wins}W-${p.overallRecord.losses}L${p.overallRecord.incomplete > 0 ? `-${p.overallRecord.incomplete}Inc` : ""})`);
-  console.log(`Sets:  ${p.totalSets} (${p.setRecord.wins}W-${p.setRecord.losses}L${p.setRecord.splits > 0 ? `-${p.setRecord.splits}Split` : ""})`);
+  console.log(
+    `Games: ${p.totalGames} (${p.overallRecord.wins}W-${p.overallRecord.losses}L${p.overallRecord.incomplete > 0 ? `-${p.overallRecord.incomplete}Inc` : ""})`,
+  );
+  console.log(
+    `Sets:  ${p.totalSets} (${p.setRecord.wins}W-${p.setRecord.losses}L${p.setRecord.splits > 0 ? `-${p.setRecord.splits}Split` : ""})`,
+  );
 
   console.log(`\n--- Characters ---`);
   for (const c of p.characters) {
@@ -339,7 +324,9 @@ function printProfile(profile: PlayerProfile): void {
 
   console.log(`\n--- Top Moves ---`);
   for (const m of p.topMoves.slice(0, 10)) {
-    console.log(`  ${m.move.padEnd(14)} ${String(m.totalCount).padStart(4)}x   hit rate: ${(m.avgHitRate * 100).toFixed(1)}%`);
+    console.log(
+      `  ${m.move.padEnd(14)} ${String(m.totalCount).padStart(4)}x   hit rate: ${(m.avgHitRate * 100).toFixed(1)}%`,
+    );
   }
 
   console.log(`\n--- Habits (all games) ---`);
@@ -362,7 +349,7 @@ function printProfile(profile: PlayerProfile): void {
 
   // Performance trend summary: first week vs last week
   if (p.trends.length >= 4) {
-    const sorted = [...p.trends].filter(t => t.date !== "unknown").sort((a, b) => a.date.localeCompare(b.date));
+    const sorted = [...p.trends].filter((t) => t.date !== "unknown").sort((a, b) => a.date.localeCompare(b.date));
     const half = Math.floor(sorted.length / 2);
     const early = sorted.slice(0, half);
     const late = sorted.slice(half);
@@ -386,12 +373,7 @@ function printProfile(profile: PlayerProfile): void {
       const e = avg(early, fn);
       const l = avg(late, fn);
       const delta = l - e;
-      const arrow =
-        Math.abs(delta) < 0.01
-          ? "→"
-          : (higherBetter ? delta > 0 : delta < 0)
-            ? "↑"
-            : "↓";
+      const arrow = Math.abs(delta) < 0.01 ? "→" : (higherBetter ? delta > 0 : delta < 0) ? "↑" : "↓";
       console.log(`  ${name.padEnd(20)} ${e.toFixed(2)} → ${l.toFixed(2)}  ${arrow}`);
     }
   }

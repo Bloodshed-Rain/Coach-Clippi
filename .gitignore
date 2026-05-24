@@ -169,6 +169,9 @@ build.env
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 
+# Local Superpowers runtime state
+.superpowers/
+
 # Native module rebuilds
 build/
 

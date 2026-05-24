@@ -6,7 +6,7 @@ import { PROVIDERS, type ProviderId } from "./llmProviders";
 const KEY_FLAGS: Record<string, ProviderId> = {
   "--openrouter-key": "openrouter",
   "--gemini-key": "gemini",
-  "--key": "gemini",        // legacy short alias
+  "--key": "gemini", // legacy short alias
   "--anthropic-key": "anthropic",
   "--openai-key": "openai",
 };

@@ -125,7 +125,9 @@ function printSets(): void {
     const total = s.wins + s.losses;
     const date = s.startedAt.split("T")[0];
     const setResult = s.wins > s.losses ? "W" : s.losses > s.wins ? "L" : "T";
-    console.log(`  ${date} vs ${s.opponentTag} (${s.opponentCharacter}): ${s.wins}-${s.losses} [${setResult}] (${total} games)`);
+    console.log(
+      `  ${date} vs ${s.opponentTag} (${s.opponentCharacter}): ${s.wins}-${s.losses} [${setResult}] (${total} games)`,
+    );
   }
   console.log();
 }

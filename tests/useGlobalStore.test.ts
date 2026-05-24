@@ -3,7 +3,7 @@ import { useGlobalStore } from "../src/renderer/stores/useGlobalStore";
 
 describe("useGlobalStore", () => {
   beforeEach(() => {
-    useGlobalStore.setState({ density: "comfortable", colorMode: "liquid" });
+    useGlobalStore.setState({ density: "comfortable", colorMode: "liquid", watcherActive: false, gamesCount: 0 });
   });
 
   it("defaults density to comfortable", () => {
@@ -15,11 +15,11 @@ describe("useGlobalStore", () => {
     expect(useGlobalStore.getState().density).toBe("compact");
   });
 
-  it("drawerGameId defaults to null and can be set/cleared", () => {
-    expect(useGlobalStore.getState().drawerGameId).toBeNull();
-    useGlobalStore.getState().openDrawer(42);
-    expect(useGlobalStore.getState().drawerGameId).toBe(42);
-    useGlobalStore.getState().closeDrawer();
-    expect(useGlobalStore.getState().drawerGameId).toBeNull();
+  it("tracks shell status for the current replay library", () => {
+    useGlobalStore.getState().setWatcherActive(true);
+    useGlobalStore.getState().setGamesCount(42);
+    const state = useGlobalStore.getState();
+    expect(state.watcherActive).toBe(true);
+    expect(state.gamesCount).toBe(42);
   });
 });

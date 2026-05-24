@@ -4,7 +4,7 @@ import { ChevronRight, Zap, UserCircle } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────
 
-type Page = "dashboard" | "sessions" | "library" | "trends" | "characters" | "settings";
+type Page = "dashboard" | "sessions" | "library" | "trends" | "characters" | "practice" | "oracle" | "settings";
 
 interface CommandItem {
   id: string;
@@ -120,10 +120,19 @@ export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
         return;
       }
 
-      // Cmd/Ctrl+1-5 for page navigation (only when palette is NOT open,
+      // Cmd/Ctrl+1-8 for page navigation (only when palette is NOT open,
       // to avoid conflict with typing)
       if (mod && !isOpen) {
-        const pages: Page[] = ["dashboard", "sessions", "trends", "characters", "settings"];
+        const pages: Page[] = [
+          "dashboard",
+          "sessions",
+          "library",
+          "trends",
+          "characters",
+          "practice",
+          "oracle",
+          "settings",
+        ];
         const num = parseInt(e.key, 10);
         if (num >= 1 && num <= pages.length) {
           e.preventDefault();
@@ -195,6 +204,7 @@ export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
         id: "nav-library",
         label: "Library",
         category: "navigate",
+        shortcut: isMac() ? "\u2318 3" : "Ctrl+3",
         icon: <NavIcon />,
         action: () => {
           navigateTo("library");
@@ -216,7 +226,7 @@ export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
         id: "nav-trends",
         label: "Trends",
         category: "navigate",
-        shortcut: isMac() ? "\u2318 3" : "Ctrl+3",
+        shortcut: isMac() ? "\u2318 4" : "Ctrl+4",
         icon: <NavIcon />,
         action: () => {
           navigateTo("trends");
@@ -227,7 +237,7 @@ export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
         id: "nav-characters",
         label: "Characters",
         category: "navigate",
-        shortcut: isMac() ? "\u2318 4" : "Ctrl+4",
+        shortcut: isMac() ? "\u2318 5" : "Ctrl+5",
         icon: <NavIcon />,
         action: () => {
           navigateTo("characters");
@@ -235,10 +245,32 @@ export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
         },
       },
       {
+        id: "nav-practice",
+        label: "Practice",
+        category: "navigate",
+        shortcut: isMac() ? "\u2318 6" : "Ctrl+6",
+        icon: <NavIcon />,
+        action: () => {
+          navigateTo("practice");
+          close();
+        },
+      },
+      {
+        id: "nav-oracle",
+        label: "MAGI Oracle",
+        category: "navigate",
+        shortcut: isMac() ? "\u2318 7" : "Ctrl+7",
+        icon: <NavIcon />,
+        action: () => {
+          navigateTo("oracle");
+          close();
+        },
+      },
+      {
         id: "nav-settings",
         label: "Settings",
         category: "navigate",
-        shortcut: isMac() ? "\u2318 5" : "Ctrl+5",
+        shortcut: isMac() ? "\u2318 8" : "Ctrl+8",
         icon: <NavIcon />,
         action: () => {
           navigateTo("settings");

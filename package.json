@@ -118,6 +118,7 @@
     "clsx": "^2.1.1",
     "electron-updater": "^6.8.3",
     "framer-motion": "^12.38.0",
+    "koffi": "^2.16.2",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

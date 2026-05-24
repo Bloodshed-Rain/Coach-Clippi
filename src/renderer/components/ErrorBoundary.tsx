@@ -26,28 +26,32 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{
-          padding: 40,
-          maxWidth: 600,
-          margin: "80px auto",
-          textAlign: "center",
-          color: "var(--text)",
-        }}>
+        <div
+          style={{
+            padding: 40,
+            maxWidth: 600,
+            margin: "80px auto",
+            textAlign: "center",
+            color: "var(--text)",
+          }}
+        >
           <h2 style={{ marginBottom: 12, color: "var(--red, #C60707)" }}>Something went wrong</h2>
           <p style={{ color: "var(--text-dim)", marginBottom: 16, fontSize: 14 }}>
             MAGI hit an unexpected error. Try reloading the app.
           </p>
-          <pre style={{
-            textAlign: "left",
-            padding: 16,
-            borderRadius: 8,
-            background: "var(--surface-1, #111a16)",
-            border: "1px solid var(--border, #263830)",
-            fontSize: 12,
-            overflow: "auto",
-            maxHeight: 200,
-            color: "var(--text-dim)",
-          }}>
+          <pre
+            style={{
+              textAlign: "left",
+              padding: 16,
+              borderRadius: 8,
+              background: "var(--surface-1, #111a16)",
+              border: "1px solid var(--border, #263830)",
+              fontSize: 12,
+              overflow: "auto",
+              maxHeight: 200,
+              color: "var(--text-dim)",
+            }}
+          >
             {this.state.error?.message ?? "Unknown error"}
           </pre>
           <button

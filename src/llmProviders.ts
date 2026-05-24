@@ -4,15 +4,15 @@
  * can import it without pulling in fs/crypto/etc.
  */
 
-export type ProviderId = "openai" | "openrouter" | "anthropic" | "gemini" | "local";
+export type ProviderId = "openai" | "openrouter" | "anthropic" | "gemini" | "local" | "pollinations";
 
 export interface ProviderInfo {
   id: ProviderId;
   label: string;
-  envVar: string;          // empty for providers that don't take a key
+  envVar: string; // empty for providers that don't take a key
   keyPlaceholder: string;
   signupUrl: string;
-  needsKey: boolean;       // false for "local"
+  needsKey: boolean; // false for "local"
 }
 
 export const PROVIDERS: ProviderInfo[] = [
@@ -54,6 +54,14 @@ export const PROVIDERS: ProviderInfo[] = [
     envVar: "",
     keyPlaceholder: "",
     signupUrl: "",
+    needsKey: false,
+  },
+  {
+    id: "pollinations",
+    label: "Pollinations (Free, No Key Needed)",
+    envVar: "",
+    keyPlaceholder: "",
+    signupUrl: "https://pollinations.ai",
     needsKey: false,
   },
 ];

@@ -1,8 +1,4 @@
-import {
-  SlippiGame,
-  stages as stageUtils,
-  Frames,
-} from "@slippi/slippi-js/node";
+import { SlippiGame, stages as stageUtils, Frames } from "@slippi/slippi-js/node";
 
 import type { GameSummary, DerivedInsights, GameHighlight } from "./types.js";
 import { getPlayerTag, framesToSeconds, endMethodString } from "./helpers.js";
@@ -12,7 +8,10 @@ import { detectHighlights } from "./highlights.js";
 
 // ── Main ──────────────────────────────────────────────────────────────
 
-export function processGame(filePath: string, gameNumber: number): {
+export function processGame(
+  filePath: string,
+  gameNumber: number,
+): {
   gameSummary: GameSummary;
   derivedInsights: [DerivedInsights, DerivedInsights];
   highlights: [GameHighlight[], GameHighlight[]];
@@ -37,21 +36,23 @@ export function processGame(filePath: string, gameNumber: number): {
     gameEnd = game.getGameEnd();
     frames = game.getFrames();
   } catch (err) {
-    throw new Error(`Failed to read replay data from: ${filePath} — ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(
+      `Failed to read replay data from: ${filePath} — ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
   const startAt = metadata?.startAt ?? null;
 
   if (!settings || !stats || !frames) {
-    throw new Error(`Incomplete replay data (missing ${[!settings && "settings", !stats && "stats", !frames && "frames"].filter(Boolean).join(", ")}): ${filePath}`);
+    throw new Error(
+      `Incomplete replay data (missing ${[!settings && "settings", !stats && "stats", !frames && "frames"].filter(Boolean).join(", ")}): ${filePath}`,
+    );
   }
 
   const players = settings.players.filter(
     (p) => p.type !== 3, // Filter out empty slots (type 3 = none)
   );
   if (players.length !== 2) {
-    throw new Error(
-      `Expected 2 players, got ${players.length} in ${filePath}`,
-    );
+    throw new Error(`Expected 2 players, got ${players.length} in ${filePath}`);
   }
 
   const p0 = players[0]!;
@@ -66,26 +67,15 @@ export function processGame(filePath: string, gameNumber: number): {
   // Determine winner
   const winners = game.getWinners();
   const winnerIndex = winners.length > 0 ? winners[0]!.playerIndex : -1;
-  const winnerTag =
-    winnerIndex === p0Index
-      ? getPlayerTag(p0)
-      : winnerIndex === p1Index
-        ? getPlayerTag(p1)
-        : "Unknown";
+  const winnerTag = winnerIndex === p0Index ? getPlayerTag(p0) : winnerIndex === p1Index ? getPlayerTag(p1) : "Unknown";
 
   // Final stocks and percents from last frame
   const lastFrameData = frames[lastFrame];
   const p0Post = lastFrameData?.players[p0Index]?.post;
   const p1Post = lastFrameData?.players[p1Index]?.post;
 
-  const finalStocks: [number, number] = [
-    p0Post?.stocksRemaining ?? 0,
-    p1Post?.stocksRemaining ?? 0,
-  ];
-  const finalPercents: [number, number] = [
-    Math.round(p0Post?.percent ?? 0),
-    Math.round(p1Post?.percent ?? 0),
-  ];
+  const finalStocks: [number, number] = [p0Post?.stocksRemaining ?? 0, p1Post?.stocksRemaining ?? 0];
+  const finalPercents: [number, number] = [Math.round(p0Post?.percent ?? 0), Math.round(p1Post?.percent ?? 0)];
 
   // Find overall stats for each player
   const p0Overall = stats.overall.find((o) => o.playerIndex === p0Index);
@@ -95,12 +85,8 @@ export function processGame(filePath: string, gameNumber: number): {
     throw new Error("Missing overall stats");
   }
 
-  const p0Actions = stats.actionCounts.find(
-    (a) => a.playerIndex === p0Index,
-  );
-  const p1Actions = stats.actionCounts.find(
-    (a) => a.playerIndex === p1Index,
-  );
+  const p0Actions = stats.actionCounts.find((a) => a.playerIndex === p0Index);
+  const p1Actions = stats.actionCounts.find((a) => a.playerIndex === p1Index);
 
   if (!p0Actions || !p1Actions) {
     throw new Error("Missing action counts");
@@ -152,41 +138,11 @@ export function processGame(filePath: string, gameNumber: number): {
     players: [p0Summary, p1Summary],
   };
 
-  const p0Insights = buildDerivedInsights(
-    p0Index,
-    p1Index,
-    stats,
-    frames,
-    lastFrame,
-    stageId,
-  );
-  const p1Insights = buildDerivedInsights(
-    p1Index,
-    p0Index,
-    stats,
-    frames,
-    lastFrame,
-    stageId,
-  );
+  const p0Insights = buildDerivedInsights(p0Index, p1Index, stats, frames, lastFrame, stageId);
+  const p1Insights = buildDerivedInsights(p1Index, p0Index, stats, frames, lastFrame, stageId);
 
-  const p0Highlights = detectHighlights(
-    gameSummary,
-    stats.conversions,
-    frames,
-    stageId,
-    0,
-    p0Index,
-    p1Index,
-  );
-  const p1Highlights = detectHighlights(
-    gameSummary,
-    stats.conversions,
-    frames,
-    stageId,
-    1,
-    p1Index,
-    p0Index,
-  );
+  const p0Highlights = detectHighlights(gameSummary, stats.conversions, frames, stageId, 0, p0Index, p1Index);
+  const p1Highlights = detectHighlights(gameSummary, stats.conversions, frames, stageId, 1, p1Index, p0Index);
 
   return {
     gameSummary,

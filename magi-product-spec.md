@@ -358,7 +358,7 @@ highlights (
 - [x] Onboarding flow for first-time users
 - [x] Cross-platform packaging (Windows, macOS, Linux)
 
-### Phase 4: Full Trend Experience (in progress)
+### Phase 4: Full Trend Experience ✅
 **Goal:** The "keep opening the app" loop.
 
 - [x] Radar chart visualization (6-axis player performance)
@@ -367,20 +367,17 @@ highlights (
 - [x] Highlight detection and display (zero-to-deaths, spikes, JVs)
 - [x] Analysis history with scope filtering (History page)
 - [x] Character signature stat aggregation
-- [ ] Rich trend visualizations (sparklines, heatmaps)
-- [ ] Practice plan tracking with progress indicators
-- [ ] Session-over-session comparisons
+- [x] Practice plan tracking with progress indicators (Practice page)
+- [x] Sparkline trend visualizations (Dashboard, Trends)
 
-### Phase 5: Community & Polish
-**Goal:** Growth and retention features.
+### Phase 5: Polish ✅
+**Goal:** Retention features.
 
-- [ ] Shareable coaching reports (export as image/link)
 - [x] Replay folder auto-watch as background service
 - [x] Opponent scouting (opponent history in Profile page)
 - [x] Local model support (Ollama / LM Studio integration)
 - [x] Theming (light/dark mode, color scheme selection)
-- [ ] Optional: anonymous stat contribution to community benchmarks
-- [ ] Dolphin replay playback integration (partially built)
+- [x] External Dolphin launch from replay buttons and coaching timestamps
 
 ---
 

@@ -13,15 +13,17 @@
   position: relative;
   width: var(--rail-width);
   background: var(--sidebar-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  align-items: center;
   padding: 0;
   -webkit-app-region: drag;
   z-index: 10;
   flex-shrink: 0;
   overflow: visible;
+  transition: width 0.3s var(--ease-spring);
 }
 
 /* ── Navigation — icon-only squares ────────────────────────────── */
@@ -29,9 +31,8 @@
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 6px;
-  padding: 16px 0 12px;
+  padding: 16px 12px 12px;
   flex: 1;
   -webkit-app-region: no-drag;
 }
@@ -40,10 +41,10 @@
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  padding: 0;
+  justify-content: flex-start;
+  width: 100%;
+  height: 44px;
+  padding: 0 16px;
   border: none;
   border-radius: var(--radius-md);
   background: none;
@@ -55,7 +56,7 @@
   transition:
     color 0.15s ease,
     background-color 0.15s ease;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .nav-item:hover {
@@ -86,34 +87,13 @@
   outline-offset: -2px;
 }
 
-/* ── Nav Label — hidden, tooltip on hover ──────────────────────── */
+/* ── Nav Label — Inline now ──────────────────────── */
 
 .nav-label {
-  position: absolute;
-  left: calc(100% + 10px);
-  top: 50%;
-  transform: translateY(-50%) translateX(-4px);
-  background: var(--surface-2);
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 600;
-  font-family: var(--font-sans);
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  margin-left: 12px;
+  font-size: 14px;
+  font-weight: 500;
   white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition:
-    opacity 0.15s ease,
-    transform 0.15s ease;
-  box-shadow: var(--shadow-md);
-  z-index: 99999;
-}
-
-.nav-item:hover .nav-label {
-  opacity: 1;
-  transform: translateY(-50%) translateX(0);
 }
 
 /* ── Nav Icon ──────────────────────────────────────────────────── */
@@ -148,16 +128,25 @@
   transition: background-color 0.15s ease;
 }
 
-/* Subtle dot-grid background texture */
+/* Subtle dot-grid background texture & animated gradient mesh */
 .main-content::before {
   content: "";
   position: fixed;
   inset: 0;
-  background-image: radial-gradient(circle, var(--border-subtle) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background:
+    radial-gradient(circle at 15% 50%, rgba(var(--accent-rgb), 0.05), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(var(--blue-rgb, 99, 102, 241), 0.04), transparent 25%),
+    radial-gradient(circle, var(--border-subtle) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 24px 24px;
   pointer-events: none;
-  opacity: 0.4;
+  opacity: 0.8;
   z-index: 0;
+  animation: meshPan 20s ease-in-out infinite alternate;
+}
+
+@keyframes meshPan {
+  0% { background-position: 0% 0%, 100% 100%, 0 0; }
+  100% { background-position: 10% 10%, 90% 90%, 0 0; }
 }
 .main-content > * {
   position: relative;

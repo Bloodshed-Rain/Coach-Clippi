@@ -47,8 +47,7 @@ export function computeRadarStats(games: RadarGameStats[]): RadarStats {
     return { neutral: 0, punish: 0, techSkill: 0, defense: 0, edgeguard: 0, consistency: 0, mixups: 0, diQuality: 0 };
   }
 
-  const avg = (fn: (g: RadarGameStats) => number) =>
-    games.reduce((s, g) => s + fn(g), 0) / games.length;
+  const avg = (fn: (g: RadarGameStats) => number) => games.reduce((s, g) => s + fn(g), 0) / games.length;
 
   // Neutral: straight win rate
   const neutralWR = avg((g) => g.neutralWinRate);
@@ -88,9 +87,7 @@ export function computeRadarStats(games: RadarGameStats[]): RadarStats {
   const ledgeE = avg((g) => g.ledgeEntropy ?? 0);
   const knockdownE = avg((g) => g.knockdownEntropy ?? 0);
   const shieldE = avg((g) => g.shieldPressureEntropy ?? 0);
-  const mixups = clamp(
-    ((ledgeE / 1.6) * 33 + (knockdownE / 1.4) * 33 + (shieldE / 1.5) * 34),
-  );
+  const mixups = clamp((ledgeE / 1.6) * 33 + (knockdownE / 1.4) * 33 + (shieldE / 1.5) * 34);
 
   // DI Quality: combo DI (50%) + survival DI (50%)
   // Both are 0-1 scores where 0.5 is baseline

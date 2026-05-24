@@ -6,9 +6,13 @@ export { buildDerivedInsights } from "./derivedInsights.js";
 export { computeAdaptationSignals, findPlayerIdx } from "./adaptation.js";
 export { detectHighlights } from "./highlights.js";
 export {
-  assembleUserPrompt, assemblePlayerContext, SYSTEM_PROMPT,
-  assembleAggregatePrompt, SYSTEM_PROMPT_AGGREGATE,
-  assembleDiscoveryPrompt, SYSTEM_PROMPT_DISCOVERY
+  assembleUserPrompt,
+  assemblePlayerContext,
+  SYSTEM_PROMPT,
+  assembleAggregatePrompt,
+  SYSTEM_PROMPT_AGGREGATE,
+  assembleDiscoveryPrompt,
+  SYSTEM_PROMPT_DISCOVERY,
 } from "./prompt.js";
 
 export type {
