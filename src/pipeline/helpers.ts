@@ -6,6 +6,8 @@ import {
   GameEndMethod,
   type GameEndType,
   type PlayerType,
+  type ConversionType,
+  type FramesType,
 } from "@slippi/slippi-js/node";
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -112,6 +114,22 @@ export function isOffstage(posX: number, posY: number, stageId: number): boolean
   // Approximate stage boundaries for legal stages
   const bounds = stageBounds(stageId);
   return Math.abs(posX) > bounds.x || posY < bounds.yMin;
+}
+
+/**
+ * True when a killing conversion's victim was offstage (past the blast zone /
+ * below the ledge) on the conversion's final frame — i.e. a spike/edgeguard-
+ * style finish. The victim is `conv.playerIndex` (slippi-js semantics). Mirrors
+ * the offstage test in `isOffstage()`; used by character signature-stat
+ * spike-kill detection.
+ */
+export function isVictimOffstageAtKill(conv: ConversionType, frames: FramesType, stageId: number): boolean {
+  if (conv.endFrame == null) return false;
+  const fd = frames[conv.endFrame];
+  if (!fd) return false;
+  const victimPost = fd.players[conv.playerIndex]?.post;
+  if (!victimPost) return false;
+  return isOffstage(victimPost.positionX ?? 0, victimPost.positionY ?? 0, stageId);
 }
 
 export function stageBounds(stageId: number): {

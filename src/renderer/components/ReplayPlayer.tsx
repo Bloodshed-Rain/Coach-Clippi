@@ -1,26 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ExternalLink, Play, Pause, RotateCcw, HelpCircle } from "lucide-react";
 import { useReplayPlayerStore } from "../stores/useReplayPlayerStore";
-
-type Bounds = { x: number; y: number; width: number; height: number };
-
-const VK_SPACE = 0x20;
-
-/**
- * Compute the screen-space bounds (in physical pixels, relative to MAGI's
- * top-level HWND client area) that Dolphin should be repositioned into.
- */
-function getStageBounds(el: HTMLElement): Bounds {
-  const r = el.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  return {
-    x: Math.round(r.left * dpr),
-    y: Math.round(r.top * dpr),
-    width: Math.round(r.width * dpr),
-    height: Math.round(r.height * dpr),
-  };
-}
+import { getStageBounds, VK_SPACE } from "../utils/replayEmbed";
 
 export function ReplayPlayer() {
   const open = useReplayPlayerStore((s) => s.open);
@@ -168,6 +150,12 @@ export function ReplayPlayer() {
     };
   }, [open, status, sessionId]);
 
+  const onTogglePause = useCallback(() => {
+    if (!sessionId) return;
+    window.clippi.embedReplaySendKey(sessionId, VK_SPACE);
+    setIsPaused((p) => !p);
+  }, [sessionId]);
+
   // Esc closes / keyboard shortcuts.
   useEffect(() => {
     if (!open) return;
@@ -185,13 +173,7 @@ export function ReplayPlayer() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [open, closePlayer, sessionId, isPaused]);
-
-  const onTogglePause = () => {
-    if (!sessionId) return;
-    window.clippi.embedReplaySendKey(sessionId, VK_SPACE);
-    setIsPaused(!isPaused);
-  };
+  }, [open, closePlayer, onTogglePause]);
 
   const onRestart = () => {
     if (!replayPath) return;

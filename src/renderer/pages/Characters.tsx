@@ -9,7 +9,7 @@ import {
 import { Card } from "../components/ui/Card";
 import { DataTable } from "../components/ui/DataTable";
 import { WinrateBar } from "../components/ui/WinrateBar";
-import { StatGroupCard, type StatItem } from "../components/ui/StatGroupCard";
+import { type StatItem } from "../components/ui/StatGroupCard";
 import { CoachingModal } from "../components/CoachingModal";
 
 // ── Character card art (dynamic, falls back to emoji) ────────────────

@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Play, Pause, RotateCcw, HelpCircle } from "lucide-react";
-
-type Bounds = { x: number; y: number; width: number; height: number };
-
-const VK_SPACE = 0x20;
+import { getStageBounds, VK_SPACE } from "../utils/replayEmbed";
 
 export interface ReplayEmbedProps {
   replayPath: string;
@@ -12,17 +9,6 @@ export interface ReplayEmbedProps {
   reopenKey?: number | undefined;
   /** Called once when the user explicitly closes (Esc). Optional in inline use. */
   onCloseRequest?: (() => void) | undefined;
-}
-
-function getStageBounds(el: HTMLElement): Bounds {
-  const r = el.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  return {
-    x: Math.round(r.left * dpr),
-    y: Math.round(r.top * dpr),
-    width: Math.round(r.width * dpr),
-    height: Math.round(r.height * dpr),
-  };
 }
 
 /**

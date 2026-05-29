@@ -27,17 +27,20 @@ interface RecentGame {
   replayPath: string;
 }
 
-function fmtDelta(d: number, invert = false): { label: string; tone: "good" | "bad" | "neutral" } {
-  if (Math.abs(d) < 0.005) return { label: "—", tone: "neutral" };
+/**
+ * Format a trend delta as an arrow + magnitude with a tone. Rate metrics scale
+ * to percentage points ("pp"); raw metrics (e.g. damage) pass `scale: 1` and an
+ * empty `unit`. `invert` flips which direction counts as an improvement.
+ */
+function fmtDelta(
+  d: number,
+  opts: { invert?: boolean; scale?: number; threshold?: number; unit?: string } = {},
+): { label: string; tone: "good" | "bad" | "neutral" } {
+  const { invert = false, scale = 100, threshold = 0.005, unit = "pp" } = opts;
+  if (Math.abs(d) < threshold) return { label: "—", tone: "neutral" };
   const improving = invert ? d < 0 : d > 0;
-  const mag = (Math.abs(d) * 100).toFixed(1);
-  return { label: `${improving ? "↑" : "↓"} ${mag}pp`, tone: improving ? "good" : "bad" };
-}
-
-function fmtDmgDelta(d: number): { label: string; tone: "good" | "bad" | "neutral" } {
-  if (Math.abs(d) < 0.05) return { label: "—", tone: "neutral" };
-  const improving = d > 0;
-  return { label: `${improving ? "↑" : "↓"} ${Math.abs(d).toFixed(1)}`, tone: improving ? "good" : "bad" };
+  const mag = (Math.abs(d) * scale).toFixed(1);
+  return { label: `${improving ? "↑" : "↓"} ${mag}${unit}`, tone: improving ? "good" : "bad" };
 }
 
 function buildRecentSummary(games: RecentGame[]): string {
@@ -96,7 +99,9 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
   const trends = highlights?.trends;
   const neutralD = trends ? fmtDelta(trends.neutralWinRate) : { label: "—", tone: "neutral" as const };
   const lcancelD = trends ? fmtDelta(trends.lCancelRate) : { label: "—", tone: "neutral" as const };
-  const dmgD = trends ? fmtDmgDelta(trends.avgDamagePerOpening) : { label: "—", tone: "neutral" as const };
+  const dmgD = trends
+    ? fmtDelta(trends.avgDamagePerOpening, { scale: 1, threshold: 0.05, unit: "" })
+    : { label: "—", tone: "neutral" as const };
 
   if (isLoading) {
     return (

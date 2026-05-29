@@ -76,22 +76,6 @@ export function useCountUp(target: number, duration: number = 1000) {
   return value;
 }
 
-/**
- * @deprecated No-op shim kept for backward compatibility during migration.
- * Pages that import this will just get the plain text back immediately.
- * Remove imports as pages are individually rewritten.
- */
-export function useGlitchText(text: string, _durationMs: number = 600, _enabled: boolean = true) {
-  return text;
-}
-
-/**
- * @deprecated No-op shim. Remove imports as pages are rewritten.
- */
-export function useUptime() {
-  return "00:00:00";
-}
-
 /** Format a game timestamp as a short localized date+time, e.g. "Mar 29, 7:30 PM" */
 export function formatGameDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "";

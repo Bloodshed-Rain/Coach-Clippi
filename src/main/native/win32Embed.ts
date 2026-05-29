@@ -46,7 +46,6 @@ const SW_HIDE = 0;
 
 const WM_KEYDOWN = 0x0100;
 const WM_KEYUP = 0x0101;
-const VK_SPACE = 0x20;
 
 // ── Lazy-loaded koffi bindings ────────────────────────────────────────
 

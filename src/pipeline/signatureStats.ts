@@ -1,7 +1,7 @@
 import { State, Frames, type FramesType, type ConversionType } from "@slippi/slippi-js/node";
 
 import type { CharacterSignatureStats, TurnipPullStats, KenComboStats } from "./types.js";
-import { moveIdToName, getMoveName, stageBounds } from "./helpers.js";
+import { moveIdToName, getMoveName, isVictimOffstageAtKill } from "./helpers.js";
 
 // ── Character signature stat detection ────────────────────────────────
 // NOTE: Many of these stats are approximations based on conversion move
@@ -111,23 +111,8 @@ export function detectSignatureStats(
         // Shine spike kills: conversion ending in shine where opponent dies offstage
         if (moves.length > 0) {
           const lastMove = moves[moves.length - 1]!;
-          if (lastMove.moveId === MOVE_DOWN_B && conv.didKill) {
-            const endFrame = conv.endFrame;
-            if (endFrame != null) {
-              const victimIndex = conv.playerIndex;
-              const fd = frames[endFrame];
-              if (fd) {
-                const victimPost = fd.players[victimIndex]?.post;
-                if (victimPost) {
-                  const posX = victimPost.positionX ?? 0;
-                  const posY = victimPost.positionY ?? 0;
-                  const bounds = stageBounds(stageId);
-                  if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
-                    shineSpikeKills++;
-                  }
-                }
-              }
-            }
+          if (lastMove.moveId === MOVE_DOWN_B && conv.didKill && isVictimOffstageAtKill(conv, frames, stageId)) {
+            shineSpikeKills++;
           }
         }
       }
@@ -552,22 +537,8 @@ export function detectSignatureStats(
         const lastMove = moves[moves.length - 1]!;
         if (lastMove.moveId === MOVE_FSMASH && conv.didKill) fsmashKills++;
         if (lastMove.moveId === MOVE_USMASH && conv.didKill) upSmashKills++;
-        if (lastMove.moveId === MOVE_FAIR && conv.didKill) {
-          if (conv.endFrame != null) {
-            const victimIndex = conv.playerIndex;
-            const fd = frames[conv.endFrame];
-            if (fd) {
-              const victimPost = fd.players[victimIndex]?.post;
-              if (victimPost) {
-                const posX = victimPost.positionX ?? 0;
-                const posY = victimPost.positionY ?? 0;
-                const bounds = stageBounds(stageId);
-                if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
-                  fairSpikeKills++;
-                }
-              }
-            }
-          }
+        if (lastMove.moveId === MOVE_FAIR && conv.didKill && isVictimOffstageAtKill(conv, frames, stageId)) {
+          fairSpikeKills++;
         }
       }
 
@@ -599,22 +570,8 @@ export function detectSignatureStats(
         if (lastMove.moveId === MOVE_FSMASH && conv.didKill) fsmashKills++;
         if (lastMove.moveId === MOVE_UP_B && conv.didKill) upBKills++;
         if (lastMove.moveId === MOVE_DAIR && conv.didKill) dairKills++;
-        if (lastMove.moveId === MOVE_FAIR && conv.didKill) {
-          if (conv.endFrame != null) {
-            const victimIndex = conv.playerIndex;
-            const fd = frames[conv.endFrame];
-            if (fd) {
-              const victimPost = fd.players[victimIndex]?.post;
-              if (victimPost) {
-                const posX = victimPost.positionX ?? 0;
-                const posY = victimPost.positionY ?? 0;
-                const bounds = stageBounds(stageId);
-                if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
-                  fairSpikeKills++;
-                }
-              }
-            }
-          }
+        if (lastMove.moveId === MOVE_FAIR && conv.didKill && isVictimOffstageAtKill(conv, frames, stageId)) {
+          fairSpikeKills++;
         }
       }
 
@@ -635,22 +592,8 @@ export function detectSignatureStats(
         const lastMove = moves[moves.length - 1]!;
         if (lastMove.moveId === MOVE_DAIR && conv.didKill) dairKills++;
         if (lastMove.moveId === MOVE_USMASH && conv.didKill) upSmashKills++;
-        if (lastMove.moveId === MOVE_FAIR && conv.didKill) {
-          if (conv.endFrame != null) {
-            const victimIndex = conv.playerIndex;
-            const fd = frames[conv.endFrame];
-            if (fd) {
-              const victimPost = fd.players[victimIndex]?.post;
-              if (victimPost) {
-                const posX = victimPost.positionX ?? 0;
-                const posY = victimPost.positionY ?? 0;
-                const bounds = stageBounds(stageId);
-                if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
-                  fairSpikeKills++;
-                }
-              }
-            }
-          }
+        if (lastMove.moveId === MOVE_FAIR && conv.didKill && isVictimOffstageAtKill(conv, frames, stageId)) {
+          fairSpikeKills++;
         }
       }
 
@@ -689,22 +632,8 @@ export function detectSignatureStats(
         if (moves.length === 0) continue;
         const lastMove = moves[moves.length - 1]!;
         if (lastMove.moveId === MOVE_USMASH && conv.didKill) upSmashKills++;
-        if (lastMove.moveId === MOVE_DAIR && conv.didKill) {
-          if (conv.endFrame != null) {
-            const victimIndex = conv.playerIndex;
-            const fd = frames[conv.endFrame];
-            if (fd) {
-              const victimPost = fd.players[victimIndex]?.post;
-              if (victimPost) {
-                const posX = victimPost.positionX ?? 0;
-                const posY = victimPost.positionY ?? 0;
-                const bounds = stageBounds(stageId);
-                if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
-                  dairSpikeKills++;
-                }
-              }
-            }
-          }
+        if (lastMove.moveId === MOVE_DAIR && conv.didKill && isVictimOffstageAtKill(conv, frames, stageId)) {
+          dairSpikeKills++;
         }
         // Grab combos: starts with grab, 3+ moves
         if (moves[0]!.moveId === MOVE_GRAB && moves.length >= 3) grabCombos++;
@@ -726,22 +655,8 @@ export function detectSignatureStats(
         const { moves } = conv;
         if (moves.length === 0) continue;
         const lastMove = moves[moves.length - 1]!;
-        if (lastMove.moveId === MOVE_DAIR && conv.didKill) {
-          if (conv.endFrame != null) {
-            const victimIndex = conv.playerIndex;
-            const fd = frames[conv.endFrame];
-            if (fd) {
-              const victimPost = fd.players[victimIndex]?.post;
-              if (victimPost) {
-                const posX = victimPost.positionX ?? 0;
-                const posY = victimPost.positionY ?? 0;
-                const bounds = stageBounds(stageId);
-                if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
-                  dairSpikeKills++;
-                }
-              }
-            }
-          }
+        if (lastMove.moveId === MOVE_DAIR && conv.didKill && isVictimOffstageAtKill(conv, frames, stageId)) {
+          dairSpikeKills++;
         }
         if (countMoveId(moves, MOVE_NAIR) >= 2) nairCombos++;
       }
@@ -913,22 +828,8 @@ export function detectSignatureStats(
         const lastMove = moves[moves.length - 1]!;
         if (lastMove.moveId === MOVE_NEUTRAL_B && conv.didKill) giantPunchKills++;
         if (lastMove.moveId === MOVE_BAIR && conv.didKill) bairKills++;
-        if (lastMove.moveId === MOVE_FAIR && conv.didKill) {
-          if (conv.endFrame != null) {
-            const victimIndex = conv.playerIndex;
-            const fd = frames[conv.endFrame];
-            if (fd) {
-              const victimPost = fd.players[victimIndex]?.post;
-              if (victimPost) {
-                const posX = victimPost.positionX ?? 0;
-                const posY = victimPost.positionY ?? 0;
-                const bounds = stageBounds(stageId);
-                if (Math.abs(posX) > bounds.x || posY < bounds.yMin) {
-                  spikeKills++;
-                }
-              }
-            }
-          }
+        if (lastMove.moveId === MOVE_FAIR && conv.didKill && isVictimOffstageAtKill(conv, frames, stageId)) {
+          spikeKills++;
         }
       }
 
