@@ -41,5 +41,5 @@
     "moduleDetection": "force",
     "skipLibCheck": true,
   },
-  "exclude": ["src/renderer", "vite.config.ts", "dist"]
+  "exclude": ["src/renderer", "vite.config.ts", "dist", "proxy"]
 }

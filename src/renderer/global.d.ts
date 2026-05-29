@@ -46,7 +46,7 @@ declare global {
       getLLMModels: () => Promise<any[]>;
       getCurrentModel: () => Promise<{ modelId: string; label: string }>;
       fetchOpenRouterModels: () => Promise<any[]>;
-      fetchAllModels: () => Promise<any[]>;
+      fetchAllModels: () => Promise<Record<string, any[]>>;
       getQueueStatus: () => Promise<{ pending: number; processing: boolean }>;
       getOverallRecord: () => Promise<any>;
       getMatchupRecords: () => Promise<any[]>;
@@ -111,6 +111,19 @@ declare global {
       onWatcherError: (callback: (message: string) => void) => () => void;
       onAnalysisStream: (callback: (chunk: string, streamId?: string) => void) => () => void;
       onAnalysisStreamEnd: (callback: (streamId?: string) => void) => () => void;
+      onImportProgress: (
+        callback: (progress: {
+          current: number;
+          total: number;
+          lastFile: string;
+          importedSoFar: number;
+          skippedSoFar: number;
+          errorsSoFar: number;
+          lastError?: string;
+          lastFileStatus: "imported" | "skipped" | "error";
+        }) => void,
+      ) => () => void;
+      onUpdateReady: (callback: () => void) => () => void;
     };
   }
 }

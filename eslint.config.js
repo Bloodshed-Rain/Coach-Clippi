@@ -3,6 +3,7 @@ const tseslint = require("typescript-eslint");
 const reactHooks = require("eslint-plugin-react-hooks");
 const reactRefresh = require("eslint-plugin-react-refresh");
 const prettierConfig = require("eslint-config-prettier");
+const globals = require("globals");
 
 module.exports = tseslint.config(
   {
@@ -10,6 +11,21 @@ module.exports = tseslint.config(
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    // CommonJS config/build files run in Node and use require()/module.
+    files: ["eslint.config.js"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: { ...globals.node },
+    },
+  },
+  {
+    // ESM helper scripts run in Node.
+    files: ["scripts/**/*.{mjs,js}", "vite.config.ts", "vitest.config.ts"],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
   {
     files: ["src/renderer/**/*.{ts,tsx}"],
     plugins: {

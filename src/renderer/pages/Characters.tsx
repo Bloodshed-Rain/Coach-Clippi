@@ -550,7 +550,7 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
               </tr>
             </thead>
             <tbody>
-              {matchups.slice(0, 12).map((m) => {
+              {(matchups ?? []).slice(0, 12).map((m) => {
                 const gamesCount = m.gamesPlayed ?? 0;
                 const wr = m.winRate ?? (gamesCount > 0 ? m.wins / gamesCount : 0);
                 return (

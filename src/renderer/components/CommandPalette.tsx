@@ -86,7 +86,7 @@ export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
   const [opponentSearchPending, setOpponentSearchPending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // ── Open / close ─────────────────────────────────────────────────
 

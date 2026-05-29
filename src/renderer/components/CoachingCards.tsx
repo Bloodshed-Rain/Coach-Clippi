@@ -65,7 +65,7 @@ function CoachingCard({
   section: CoachingSection;
   index: number;
   defaultExpanded: boolean;
-  markdownComponents?: Components;
+  markdownComponents?: Components | undefined;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const meta = SECTION_META[section.type];
@@ -81,7 +81,7 @@ function CoachingCard({
   return (
     <motion.div
       className="cc-card"
-      style={{ "--cc-accent": meta.color } as React.CSSProperties}
+      style={{ "--cc-accent": meta.color } as NonNullable<React.ComponentProps<typeof motion.div>["style"]>}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.05, 0.3), duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
@@ -133,7 +133,7 @@ export interface CoachingCardsProps {
   text: string;
   isStreaming?: boolean;
   /** Custom react-markdown components (e.g., for timestamp links) */
-  markdownComponents?: Components;
+  markdownComponents?: Components | undefined;
 }
 
 export function CoachingCards({ text, isStreaming, markdownComponents }: CoachingCardsProps) {

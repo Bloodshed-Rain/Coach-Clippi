@@ -7,11 +7,11 @@ const VK_SPACE = 0x20;
 
 export interface ReplayEmbedProps {
   replayPath: string;
-  startFrame?: number;
+  startFrame?: number | undefined;
   /** Bumped by the parent to force a fresh open of the same path. */
-  reopenKey?: number;
+  reopenKey?: number | undefined;
   /** Called once when the user explicitly closes (Esc). Optional in inline use. */
-  onCloseRequest?: () => void;
+  onCloseRequest?: (() => void) | undefined;
 }
 
 function getStageBounds(el: HTMLElement): Bounds {

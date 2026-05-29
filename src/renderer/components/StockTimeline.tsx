@@ -104,7 +104,7 @@ function StockRow({
   isPlayer: boolean;
   momentumStocks: Set<number>;
   replayPath: string;
-  onSeekFrame?: (frame: number) => void;
+  onSeekFrame?: ((frame: number) => void) | undefined;
 }) {
   const openPlayer = useReplayPlayerStore((s) => s.openPlayer);
 
@@ -145,7 +145,7 @@ function StockRow({
                 "--segment-rgb": colorRgb,
                 "--segment-intensity": intensity,
                 cursor: "pointer",
-              } as React.CSSProperties
+              } as NonNullable<React.ComponentProps<typeof motion.div>["style"]>
             }
             title={`Stock ${stock.stockNumber}: ${stock.damageDealt.toFixed(0)}% dealt, ${stock.percentLost.toFixed(0)}% taken${isDeath ? ` — Killed by ${stock.killMove}` : " — Survived"}\nClick to watch`}
             onClick={onStockClick}
@@ -185,7 +185,7 @@ export function StockTimeline({
   replayPath: string;
   playerCharacter: string;
   opponentCharacter: string;
-  onSeekFrame?: (frame: number) => void;
+  onSeekFrame?: ((frame: number) => void) | undefined;
 }) {
   const [data, setData] = useState<StockTimelineData | null>(null);
   const [loading, setLoading] = useState(false);

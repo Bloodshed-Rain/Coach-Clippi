@@ -5,19 +5,31 @@ import { processGame, findPlayerIdx, computeAdaptationSignals, assembleUserPromp
 
 const TEST_REPLAYS_DIR = path.resolve(__dirname, "../test-replays");
 
+function listReplays(): string[] {
+  if (!fs.existsSync(TEST_REPLAYS_DIR)) return [];
+  return fs
+    .readdirSync(TEST_REPLAYS_DIR)
+    .filter((f) => f.endsWith(".slp"))
+    .map((f) => path.join(TEST_REPLAYS_DIR, f));
+}
+
+// Replay fixtures live only on developer machines (not committed). When they
+// are absent (fresh clone / CI), the fixture-dependent suites skip cleanly
+// instead of failing on ENOENT.
+const hasReplays = listReplays().length > 0;
+
 function getTestReplay(): string {
-  const files = fs.readdirSync(TEST_REPLAYS_DIR).filter((f) => f.endsWith(".slp"));
+  const files = listReplays();
   if (files.length === 0) throw new Error("No test replays found");
-  return path.join(TEST_REPLAYS_DIR, files[0]!);
+  return files[0]!;
 }
 
 function getMultipleTestReplays(count: number): string[] {
-  const files = fs.readdirSync(TEST_REPLAYS_DIR).filter((f) => f.endsWith(".slp"));
-  return files.slice(0, count).map((f) => path.join(TEST_REPLAYS_DIR, f));
+  return listReplays().slice(0, count);
 }
 
 describe("processGame", () => {
-  it("parses a valid .slp file and returns GameResult shape", () => {
+  it.skipIf(!hasReplays)("parses a valid .slp file and returns GameResult shape", () => {
     const filePath = getTestReplay();
     const result = processGame(filePath, 1);
 
@@ -33,7 +45,7 @@ describe("processGame", () => {
     expect(gameSummary.result).toHaveProperty("endMethod");
   });
 
-  it("returns valid player stats", () => {
+  it.skipIf(!hasReplays)("returns valid player stats", () => {
     const filePath = getTestReplay();
     const { gameSummary } = processGame(filePath, 1);
 
@@ -49,7 +61,7 @@ describe("processGame", () => {
     }
   });
 
-  it("returns valid derived insights", () => {
+  it.skipIf(!hasReplays)("returns valid derived insights", () => {
     const filePath = getTestReplay();
     const { derivedInsights } = processGame(filePath, 1);
 
@@ -74,7 +86,7 @@ describe("processGame", () => {
 });
 
 describe("findPlayerIdx", () => {
-  it("finds a player by tag", () => {
+  it.skipIf(!hasReplays)("finds a player by tag", () => {
     const filePath = getTestReplay();
     const { gameSummary } = processGame(filePath, 1);
     const tag = gameSummary.players[0].tag;
@@ -83,7 +95,7 @@ describe("findPlayerIdx", () => {
     expect(idx).toBe(0);
   });
 
-  it("returns 0 as fallback for unknown tag", () => {
+  it.skipIf(!hasReplays)("returns 0 as fallback for unknown tag", () => {
     const filePath = getTestReplay();
     const { gameSummary } = processGame(filePath, 1);
 
@@ -93,7 +105,7 @@ describe("findPlayerIdx", () => {
 });
 
 describe("computeAdaptationSignals", () => {
-  it("returns signals for multi-game sets", () => {
+  it.skipIf(!hasReplays)("returns signals for multi-game sets", () => {
     const replays = getMultipleTestReplays(3);
     if (replays.length < 2) return; // skip if not enough replays
 
@@ -106,7 +118,7 @@ describe("computeAdaptationSignals", () => {
 });
 
 describe("assembleUserPrompt", () => {
-  it("produces a non-empty prompt string", () => {
+  it.skipIf(!hasReplays)("produces a non-empty prompt string", () => {
     const filePath = getTestReplay();
     const result = processGame(filePath, 1);
     const tag = result.gameSummary.players[0].tag;

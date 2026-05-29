@@ -6,14 +6,17 @@
   "scripts": {
     "dev": "node scripts/dev.js",
     "build:renderer": "vite build",
-    "build": "tsc -p tsconfig.main.json && vite build && electron-builder",
-    "build:win": "tsc -p tsconfig.main.json && vite build && electron-builder --win",
-    "build:mac": "tsc -p tsconfig.main.json && vite build && electron-builder --mac",
-    "build:linux": "tsc -p tsconfig.main.json && vite build && electron-builder --linux",
+    "typecheck:main": "tsc -p tsconfig.main.json --noEmit",
+    "typecheck:renderer": "tsc -p tsconfig.renderer.json --noEmit",
+    "typecheck": "npm run typecheck:main && npm run typecheck:renderer",
+    "build": "tsc -p tsconfig.main.json && npm run typecheck:renderer && vite build && electron-builder",
+    "build:win": "tsc -p tsconfig.main.json && npm run typecheck:renderer && vite build && electron-builder --win",
+    "build:mac": "tsc -p tsconfig.main.json && npm run typecheck:renderer && vite build && electron-builder --mac",
+    "build:linux": "tsc -p tsconfig.main.json && npm run typecheck:renderer && vite build && electron-builder --linux",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\""
   },
@@ -129,6 +132,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260529.1",
     "@eslint/js": "^9.39.4",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.5.0",

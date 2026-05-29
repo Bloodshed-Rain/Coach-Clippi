@@ -1,8 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import path from "path";
 import fs from "fs";
-import os from "os";
-import Database from "better-sqlite3";
 
 // We test importer logic against a temporary DB
 // to avoid polluting the real database
@@ -10,11 +8,18 @@ import Database from "better-sqlite3";
 const TEST_REPLAYS_DIR = path.resolve(__dirname, "../test-replays");
 
 function getTestReplays(count: number = 3): string[] {
-  const files = fs.readdirSync(TEST_REPLAYS_DIR).filter((f) => f.endsWith(".slp"));
-  return files.slice(0, count).map((f) => path.join(TEST_REPLAYS_DIR, f));
+  if (!fs.existsSync(TEST_REPLAYS_DIR)) return [];
+  return fs
+    .readdirSync(TEST_REPLAYS_DIR)
+    .filter((f) => f.endsWith(".slp"))
+    .slice(0, count)
+    .map((f) => path.join(TEST_REPLAYS_DIR, f));
 }
 
-describe("importer", () => {
+// Replay fixtures are developer-local (not committed); skip cleanly when absent.
+const hasReplays = getTestReplays(1).length > 0;
+
+describe.skipIf(!hasReplays)("importer", () => {
   it("hashFile produces consistent hashes", async () => {
     const crypto = await import("crypto");
     const replays = getTestReplays(1);

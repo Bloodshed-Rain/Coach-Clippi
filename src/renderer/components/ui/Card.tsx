@@ -1,9 +1,9 @@
-import { ReactNode, HTMLAttributes } from "react";
+import { ReactNode, ComponentProps } from "react";
 import { motion } from "framer-motion";
 
 type CardTone = "default" | "chrome-plate";
 
-interface CardProps extends HTMLAttributes<HTMLDivElement> {
+interface CardProps extends Omit<ComponentProps<typeof motion.div>, "ref"> {
   tone?: CardTone;
   title?: string;
   children: ReactNode;

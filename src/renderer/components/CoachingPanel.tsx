@@ -8,12 +8,12 @@ export interface CoachingPanelProps {
   id: string | number;
   title: string;
   /** Pre-loaded analysis text — when present, skips the LLM call entirely. */
-  preloadedText?: string;
+  preloadedText?: string | undefined;
   /** Replay path used to enable timestamp click-to-seek inside the coaching text. */
-  replayPath?: string;
+  replayPath?: string | undefined;
   /** Receives the seek frame when a timestamp is clicked. When omitted,
    *  timestamp clicks fall back to opening the global ReplayPlayer. */
-  onTimestampSeek?: (frame: number) => void;
+  onTimestampSeek?: ((frame: number) => void) | undefined;
 }
 
 /**
