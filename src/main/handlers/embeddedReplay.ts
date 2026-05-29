@@ -62,8 +62,8 @@ function resolveDolphinAndIso(): { dolphinPath: string; isoPath: string } {
           isoPath = parsed.settings.isoPath;
         }
       }
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.warn(`[embed] Could not parse Slippi Launcher settings: ${err instanceof Error ? err.message : err}`);
     }
   }
   if (!isoPath) {
@@ -95,6 +95,13 @@ function writeCommFile(commFile: string, replayPath: string, startFrame: number 
 function killSession(session: EmbedSession): void {
   if (session.closed) return;
   session.closed = true;
+
+  // Detach the stderr listener so it stops appending after teardown.
+  try {
+    session.child.stderr?.removeAllListeners("data");
+  } catch {
+    /* stream already gone */
+  }
 
   // Try graceful close first via WM_CLOSE on the shell. Killing the shell
   // tears down all child HWNDs (including any render panel we reparented
@@ -189,9 +196,13 @@ async function spawnEmbedSession(
     throw new Error("Failed to spawn Dolphin");
   }
 
+  // Dolphin can log heavily over a long playback; keep only the tail so the
+  // buffer can't grow without bound for the lifetime of the session.
+  const STDERR_CAP = 16_384;
   let stderrBuf = "";
   child.stderr?.on("data", (chunk: Buffer) => {
     stderrBuf += chunk.toString();
+    if (stderrBuf.length > STDERR_CAP) stderrBuf = stderrBuf.slice(-STDERR_CAP);
   });
 
   const sessionId = `s_${child.pid}_${Date.now()}`;
@@ -220,7 +231,9 @@ async function spawnEmbedSession(
 
   findDolphinWindows(child.pid, 20000)
     .then((dolphinWindows) => {
-      if (session.closed) return;
+      // Bail if this session was torn down or superseded while we waited for
+      // Dolphin's windows to appear (rapid open/close or re-open).
+      if (session.closed || activeSession?.id !== sessionId) return;
       const parentHandleBuf = mainWindow.getNativeWindowHandle();
       const parentHwnd = bufferToHwnd(parentHandleBuf);
       session.mainHwnd = dolphinWindows.mainHwnd;

@@ -172,7 +172,12 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
   });
 
   // Unified scoped analysis handler
-  safeHandle("analyze:scoped", async (_e, scope: string, id: any, targetPlayer?: string, streamId?: string) => {
+  safeHandle("analyze:scoped", async (_e, scope: string, id: string | number, targetPlayer?: string, streamId?: string) => {
+    const VALID_SCOPES = ["game", "session", "character", "stage", "opponent", "career"] as const;
+    if (!VALID_SCOPES.includes(scope as (typeof VALID_SCOPES)[number])) {
+      throw new Error(`Invalid analysis scope: ${scope}`);
+    }
+
     const llmConfig = resolveLLMConfig();
     const win = getMainWindow();
     const db = getDb();
