@@ -15,7 +15,7 @@ MAGI is currently a Vite + React desktop app with an Electron main process, type
 - **Trends** - 5-game rolling averages for neutral win rate, L-cancel rate, conversion, damage/opening, openings/kill, and average death percent.
 - **Sessions** - calendar-day session cards with win/loss dots, opponent summaries, and cached AI session reports.
 - **Characters** - 26-character roster view with character art, played-character records, matchup tables, signature stats, and character-scope coaching.
-- **Game Theater** - per-game review route with embedded replay space, stock timeline, game stats, and inline MAGI coaching.
+- **Game Theater** - per-game review route with a Windows-only in-app replay viewer, external Dolphin fallback on other platforms, stock timeline, game stats, and inline MAGI coaching.
 - **Practice** - generated drill plans based on detected weakness patterns, with drill completion tracking.
 - **MAGI Oracle** - persistent chat that answers questions from recent local game context.
 - **Settings** - player profile, replay folder import, watcher controls, Slippi Dolphin paths, provider setup, themes, density, and data reset.
@@ -66,7 +66,9 @@ Coaching currently appears in the dashboard Oracle summary, game theater coachin
 
 ## Replay Review
 
-MAGI can launch Slippi Dolphin from stored replay paths and jump to specific frames from timestamps. The app also includes a Windows-first embedded replay surface that positions Dolphin inside the MAGI window; when embedding is unavailable, it falls back to opening Dolphin externally.
+MAGI can launch Slippi Dolphin from stored replay paths and jump to specific frames from timestamps.
+
+The in-app replay viewer shown in the screenshots is Windows-only. On Windows, MAGI can position Slippi Dolphin inside the Game Theater route so the replay, stock timeline, stats, and coaching live in one review workspace. On macOS and Linux, replay review uses the external Dolphin launch path when configured; those platforms do not embed the replay surface inside the MAGI window.
 
 Settings accepts optional paths for the Slippi Dolphin executable and Melee ISO. Replay files stay on your machine.
 
@@ -154,7 +156,7 @@ Key areas:
 ## Current Boundaries
 
 - The redesigned screenshots intentionally omit Settings so local API keys or paths are not exposed.
-- Embedded replay playback is Windows-first; non-Windows paths use external Dolphin launch behavior.
+- The in-app replay viewer is Windows-only. Non-Windows platforms use external Dolphin launch behavior when replay paths and Dolphin settings are configured.
 - Pollinations provides a no-key fallback, but paid or self-hosted providers are still the more controllable path for serious usage.
 - The website and README describe the current app surface, not a hosted service. MAGI is still a local desktop app.
 
