@@ -101,12 +101,14 @@ export function CoachingModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onClose]);
 
-  // Move focus into the dialog on open
+  // Move focus into the dialog on open; restore it to the trigger on close
   useEffect(() => {
     if (!isOpen) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
     requestAnimationFrame(() => {
       (closeRef.current ?? panelRef.current)?.focus();
     });
+    return () => previouslyFocused?.focus?.();
   }, [isOpen]);
 
   // Autoscroll the body as streaming chunks arrive

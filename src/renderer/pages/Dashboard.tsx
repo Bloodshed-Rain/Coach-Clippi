@@ -231,7 +231,7 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
                 whileHover={{ scale: 1.2 }}
                 whileTap={{ scale: 0.9 }}
               >
-                <ResultDot result={g.result === "win" ? "win" : "loss"} />
+                <ResultDot result={g.result === "win" ? "win" : "loss"} aria-hidden />
               </motion.button>
             ))}
             <span style={{ marginLeft: 12, fontSize: 12, color: "var(--text-muted)" }}>
