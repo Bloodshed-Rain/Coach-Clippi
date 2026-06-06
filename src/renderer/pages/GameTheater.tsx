@@ -52,6 +52,14 @@ export function GameTheater() {
 
   const closeGlobalPlayer = useReplayPlayerStore((s) => s.closePlayer);
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/library");
+    }
+  };
+
   // Theater owns the embed inline — close any global overlay session so we
   // don't end up with two Dolphins fighting over focus.
   useEffect(() => {
@@ -80,7 +88,7 @@ export function GameTheater() {
     return (
       <div className="theater-error">
         <p>Invalid game id.</p>
-        <button className="btn" onClick={() => navigate(-1)}>
+        <button className="btn" onClick={handleBack}>
           Back
         </button>
       </div>
@@ -100,7 +108,7 @@ export function GameTheater() {
     return (
       <div className="theater-error">
         <p>Game not found.</p>
-        <button className="btn" onClick={() => navigate(-1)}>
+        <button className="btn" onClick={handleBack}>
           Back
         </button>
       </div>
@@ -114,12 +122,7 @@ export function GameTheater() {
     .padStart(2, "0");
 
   return (
-    <motion.div
-      className="game-theater"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
+    <div className="game-theater">
       <div className="game-theater-stage-col">
         {game.replayPath ? (
           <ReplayEmbed replayPath={game.replayPath} startFrame={seekFrame} reopenKey={reopenKey} />
@@ -132,7 +135,7 @@ export function GameTheater() {
 
       <motion.aside className="game-theater-side-col custom-scrollbar">
         <header className="game-theater-side-head">
-          <button className="btn btn-ghost game-theater-back" onClick={() => navigate(-1)} aria-label="Back">
+          <button className="btn btn-ghost game-theater-back" onClick={handleBack} aria-label="Back">
             <ChevronLeft size={16} />
             Back
           </button>
@@ -168,6 +171,6 @@ export function GameTheater() {
           onTimestampSeek={game.replayPath ? handleTimestampSeek : undefined}
         />
       </motion.aside>
-    </motion.div>
+    </div>
   );
 }

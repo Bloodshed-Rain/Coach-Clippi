@@ -64,7 +64,7 @@
 }
 .card:hover {
   transform: translateY(-3px);
-  background: rgba(30, 41, 59, 0.8);
+  background: var(--surface-2);
   box-shadow:
     var(--shadow-glass),
     0 0 20px rgba(var(--accent-rgb), 0.1);
@@ -175,19 +175,40 @@
     0 0 4px rgba(var(--accent-rgb), 0.15);
 }
 
+/* Red outline/tint — white-on-red failed WCAG AA in every theme; this keeps
+   the loss color as text (AA on the dark surface) and tints rather than fills. */
 .btn-danger {
-  background: var(--red);
-  border-color: var(--red);
-  color: #fff;
+  background: rgba(var(--red-rgb), 0.08);
+  border-color: rgba(var(--red-rgb), 0.5);
+  color: var(--loss);
 }
 .btn-danger:hover {
-  opacity: 0.9;
+  background: rgba(var(--red-rgb), 0.16);
+  border-color: var(--loss);
+}
+
+/* Neutral, low-emphasis button (was referenced in 5 places but never defined). */
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+.btn-ghost:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text);
 }
 
 .btn-icon-small {
   padding: 4px 6px;
   min-width: unset;
   line-height: 1;
+}
+
+/* Native form controls track the theme accent (was OS-default, off-palette in crt/amber/light). */
+input[type="radio"],
+input[type="checkbox"] {
+  accent-color: var(--accent);
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────────── */
@@ -1313,10 +1334,9 @@
 }
 .stock-segment-number {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
-  color: var(--text-muted);
-  opacity: 0.6;
+  color: var(--text-secondary);
   position: absolute;
   left: 4px;
   top: 2px;
@@ -1336,8 +1356,8 @@
   align-items: center;
   gap: 2px;
   font-family: var(--font-mono);
-  font-size: 8px;
-  color: var(--text-muted);
+  font-size: 10px;
+  color: var(--text-secondary);
   z-index: 1;
 }
 .stock-kill-icon {
@@ -1346,7 +1366,7 @@
   font-size: 9px;
 }
 .stock-kill-move {
-  max-width: 40px;
+  max-width: 64px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2123,48 +2143,8 @@
   align-items: center;
   gap: 8px;
 }
-.coaching-modal .cursor-blink {
-  display: inline-block;
-  width: 8px;
-  height: 1.2em;
-  background: var(--accent);
-  margin-left: 4px;
-  animation: coaching-blink 1s step-end infinite;
-  vertical-align: middle;
-}
-@keyframes coaching-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-.coaching-modal .prose h1,
-.coaching-modal .prose h2,
-.coaching-modal .prose h3 {
-  color: var(--accent);
-  margin-top: 1.5em;
-  margin-bottom: 0.5em;
-  font-family: var(--font-display);
-}
-.coaching-modal .prose p {
-  margin-bottom: 1em;
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
-.coaching-modal .prose ul,
-.coaching-modal .prose ol {
-  margin-bottom: 1em;
-  padding-left: 1.5em;
-}
-.coaching-modal .prose li {
-  margin-bottom: 0.5em;
-}
-.coaching-modal .prose strong {
-  color: var(--text);
-}
+/* (Removed dead .coaching-modal .cursor-blink / .prose rules — coaching now
+   renders via CoachingCards (.cc-* classes) and .cc-streaming-cursor.) */
 
 /* ── Radar Period Selector ───────────────────────────────────── */
 .radar-period-selector {
@@ -2610,6 +2590,16 @@ body[data-theme="liquid"] .liquid-shell .nav-item.active {
   z-index: 999;
   box-shadow: var(--shadow-md);
 }
+.tweaks-toggle-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--accent);
+  box-shadow:
+    var(--shadow-md),
+    0 0 14px rgba(var(--accent-rgb), 0.18);
+}
+.tweaks-toggle-btn:active {
+  transform: scale(0.96);
+}
 body[data-theme="liquid"] .tweaks-toggle-btn {
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -2688,6 +2678,10 @@ body[data-theme="liquid"] .tweaks-panel {
   font-weight: 500;
   transition: all 0.15s;
   font-family: inherit;
+}
+.tweaks-chip:hover {
+  background: var(--surface-3);
+  color: var(--text);
 }
 .tweaks-chip.active {
   background: var(--accent-muted);
@@ -2851,7 +2845,7 @@ body[data-theme="liquid"] .tweaks-chip.active {
 
 .characters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 18px;
 }
 .character-tile {
@@ -2865,7 +2859,7 @@ body[data-theme="liquid"] .tweaks-chip.active {
   font-family: inherit;
   color: var(--text);
   overflow: hidden;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 4 / 5;
   display: flex;
   flex-direction: column;
   transition:

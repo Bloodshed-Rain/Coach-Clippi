@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import Markdown, { type Components } from "react-markdown";
 import {
   Eye,
@@ -60,22 +60,37 @@ function CoachingCard({
   section,
   index,
   defaultExpanded,
+  forceExpanded,
   markdownComponents,
 }: {
   section: CoachingSection;
   index: number;
   defaultExpanded: boolean;
+  forceExpanded?: boolean;
   markdownComponents?: Components;
 }) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [userExpanded, setUserExpanded] = useState(defaultExpanded);
+  const reduceMotion = useReducedMotion();
   const meta = SECTION_META[section.type];
+  // Force-expand the actively streaming section so its cursor + growth are visible.
+  const expanded = forceExpanded || userExpanded;
 
   // Extract first sentence as summary
   const summary = useMemo(() => {
-    const text = section.content.replace(/\*\*/g, "").replace(/\n/g, " ").trim();
-    // Find first sentence end (. followed by space or end)
+    // Normalize list markers: strip a leading "-", "*", or "1." per line.
+    const normalized = section.content
+      .replace(/\*\*/g, "")
+      .split("\n")
+      .map((line) => line.replace(/^\s*(?:[-*]|\d+\.)\s+/, "").trim())
+      .filter((line) => line.length > 0);
+    const text = normalized.join(" ").trim();
+    if (!text) return "";
+    // Prefer the first full sentence.
     const match = text.match(/^(.+?[.!?])(?:\s|$)/);
-    return match ? match[1]! : text.slice(0, 140) + (text.length > 140 ? "..." : "");
+    if (match) return match[1]!;
+    // No sentence terminator: fall back to the first non-empty (list) line.
+    const firstLine = normalized[0]!;
+    return firstLine.length > 140 ? firstLine.slice(0, 140) + "..." : firstLine;
   }, [section.content]);
 
   return (
@@ -86,7 +101,7 @@ function CoachingCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.05, 0.3), duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
     >
-      <button className="cc-card-header" onClick={() => setExpanded((e) => !e)} aria-expanded={expanded}>
+      <button className="cc-card-header" onClick={() => setUserExpanded((e) => !e)} aria-expanded={expanded}>
         <div className="cc-card-icon">
           <SectionIcon type={section.type} />
         </div>
@@ -111,10 +126,10 @@ function CoachingCard({
         {expanded && (
           <motion.div
             className="cc-card-body"
-            initial={{ height: 0, opacity: 0 }}
+            initial={reduceMotion ? false : { height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            exit={reduceMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className="cc-card-content">
               <Markdown components={markdownComponents}>{section.content}</Markdown>
@@ -152,6 +167,18 @@ export function CoachingCards({ text, isStreaming, markdownComponents }: Coachin
     );
   }
 
+  // While streaming, the last incomplete section is actively growing — force it
+  // open so its cursor + new text stay visible regardless of DEFAULT_EXPANDED.
+  let streamingIndex = -1;
+  if (isStreaming) {
+    for (let i = sections.length - 1; i >= 0; i--) {
+      if (!sections[i]!.isComplete) {
+        streamingIndex = i;
+        break;
+      }
+    }
+  }
+
   return (
     <div className="cc-container">
       {sections.map((section, i) => (
@@ -160,6 +187,7 @@ export function CoachingCards({ text, isStreaming, markdownComponents }: Coachin
           section={section}
           index={i}
           defaultExpanded={i < DEFAULT_EXPANDED}
+          forceExpanded={i === streamingIndex}
           markdownComponents={markdownComponents}
         />
       ))}

@@ -33,3 +33,63 @@
 .recharts-cartesian-grid line {
   stroke: var(--border-subtle, var(--border));
 }
+
+/* ── Trends page ──────────────────────────────────────────────── */
+
+/* Hero metric name: was 9px .card-title, inverted vs the 48px value. */
+.trends-hero-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+/* Empty / error / low-sample placeholder inside a chart card. */
+.trends-chart-message {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 0 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* Chart + y-axis layout. */
+.trends-chart-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.trends-chart-area {
+  flex: 1;
+  min-width: 0;
+}
+
+.trends-yaxis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 36px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.trends-xaxis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+/* Bump gridline perceptibility on the hero chart (near-invisible at --border-subtle).
+   CSS stroke overrides the Sparkline's inline presentation attribute. */
+.trends-chart-area svg line {
+  stroke: var(--border-muted, var(--border));
+}

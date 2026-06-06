@@ -126,10 +126,15 @@ function StockRow({
           }
         };
 
+        const summary = `Stock ${stock.stockNumber}: ${stock.damageDealt.toFixed(0)}% dealt, ${stock.percentLost.toFixed(0)}% taken${isDeath ? ` — Killed by ${stock.killMove}` : " — Survived"}`;
+
         return (
           <motion.div
             key={stock.stockNumber}
             className={`stock-segment ${isDeath ? "stock-dead" : "stock-alive"} ${hasMomentum ? "stock-momentum" : ""}`}
+            role="button"
+            tabIndex={0}
+            aria-label={`${summary}. Activate to watch.`}
             initial={{ scaleX: 0, opacity: 0 }}
             animate={{ scaleX: 1, opacity: 1 }}
             transition={{
@@ -147,8 +152,17 @@ function StockRow({
                 cursor: "pointer",
               } as React.CSSProperties
             }
-            title={`Stock ${stock.stockNumber}: ${stock.damageDealt.toFixed(0)}% dealt, ${stock.percentLost.toFixed(0)}% taken${isDeath ? ` — Killed by ${stock.killMove}` : " — Survived"}\nClick to watch`}
+            title={`${summary}\nClick to watch`}
             onClick={onStockClick}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                if (e.key === " ") e.preventDefault();
+                // Stop the event reaching ReplayEmbed's window-level Space handler
+                // (mounted alongside in GameTheater), which would also toggle pause.
+                e.stopPropagation();
+                onStockClick();
+              }
+            }}
           >
             <div className="stock-segment-fill" />
 
@@ -236,7 +250,16 @@ export function StockTimeline({
   }
 
   if (error || !data || !analysis) {
-    return null; // Silently fail — the timeline is supplementary
+    return (
+      <div className="stock-timeline-container">
+        <div
+          className="stock-timeline-empty"
+          style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", padding: "4px 0" }}
+        >
+          Stock timeline unavailable for this replay
+        </div>
+      </div>
+    );
   }
 
   return (

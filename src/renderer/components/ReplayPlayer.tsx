@@ -181,7 +181,12 @@ export function ReplayPlayer() {
         return;
       }
       if (e.key === "Escape") closePlayer();
-      if (e.key === " ") onTogglePause();
+      if (e.key === " ") {
+        // Don't hijack Space when a button/link is focused — let it activate that control.
+        if (target?.closest("button, a, [role='button']")) return;
+        e.preventDefault();
+        onTogglePause();
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);

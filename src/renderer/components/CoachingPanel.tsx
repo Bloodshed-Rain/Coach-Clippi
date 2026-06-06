@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useReducedMotion } from "framer-motion";
 import { Compass } from "lucide-react";
 import { CoachingCards } from "./CoachingCards";
 import { makeTimestampComponents, injectTimestampLinks } from "../utils/timestampLinks";
@@ -33,6 +34,8 @@ export function CoachingPanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [queuePos, setQueuePos] = useState<number>(0);
+  const reduceMotion = useReducedMotion();
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   const runAnalysis = useCallback(async () => {
     if (preloadedText) return;
@@ -82,6 +85,18 @@ export function CoachingPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope, id]);
 
+  // Autoscroll the body as streaming chunks arrive
+  useEffect(() => {
+    if (!loading) return;
+    const el = bodyRef.current;
+    if (!el) return;
+    if (reduceMotion) {
+      el.scrollTop = el.scrollHeight;
+    } else {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
+  }, [analysis, loading, reduceMotion]);
+
   const components = replayPath ? makeTimestampComponents(replayPath, onTimestampSeek) : undefined;
   const text = replayPath ? injectTimestampLinks(analysis) : analysis;
 
@@ -97,7 +112,7 @@ export function CoachingPanel({
         </div>
       </header>
 
-      <div className="coaching-panel-body">
+      <div ref={bodyRef} className="coaching-panel-body">
         {error && <div className="coaching-error">{error}</div>}
 
         {!analysis && loading && (

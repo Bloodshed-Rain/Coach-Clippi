@@ -83,17 +83,8 @@
   color: var(--accent);
 }
 
-/* Active indicator — steady left bar */
-.nav-item.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 20%;
-  height: 60%;
-  width: 2px;
-  border-radius: 0 1px 1px 0;
-  background: var(--accent);
-}
+/* Active indicator is the framer layoutId pill + accent text color.
+   (No static ::before bar — it duplicated the pill.) */
 
 .nav-item:focus-visible {
   outline: 2px solid var(--accent);
@@ -139,6 +130,10 @@
   position: relative;
   background: transparent;
   transition: background-color 0.15s ease;
+  /* Cap content width on ultrawide displays; center the leftover space.
+     Sidebar (flex-shrink: 0) stays fixed. */
+  max-width: 1600px;
+  margin-inline: auto;
 }
 
 /* Subtle dot-grid background texture & animated gradient mesh */
@@ -202,4 +197,60 @@
 
 .system-status::before {
   display: none;
+}
+
+/* ── Brand logo home link ──────────────────────────────────────────
+   Transparent click target anchored at the same origin the absolutely
+   positioned .magi-brand-logo resolves against (top/left 0). The logo's
+   own top:12/left:10 stays unchanged visually; its pointer-events:none
+   lets clicks pass through to this button. */
+
+.magi-brand-home {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200px;
+  height: 64px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  z-index: 21;
+  -webkit-app-region: no-drag;
+}
+
+/* ── Sidebar command-palette hint ──────────────────────────────────── */
+
+.sidebar-search-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.sidebar-search-hint:hover {
+  color: var(--text);
+  background: var(--sidebar-hover);
+  border-color: var(--border-muted);
+}
+
+.sidebar-search-hint-label {
+  display: inline-flex;
+  align-items: center;
 }

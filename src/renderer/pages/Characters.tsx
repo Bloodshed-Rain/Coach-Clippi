@@ -10,6 +10,7 @@ import { Card } from "../components/ui/Card";
 import { DataTable } from "../components/ui/DataTable";
 import { WinrateBar } from "../components/ui/WinrateBar";
 import { StatGroupCard, type StatItem } from "../components/ui/StatGroupCard";
+import { EmptyState } from "../components/ui/EmptyState";
 import { CoachingModal } from "../components/CoachingModal";
 
 // ── Character card art (dynamic, falls back to emoji) ────────────────
@@ -87,7 +88,7 @@ const CHARACTER_META: Record<
   Fox: { emoji: "\ud83e\udd8a", color: "#ff6b35", glowColor: "rgba(255, 107, 53, 0.15)" },
   Falco: { emoji: "\ud83e\udd85", color: "#4a7cff", glowColor: "rgba(74, 124, 255, 0.15)" },
   Marth: { emoji: "\u2694\ufe0f", color: "#6b8cff", glowColor: "rgba(107, 140, 255, 0.15)" },
-  Sheik: { emoji: "\ud83e\udd77", color: "#8b5cf6", glowColor: "rgba(139, 92, 246, 0.15)" },
+  Sheik: { emoji: "\ud83e\udd77", color: "#c4b5fd", glowColor: "rgba(139, 92, 246, 0.15)" },
   Falcon: { emoji: "\ud83e\udd85", color: "#f59e0b", glowColor: "rgba(245, 158, 11, 0.15)" },
   Puff: { emoji: "\ud83c\udf80", color: "#ec4899", glowColor: "rgba(236, 72, 153, 0.15)" },
   Peach: { emoji: "\ud83c\udf51", color: "#f472b6", glowColor: "rgba(244, 114, 182, 0.15)" },
@@ -98,17 +99,17 @@ const CHARACTER_META: Record<
   Mario: { emoji: "\ud83d\udd34", color: "#ef4444", glowColor: "rgba(239, 68, 68, 0.15)" },
   Doc: { emoji: "\ud83d\udc8a", color: "#f8fafc", glowColor: "rgba(248, 250, 252, 0.15)" },
   Yoshi: { emoji: "\ud83e\udd8e", color: "#4ade80", glowColor: "rgba(74, 222, 128, 0.15)" },
-  Ganon: { emoji: "\ud83d\udc4a", color: "#7c3aed", glowColor: "rgba(124, 58, 237, 0.15)" },
+  Ganon: { emoji: "\ud83d\udc4a", color: "#b794f6", glowColor: "rgba(124, 58, 237, 0.15)" },
   Link: { emoji: "\ud83d\udde1\ufe0f", color: "#22c55e", glowColor: "rgba(34, 197, 94, 0.15)" },
   YLink: { emoji: "\ud83c\udff9", color: "#84cc16", glowColor: "rgba(132, 204, 22, 0.15)" },
   Zelda: { emoji: "\u2728", color: "#c084fc", glowColor: "rgba(192, 132, 252, 0.15)" },
-  Roy: { emoji: "\ud83d\udd25", color: "#dc2626", glowColor: "rgba(220, 38, 38, 0.15)" },
+  Roy: { emoji: "\ud83d\udd25", color: "#f87171", glowColor: "rgba(220, 38, 38, 0.15)" },
   Mewtwo: { emoji: "\ud83d\udd2e", color: "#a78bfa", glowColor: "rgba(167, 139, 250, 0.15)" },
-  "G&W": { emoji: "\ud83d\udd14", color: "#1e293b", glowColor: "rgba(30, 41, 59, 0.15)" },
+  "G&W": { emoji: "\ud83d\udd14", color: "#cbd5e1", glowColor: "rgba(30, 41, 59, 0.15)" },
   Ness: { emoji: "\ud83e\udde2", color: "#ef4444", glowColor: "rgba(239, 68, 68, 0.15)" },
   Bowser: { emoji: "\ud83d\udc22", color: "#65a30d", glowColor: "rgba(101, 163, 13, 0.15)" },
   Kirby: { emoji: "\ud83e\ude77", color: "#fb7185", glowColor: "rgba(251, 113, 133, 0.15)" },
-  DK: { emoji: "\ud83e\udd8d", color: "#92400e", glowColor: "rgba(146, 64, 14, 0.15)" },
+  DK: { emoji: "\ud83e\udd8d", color: "#d4a373", glowColor: "rgba(146, 64, 14, 0.15)" },
   Pichu: { emoji: "\u26a1", color: "#facc15", glowColor: "rgba(250, 204, 21, 0.15)" },
 };
 
@@ -344,7 +345,7 @@ function avgField(rows: any[], field: string): number {
 // ── Page ─────────────────────────────────────────────────────────────
 
 export function Characters({ refreshKey: _ }: { refreshKey: number }) {
-  const { data: list = [] } = useCharacterList();
+  const { data: list = [], isLoading, isError } = useCharacterList();
   const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
@@ -358,6 +359,26 @@ export function Characters({ refreshKey: _ }: { refreshKey: number }) {
 
   if (selected) {
     return <CharacterDetail character={selected} onBack={() => setSelected(null)} />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="loading">
+        <div className="spinner loading-spinner" />
+        Loading characters…
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="page-header">
+        <div>
+          <h1>Characters</h1>
+          <p style={{ color: "var(--loss)" }}>Couldn't load character stats. Try reopening this page.</p>
+        </div>
+      </div>
+    );
   }
 
   const allCharacters = Object.keys(CHARACTER_META);
@@ -436,7 +457,7 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
   const meta = CHARACTER_META[character] ?? DEFAULT_META;
   const { data: matchups = [] } = useCharacterMatchups(character);
   const { data: signature } = useCharacterSignatureStats(character);
-  const { data: gameStats } = useCharacterGameStats(character);
+  const { data: gameStats, isLoading: statsLoading } = useCharacterGameStats(character);
   const [coachOpen, setCoachOpen] = useState(false);
 
   const gameStatRows = useMemo(() => (Array.isArray(gameStats) ? gameStats : []), [gameStats]);
@@ -463,6 +484,26 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
       return item;
     });
   }, [signature, character]);
+
+  // Unplayed character: no stats to show and nothing useful to coach on.
+  // Render an empty state and skip the "Analyze Matchup" CTA so CoachingModal
+  // never auto-fires a wasted LLM analysis on a character with zero games.
+  if (!statsLoading && totalGames === 0) {
+    return (
+      <div>
+        <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: 20 }}>
+          &larr; All Characters
+        </button>
+        <Card tone="chrome-plate">
+          <EmptyState
+            icon={CHARACTER_IMAGE_NAMES[character] ? <CharacterCardImage character={character} variant="portrait" color={meta.color} /> : meta.emoji}
+            title={`No ${character} games yet`}
+            sub={`You haven't played ${character} yet — import replays to see stats and matchups.`}
+          />
+        </Card>
+      </div>
+    );
+  }
 
   // Signature stats flank the wireframe — half on each side.
   // If a character has no sig stats, fall back to flanking with the
@@ -532,9 +573,11 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
               ))}
             </div>
           )}
-          <button className="btn btn-primary character-hero-cta" onClick={() => setCoachOpen(true)}>
-            Analyze Matchup
-          </button>
+          {!statsLoading && totalGames > 0 && (
+            <button className="btn btn-primary character-hero-cta" onClick={() => setCoachOpen(true)}>
+              Analyze Matchup
+            </button>
+          )}
         </div>
       </Card>
 

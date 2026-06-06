@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Compass, Play } from "lucide-react";
 import { CoachingCards } from "./CoachingCards";
 import { makeTimestampComponents, injectTimestampLinks } from "../utils/timestampLinks";
@@ -36,6 +36,10 @@ export function CoachingModal({
   const [queuePos, setQueuePos] = useState<number>(0);
   const openPlayer = useReplayPlayerStore((s) => s.openPlayer);
   const isReplayOpen = useReplayPlayerStore((s) => s.open);
+  const reduceMotion = useReducedMotion();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   const runAnalysis = useCallback(async () => {
     if (preloadedText) return;
@@ -84,6 +88,39 @@ export function CoachingModal({
     }
   }, [isOpen, analysis, loading, runAnalysis]);
 
+  // Close on Escape while open
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
+
+  // Move focus into the dialog on open
+  useEffect(() => {
+    if (!isOpen) return;
+    requestAnimationFrame(() => {
+      (closeRef.current ?? panelRef.current)?.focus();
+    });
+  }, [isOpen]);
+
+  // Autoscroll the body as streaming chunks arrive
+  useEffect(() => {
+    if (!loading) return;
+    const el = bodyRef.current;
+    if (!el) return;
+    if (reduceMotion) {
+      el.scrollTop = el.scrollHeight;
+    } else {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
+  }, [analysis, loading, reduceMotion]);
+
   if (!isOpen) return null;
 
   const modalClass = `coaching-modal${isReplayOpen ? " coaching-modal--replay-open" : ""}`;
@@ -91,8 +128,13 @@ export function CoachingModal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <motion.div
+        ref={panelRef}
         className={modalClass}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="coaching-modal-heading"
+        tabIndex={-1}
         initial={{ x: "100%", opacity: 1 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: "100%", opacity: 1 }}
@@ -104,16 +146,18 @@ export function CoachingModal({
               <Compass size={20} />
             </div>
             <div>
-              <h2 className="coaching-heading">MAGI Coaching</h2>
+              <h2 id="coaching-modal-heading" className="coaching-heading">
+                MAGI Coaching
+              </h2>
               <p className="coaching-subtitle">{title}</p>
             </div>
           </div>
-          <button className="coaching-close" onClick={onClose}>
+          <button ref={closeRef} className="coaching-close" onClick={onClose} aria-label="Close coaching">
             &times;
           </button>
         </header>
 
-        <div className="coaching-body custom-scrollbar">
+        <div ref={bodyRef} className="coaching-body custom-scrollbar">
           {error && <div className="coaching-error">{error}</div>}
 
           {!analysis && loading && (

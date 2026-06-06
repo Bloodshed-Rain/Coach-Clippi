@@ -6,13 +6,14 @@ import { DataTable } from "../components/ui/DataTable";
 import { KPI } from "../components/ui/KPI";
 import { Pill, PillRow } from "../components/ui/Pill";
 import { ResultDot } from "../components/ui/ResultDot";
+import { EmptyState } from "../components/ui/EmptyState";
 import { filterGames, LibraryFilters, LibraryGame } from "./library/filter";
 
 const RESULTS: Array<LibraryFilters["result"]> = ["all", "win", "loss"];
 
 export function Library({ refreshKey: _ }: { refreshKey: number }) {
   const navigate = useNavigate();
-  const { data: games = [], isLoading } = useRecentGames(500);
+  const { data: games = [], isLoading, isError, refetch } = useRecentGames(500);
 
   const [search, setSearch] = useState("");
   const [char, setChar] = useState<LibraryFilters["char"]>("all");
@@ -30,6 +31,15 @@ export function Library({ refreshKey: _ }: { refreshKey: number }) {
     [games, search, char, stage, result],
   );
 
+  const filtersActive = search !== "" || char !== "all" || stage !== "all" || result !== "all";
+
+  const clearFilters = () => {
+    setSearch("");
+    setChar("all");
+    setStage("all");
+    setResult("all");
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -40,9 +50,26 @@ export function Library({ refreshKey: _ }: { refreshKey: number }) {
               {filtered.length}
             </span>{" "}
             of {games.length} games
+            {filtersActive && (
+              <>
+                {" · "}
+                <button type="button" className="btn" onClick={clearFilters}>
+                  Clear filters
+                </button>
+              </>
+            )}
           </p>
         </div>
       </div>
+
+      {isError && (
+        <div className="sessions-error" role="alert">
+          Failed to load games.{" "}
+          <button type="button" className="btn" onClick={() => refetch()}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {(() => {
         const filteredWins = filtered.filter((g) => g.result === "win").length;
@@ -120,10 +147,10 @@ export function Library({ refreshKey: _ }: { refreshKey: number }) {
       </Card>
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
-        <DataTable>
+        <DataTable colWidths={["32px", undefined, undefined, undefined, "76px", "76px", "76px", "76px", undefined]}>
           <thead>
             <tr>
-              <th></th>
+              <th>Res</th>
               <th>Matchup</th>
               <th>Opponent</th>
               <th>Stage</th>
@@ -137,7 +164,21 @@ export function Library({ refreshKey: _ }: { refreshKey: number }) {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={9}>Loading…</td>
+                <td colSpan={9}>
+                  <div style={{ display: "flex", justifyContent: "center", padding: 32 }}>
+                    <div className="spinner" />
+                  </div>
+                </td>
+              </tr>
+            ) : games.length === 0 ? (
+              <tr>
+                <td colSpan={9}>
+                  <EmptyState
+                    title="No replays imported yet"
+                    sub="Import a replay folder to start building your library."
+                    cta={{ label: "Open Settings", onClick: () => navigate("/settings") }}
+                  />
+                </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
@@ -166,11 +207,11 @@ export function Library({ refreshKey: _ }: { refreshKey: number }) {
                     }}
                     tabIndex={0}
                     role="button"
-                    aria-label={`Open ${g.opponentTag} game on ${g.stage}`}
+                    aria-label={`Open ${g.result} vs ${g.opponentTag} on ${g.stage}`}
                     style={{ cursor: "pointer" }}
                   >
                     <td>
-                      <ResultDot result={g.result} />
+                      <ResultDot result={g.result} aria-hidden />
                     </td>
                     <td style={{ fontWeight: 600 }}>
                       {game.playerCharacter || "—"} <span style={{ color: "var(--text-muted)" }}>vs</span>{" "}
@@ -190,7 +231,7 @@ export function Library({ refreshKey: _ }: { refreshKey: number }) {
                     <td className="mono">
                       {typeof game.avgDamagePerOpening === "number" ? game.avgDamagePerOpening.toFixed(1) : "—"}
                     </td>
-                    <td className="mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                    <td className="mono" style={{ fontSize: 12, color: "var(--text-secondary)" }}>
                       {game.playedAt
                         ? new Date(game.playedAt).toLocaleDateString(undefined, {
                             month: "short",

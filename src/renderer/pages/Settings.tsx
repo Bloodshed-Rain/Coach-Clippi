@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { Card } from "../components/ui/Card";
 import { PROVIDERS, PROVIDER_BY_ID, type ProviderId } from "../../llmProviders";
-import { useGlobalStore } from "../stores/useGlobalStore";
+import { useGlobalStore, type Density } from "../stores/useGlobalStore";
+import { THEMES, THEME_ORDER, applyTheme, getResolvedTheme, type ColorMode } from "../themes";
 
 /** Config as returned by the main process — apiKeys are redacted to booleans */
 interface Config {
@@ -85,6 +86,10 @@ export function Settings({ onImport }: SettingsProps) {
   const [modelsLoading, setModelsLoading] = useState(false);
   const [customModelInputs, setCustomModelInputs] = useState<Partial<Record<ProviderId, boolean>>>({});
   const setWatcherActive = useGlobalStore((state) => state.setWatcherActive);
+  const colorMode = useGlobalStore((state) => state.colorMode);
+  const setColorMode = useGlobalStore((state) => state.setColorMode);
+  const density = useGlobalStore((state) => state.density);
+  const setDensity = useGlobalStore((state) => state.setDensity);
 
   // Load user config
   useEffect(() => {
@@ -161,6 +166,10 @@ export function Settings({ onImport }: SettingsProps) {
       // real keys with `true`.
       const payload: Record<string, unknown> = { ...config };
       delete payload.apiKeys;
+      // Don't clobber theme/density chosen via Tweaks/Appearance with the
+      // stale values captured at mount — those persist through their own setters.
+      delete payload.theme;
+      delete payload.colorMode;
       const updatedKeys: Partial<Record<ProviderId, string>> = {};
       for (const [pid, val] of Object.entries(keyEdits)) {
         if (val && val.trim()) updatedKeys[pid as ProviderId] = val.trim();
@@ -185,10 +194,23 @@ export function Settings({ onImport }: SettingsProps) {
       },
     });
 
+  const onPickTheme = (id: ColorMode) => {
+    setColorMode(id);
+    applyTheme(getResolvedTheme(id, id));
+    window.clippi.saveConfig({ colorMode: id }).catch(() => {});
+  };
+
+  const onPickDensity = (d: Density) => {
+    setDensity(d);
+    window.clippi.saveConfig({ density: d }).catch(() => {});
+  };
+
   const handleBrowse = async () => {
     const folder = await window.clippi.openFolder();
     if (folder) {
       setConfig({ ...config, replayFolder: folder });
+      // Persist immediately so a user who imports without clicking Save keeps it.
+      window.clippi.saveConfig({ replayFolder: folder }).catch(() => {});
     }
   };
 
@@ -233,6 +255,12 @@ export function Settings({ onImport }: SettingsProps) {
       }
 
       onImport();
+      // Persist the folder/tag that produced a successful import so they survive
+      // even if the user never clicks Save. Fire-and-forget so a save failure
+      // doesn't get reported as an import failure.
+      window.clippi
+        .saveConfig({ replayFolder: config.replayFolder, targetPlayer: config.targetPlayer })
+        .catch(() => {});
     } catch (err: unknown) {
       setImportProgress(null);
       setImportStatus(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -284,20 +312,57 @@ export function Settings({ onImport }: SettingsProps) {
 
       <Card title="Player">
         <div className="settings-field">
-          <label>Display Name / Tag</label>
+          <label htmlFor="setting-target-player">Display Name / Tag</label>
           <input
+            id="setting-target-player"
             value={config.targetPlayer ?? ""}
             onChange={(e) => setConfig({ ...config, targetPlayer: e.target.value || null })}
             placeholder="YourTag"
           />
         </div>
         <div className="settings-field">
-          <label>Connect Code</label>
+          <label htmlFor="setting-connect-code">Connect Code</label>
           <input
+            id="setting-connect-code"
             value={config.connectCode ?? ""}
             onChange={(e) => setConfig({ ...config, connectCode: e.target.value || null })}
             placeholder="TAG#123"
           />
+        </div>
+      </Card>
+
+      <Card title="Appearance">
+        <div className="settings-field">
+          <label id="appearance-theme-label">Theme</label>
+          <div className="settings-row" role="group" aria-labelledby="appearance-theme-label" style={{ flexWrap: "wrap", gap: 8 }}>
+            {THEME_ORDER.map((id) => (
+              <button
+                key={id}
+                type="button"
+                className={`btn ${colorMode === id ? "btn-primary" : ""}`}
+                aria-pressed={colorMode === id}
+                onClick={() => onPickTheme(id as ColorMode)}
+              >
+                {THEMES[id]!.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="settings-field" style={{ marginBottom: 0 }}>
+          <label id="appearance-density-label">Density</label>
+          <div className="settings-row" role="group" aria-labelledby="appearance-density-label" style={{ gap: 8 }}>
+            {(["comfortable", "compact"] as Density[]).map((d) => (
+              <button
+                key={d}
+                type="button"
+                className={`btn ${density === d ? "btn-primary" : ""}`}
+                aria-pressed={density === d}
+                onClick={() => onPickDensity(d)}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
         </div>
       </Card>
 
@@ -394,9 +459,10 @@ export function Settings({ onImport }: SettingsProps) {
       {/* Dolphin Path */}
       <Card title="Slippi Dolphin">
         <div className="settings-field">
-          <label>Dolphin Executable Path (optional \u2014 auto-detected if left blank)</label>
+          <label htmlFor="setting-dolphin-path">Dolphin Executable Path (optional \u2014 auto-detected if left blank)</label>
           <div className="settings-row">
             <input
+              id="setting-dolphin-path"
               value={config.dolphinPath ?? ""}
               onChange={(e) => setConfig({ ...config, dolphinPath: e.target.value || null })}
               placeholder="Auto-detect"
@@ -415,9 +481,10 @@ export function Settings({ onImport }: SettingsProps) {
           </div>
         </div>
         <div className="settings-field">
-          <label>Melee ISO Path (vanilla NTSC 1.02 \u2014 needed for replay playback)</label>
+          <label htmlFor="setting-melee-iso">Melee ISO Path (vanilla NTSC 1.02 \u2014 needed for replay playback)</label>
           <div className="settings-row">
             <input
+              id="setting-melee-iso"
               value={config.meleeIsoPath ?? ""}
               onChange={(e) => setConfig({ ...config, meleeIsoPath: e.target.value || null })}
               placeholder="Falls back to Slippi Launcher ISO if blank"
@@ -473,7 +540,7 @@ export function Settings({ onImport }: SettingsProps) {
                 borderRadius: 6,
                 padding: "12px 14px",
                 marginBottom: 12,
-                background: isActive ? "rgba(74, 222, 128, 0.04)" : "transparent",
+                background: isActive ? "rgba(var(--green-rgb), 0.06)" : "transparent",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -503,11 +570,12 @@ export function Settings({ onImport }: SettingsProps) {
 
               {p.needsKey && (
                 <div className="settings-field" style={{ marginBottom: 8 }}>
-                  <label style={{ fontSize: 11 }}>
+                  <label htmlFor={`apikey-${p.id}`} style={{ fontSize: 11 }}>
                     API Key{" "}
-                    {isSet && <span style={{ color: "var(--green, #4caf50)", fontSize: 10 }}>(configured)</span>}
+                    {isSet && <span style={{ color: "var(--green)", fontSize: 10 }}>✓ (configured)</span>}
                   </label>
                   <input
+                    id={`apikey-${p.id}`}
                     type="password"
                     value={keyEdit}
                     onChange={(e) => setKeyEdits({ ...keyEdits, [p.id]: e.target.value })}
@@ -518,8 +586,11 @@ export function Settings({ onImport }: SettingsProps) {
 
               {p.id === "local" && (
                 <div className="settings-field" style={{ marginBottom: 8 }}>
-                  <label style={{ fontSize: 11 }}>Local Endpoint URL</label>
+                  <label htmlFor={`local-endpoint-${p.id}`} style={{ fontSize: 11 }}>
+                    Local Endpoint URL
+                  </label>
                   <input
+                    id={`local-endpoint-${p.id}`}
                     type="text"
                     value={config.localEndpoint ?? ""}
                     onChange={(e) => setConfig({ ...config, localEndpoint: e.target.value || null })}
@@ -530,7 +601,7 @@ export function Settings({ onImport }: SettingsProps) {
 
               <div className="settings-field" style={{ marginBottom: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <label style={{ fontSize: 11 }}>
+                  <label htmlFor={`model-${p.id}`} style={{ fontSize: 11 }}>
                     Model
                     {p.needsKey && !ready && (
                       <span style={{ color: "var(--text-muted)", fontSize: 10, fontWeight: 400, marginLeft: 8 }}>
@@ -548,12 +619,14 @@ export function Settings({ onImport }: SettingsProps) {
                 </div>
                 {customMode ? (
                   <input
+                    id={`model-${p.id}`}
                     value={selectedModel}
                     onChange={(e) => setProviderModel(p.id, e.target.value || null)}
                     placeholder={models[0]?.id ?? "model-id"}
                   />
                 ) : (
                   <select
+                    id={`model-${p.id}`}
                     className="model-select"
                     value={selectedModel}
                     onChange={(e) => setProviderModel(p.id, e.target.value || null)}
@@ -581,9 +654,19 @@ export function Settings({ onImport }: SettingsProps) {
         </p>
       </Card>
 
-      <button className="btn btn-primary" onClick={handleSave}>
-        {saved ? "Saved!" : "Save Settings"}
-      </button>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          padding: "16px 0",
+          marginTop: 8,
+          borderTop: "1px solid var(--border)",
+        }}
+      >
+        <button className="btn btn-primary" onClick={handleSave}>
+          {saved ? "Saved!" : "Save Settings"}
+        </button>
+      </div>
 
       <Card title="Danger Zone" style={{ marginTop: 32 }}>
         <p style={{ color: "var(--text-dim)", fontSize: 13, marginBottom: 12 }}>

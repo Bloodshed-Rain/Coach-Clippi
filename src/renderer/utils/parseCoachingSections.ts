@@ -162,7 +162,7 @@ export const SECTION_META: Record<SectionType, SectionMeta> = {
   },
   "shield-pressure": {
     label: "Shield Pressure",
-    color: "var(--secondary-dim)",
+    color: "var(--secondary)",
     iconPath: "M12 2L2 7l10 5 10-5-10-5z",
     iconPath2: "M2 17l10 5 10-5M2 12l10 5 10-5",
   },

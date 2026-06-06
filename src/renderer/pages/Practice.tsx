@@ -84,6 +84,7 @@ export function Practice({ refreshKey: _ }: { refreshKey: number }) {
   };
 
   const onDelete = async (planId: number) => {
+    if (!confirm("Delete this practice plan and its progress?")) return;
     await window.clippi.deletePracticePlan(planId);
     setPlans((prev) => prev.filter((p) => p.id !== planId));
   };
@@ -102,14 +103,32 @@ export function Practice({ refreshKey: _ }: { refreshKey: number }) {
 
       {err && <p style={{ color: "var(--loss)" }}>{err}</p>}
 
-      {plans.length === 0 && !generating ? (
+      {generating && plans.length === 0 ? (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 14,
+            padding: "64px 0",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <div className="spinner" />
+          <span>MAGI is building your plan…</span>
+        </div>
+      ) : plans.length === 0 ? (
         <EmptyState
           title="No practice plans yet"
           sub="MAGI can read your stats and generate a drill plan tailored to your weakest areas."
           cta={{ label: "+ Generate First Plan", onClick: onNewPlan }}
         />
       ) : (
-        <div className="practice-grid">
+        <div
+          className="practice-grid"
+          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(340px, 520px))", justifyContent: "start" }}
+        >
           {plans.map((p) => {
             const done = p.drills.filter((d) => d.completed).length;
             const total = p.drills.length;
@@ -154,7 +173,7 @@ export function Practice({ refreshKey: _ }: { refreshKey: number }) {
                     </label>
                   ))}
                 </div>
-                <button className="btn btn-ghost" style={{ marginTop: 10 }} onClick={() => onDelete(p.id)}>
+                <button className="btn btn-danger" style={{ marginTop: 10 }} onClick={() => onDelete(p.id)}>
                   Delete plan
                 </button>
               </Card>

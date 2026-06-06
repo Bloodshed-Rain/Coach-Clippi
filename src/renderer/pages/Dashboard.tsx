@@ -66,12 +66,33 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
   const { data: games = [], isLoading, refetch } = useRecentGames(100);
   const { data: record, refetch: refetchRecord } = useOverallRecord();
   const { data: highlights, refetch: refetchHighlights } = useDashboardHighlights();
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     refetch();
     refetchRecord();
     refetchHighlights();
   }, [refreshKey, refetch, refetchRecord, refetchHighlights]);
+
+  const handleImport = useCallback(async () => {
+    const config = await window.clippi.loadConfig();
+    const tag = config?.connectCode || config?.targetPlayer;
+    if (!tag) {
+      navigate("/settings");
+      return;
+    }
+    const folder = await window.clippi.openFolder();
+    if (!folder) return;
+    setImporting(true);
+    try {
+      await window.clippi.importFolder(folder, tag);
+      refetch();
+      refetchRecord();
+      refetchHighlights();
+    } finally {
+      setImporting(false);
+    }
+  }, [navigate, refetch, refetchRecord, refetchHighlights]);
 
   const recent = (games as unknown as RecentGame[]).slice(0, 20);
   const last10 = recent.slice(0, 10);
@@ -113,15 +134,15 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
         <EmptyState
           title="No replays imported yet"
           sub="Point MAGI at your Slippi folder to start tracking stats and coaching."
-          cta={{ label: "Open Settings", onClick: () => navigate("/settings") }}
+          cta={{ label: "Import Replays", onClick: handleImport }}
         />
       </div>
     );
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
-      <div className="page-header">
+    <div>
+      <div className="page-header dash-header">
         <div>
           <h1>Dashboard</h1>
           <p>
@@ -134,8 +155,8 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={() => navigate("/settings")}>
-            Import Replays
+          <button className="btn btn-primary" onClick={handleImport} disabled={importing}>
+            {importing ? "Importing…" : "Import Replays"}
           </button>
         </div>
       </div>
@@ -310,7 +331,6 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
                   hidden: { opacity: 0, x: -10 },
                   show: { opacity: 1, x: 0, transition: { type: "spring", bounce: 0.2 } },
                 }}
-                whileHover={{ scale: 1.01, backgroundColor: "var(--surface-2)" }}
                 onClick={() => navigate(`/game/${g.id}`)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -343,7 +363,7 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
           </motion.tbody>
         </DataTable>
       </Card>
-    </motion.div>
+    </div>
   );
 }
 

@@ -24,7 +24,12 @@ export function TweaksPanel() {
 
   if (!open) {
     return (
-      <button className="tweaks-toggle-btn" onClick={() => setOpen(true)} aria-label="Open tweaks" title="Tweaks">
+      <button
+        className="tweaks-toggle-btn"
+        onClick={() => setOpen(true)}
+        aria-label="Appearance"
+        title="Appearance"
+      >
         <svg
           width="18"
           height="18"

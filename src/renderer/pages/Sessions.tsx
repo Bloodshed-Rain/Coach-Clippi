@@ -12,10 +12,13 @@ interface Day {
   games: number;
   wins: number;
   losses: number;
+  draws: number;
   opponents: string[];
   gameIds: number[];
   gameResults?: Array<{ id: number; result: "win" | "loss" | "draw" | string }>;
 }
+
+const MAX_INLINE_DOTS = 16;
 
 function formatDate(iso: string): string {
   try {
@@ -61,20 +64,51 @@ function DayCard({ day }: { day: Day }) {
       <div className="session-card-sub">
         {day.games} games · <span style={{ color: "var(--win)" }}>{day.wins}W</span>-
         <span style={{ color: "var(--loss)" }}>{day.losses}L</span>
+        {day.draws > 0 && (
+          <>
+            -<span style={{ color: "var(--caution)" }}>{day.draws}D</span>
+          </>
+        )}
       </div>
       <div className="session-card-dots">
-        {(day.gameResults ?? day.gameIds.map((id) => ({ id, result: "draw" }))).map((game) => (
-          <button
-            key={game.id}
-            type="button"
-            className="result-dot-button"
-            onClick={() => navigate(`/game/${game.id}`)}
-            aria-label={`Open ${game.result} game`}
-            title={`Open ${game.result} game`}
-          >
-            <ResultDot result={game.result === "win" ? "win" : "loss"} />
-          </button>
-        ))}
+        {(() => {
+          const games = day.gameResults ?? day.gameIds.map((id) => ({ id, result: "draw" }));
+          const shown = games.slice(0, MAX_INLINE_DOTS);
+          const overflow = games.length - shown.length;
+          return (
+            <>
+              {shown.map((game) => {
+                const result = game.result === "win" ? "win" : game.result === "loss" ? "loss" : "draw";
+                return (
+                  <button
+                    key={game.id}
+                    type="button"
+                    className="result-dot-button"
+                    onClick={() => navigate(`/game/${game.id}`)}
+                    aria-label={`Open ${result} game`}
+                    title={`Open ${result} game`}
+                  >
+                    <ResultDot result={result} aria-hidden />
+                  </button>
+                );
+              })}
+              {overflow > 0 && (
+                <span
+                  aria-label={`${overflow} more games`}
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-secondary)",
+                    fontWeight: 600,
+                    alignSelf: "center",
+                    marginLeft: 2,
+                  }}
+                >
+                  +{overflow}
+                </span>
+              )}
+            </>
+          );
+        })()}
       </div>
       <WinrateBar value={wr} />
       <div className="session-card-opponents">
@@ -96,7 +130,7 @@ function DayCard({ day }: { day: Day }) {
 
 export function Sessions({ refreshKey: _ }: { refreshKey: number }) {
   const navigate = useNavigate();
-  const { data: days = [], isLoading } = useSessionsByDay(90);
+  const { data: days = [], isLoading, isError } = useSessionsByDay(90);
 
   if (isLoading) {
     return (
@@ -105,6 +139,10 @@ export function Sessions({ refreshKey: _ }: { refreshKey: number }) {
         Loading…
       </div>
     );
+  }
+
+  if (isError) {
+    return <div className="sessions-error">Failed to load sessions. Please try again.</div>;
   }
 
   if (days.length === 0) {

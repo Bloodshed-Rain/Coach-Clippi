@@ -7,7 +7,12 @@ interface PillProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function Pill({ active, className, children, ...rest }: PillProps) {
   return (
-    <button type="button" className={["pill", active ? "active" : "", className].filter(Boolean).join(" ")} {...rest}>
+    <button
+      type="button"
+      aria-pressed={active ?? false}
+      className={["pill", active ? "active" : "", className].filter(Boolean).join(" ")}
+      {...rest}
+    >
       {children}
     </button>
   );

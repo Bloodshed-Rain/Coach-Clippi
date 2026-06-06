@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { useTrendSeries, useRecentGames } from "../hooks/queries";
 import { Card } from "../components/ui/Card";
 import { Pill, PillRow } from "../components/ui/Pill";
@@ -21,6 +20,8 @@ const METRICS: Array<{
   color: string;
   invert?: boolean;
   pct?: boolean;
+  /** Fixed y-domain to anchor the chart scale. Omit for raw metrics (auto-scale). */
+  domain?: [number, number];
 }> = [
   {
     key: "neutralWinRate",
@@ -28,19 +29,42 @@ const METRICS: Array<{
     fmt: (v) => `${(v * 100).toFixed(1)}%`,
     color: "var(--win)",
     pct: true,
+    domain: [0, 1],
   },
-  { key: "lCancelRate", label: "L-Cancel", fmt: (v) => `${(v * 100).toFixed(1)}%`, color: "var(--accent)", pct: true },
+  {
+    key: "lCancelRate",
+    label: "L-Cancel",
+    fmt: (v) => `${(v * 100).toFixed(1)}%`,
+    color: "var(--accent)",
+    pct: true,
+    domain: [0, 1],
+  },
   {
     key: "conversionRate",
     label: "Conversion",
     fmt: (v) => `${(v * 100).toFixed(1)}%`,
     color: "var(--caution)",
     pct: true,
+    domain: [0, 1],
   },
   { key: "avgDamagePerOpening", label: "Dmg/Opening", fmt: (v) => v.toFixed(1), color: "var(--text)" },
   { key: "openingsPerKill", label: "Openings/Kill", fmt: (v) => v.toFixed(1), color: "var(--loss)", invert: true },
-  { key: "avgDeathPercent", label: "Avg Death %", fmt: (v) => `${v.toFixed(0)}%`, color: "var(--text-secondary)" },
+  {
+    key: "avgDeathPercent",
+    label: "Avg Death %",
+    fmt: (v) => `${v.toFixed(0)}%`,
+    color: "var(--text-secondary)",
+    // No `pct`: stored on a 0–100 scale, so its delta is already in points (avoid 100x delta inflation).
+    domain: [0, 100],
+  },
 ];
+
+/** Format an ISO timestamp as a short axis label, e.g. "Jun 3". */
+function fmtAxisDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 
 function rolling(vals: number[], win: number): number[] {
   return vals.map((_, i) => {
@@ -68,19 +92,30 @@ export function Trends({ refreshKey: _ }: { refreshKey: number }) {
     new Set(recent.map((g) => (g as unknown as { opponentCharacter: string }).opponentCharacter)),
   ).sort();
 
-  const { data: series = [], isLoading } = useTrendSeries(metric, range, filterChar === "all" ? null : filterChar);
+  const {
+    data: series = [],
+    isLoading,
+    isError,
+  } = useTrendSeries(metric, range, filterChar === "all" ? null : filterChar);
 
   const current = METRICS.find((m) => m.key === metric)!;
-  const smoothed = rolling(series, 5);
+  const values = series.map((p) => p.value);
+  const smoothed = rolling(values, 5);
   const delta = firstHalfDelta(smoothed);
   const improving = current.invert ? delta < 0 : delta > 0;
+  const lowSample = !isLoading && !isError && series.length < 5;
 
   if (recent.length === 0) {
     return <EmptyState title="No games yet" sub="Trends appear once you have replays imported." />;
   }
 
+  // y-axis tick labels (top → bottom) when the metric has a fixed domain.
+  const yTicks = current.domain
+    ? [current.domain[1], (current.domain[0] + current.domain[1]) / 2, current.domain[0]].map((v) => current.fmt(v))
+    : null;
+
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+    <div>
       <div className="page-header">
         <div>
           <h1>Trends</h1>
@@ -102,7 +137,7 @@ export function Trends({ refreshKey: _ }: { refreshKey: number }) {
             <Pill active={filterChar === "all"} onClick={() => setFilterChar("all")}>
               All
             </Pill>
-            {chars.slice(0, 8).map((c) => (
+            {chars.map((c) => (
               <Pill key={c} active={filterChar === c} onClick={() => setFilterChar(c)}>
                 {c}
               </Pill>
@@ -114,7 +149,7 @@ export function Trends({ refreshKey: _ }: { refreshKey: number }) {
       <Card>
         <div className="trends-hero-head">
           <div>
-            <div className="card-title">{current.label}</div>
+            <div className="trends-hero-label">{current.label}</div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
               <div className="kpi-value" style={{ fontSize: 48 }}>
                 {smoothed.length > 0 ? current.fmt(smoothed[smoothed.length - 1]!) : "—"}
@@ -141,8 +176,43 @@ export function Trends({ refreshKey: _ }: { refreshKey: number }) {
           <div style={{ height: 260, display: "grid", placeItems: "center" }}>
             <div className="spinner" />
           </div>
+        ) : isError ? (
+          <div className="trends-chart-message" style={{ height: 260 }}>
+            Couldn&apos;t load trend data. Try again.
+          </div>
+        ) : lowSample ? (
+          <div className="trends-chart-message" style={{ height: 260 }}>
+            Need 5+ games for a trend — only {series.length} found for this filter.
+          </div>
         ) : (
-          <Sparkline values={smoothed} kind="chart" height={260} color={current.color} fill />
+          <>
+            <div className="trends-chart-row">
+              {yTicks && (
+                <div className="trends-yaxis" style={{ height: 260 }}>
+                  {yTicks.map((t, i) => (
+                    <span key={i}>{t}</span>
+                  ))}
+                </div>
+              )}
+              <div className="trends-chart-area">
+                <Sparkline
+                  values={smoothed}
+                  kind="chart"
+                  height={260}
+                  color={current.color}
+                  fill
+                  {...(current.domain ? { domain: current.domain } : {})}
+                />
+              </div>
+            </div>
+            {series.length > 1 && (
+              <div className="trends-xaxis" style={yTicks ? { paddingLeft: 44 } : undefined}>
+                <span>{fmtAxisDate(series[0]!.playedAt)}</span>
+                <span>{fmtAxisDate(series[Math.floor((series.length - 1) / 2)]!.playedAt)}</span>
+                <span>{fmtAxisDate(series[series.length - 1]!.playedAt)}</span>
+              </div>
+            )}
+          </>
         )}
       </Card>
 
@@ -151,7 +221,7 @@ export function Trends({ refreshKey: _ }: { refreshKey: number }) {
           <MiniChart key={m.key} metric={m} range={range} filterChar={filterChar} onSelect={() => setMetric(m.key)} />
         ))}
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -167,7 +237,10 @@ function MiniChart({
   onSelect: () => void;
 }) {
   const { data: series = [] } = useTrendSeries(metric.key, range, filterChar === "all" ? null : filterChar);
-  const smoothed = rolling(series, 5);
+  const smoothed = rolling(
+    series.map((p) => p.value),
+    5,
+  );
   const delta = firstHalfDelta(smoothed);
   const improving = metric.invert ? delta < 0 : delta > 0;
 
@@ -198,7 +271,14 @@ function MiniChart({
           </span>
         </div>
       </div>
-      <Sparkline values={smoothed} kind="chart" height={80} color={metric.color} fill />
+      <Sparkline
+        values={smoothed}
+        kind="chart"
+        height={80}
+        color={metric.color}
+        fill
+        {...(metric.domain ? { domain: metric.domain } : {})}
+      />
     </Card>
   );
 }

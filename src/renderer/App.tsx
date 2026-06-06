@@ -42,12 +42,10 @@ const ANALYZE_ITEMS: NavItem[] = [
   { id: "trends", label: "Trends", path: "/trends", Icon: TrendsIcon },
   { id: "characters", label: "Characters", path: "/characters", Icon: CharactersIcon },
   { id: "practice", label: "Practice", path: "/practice", Icon: PracticeIcon },
+  { id: "oracle", label: "MAGI Oracle", path: "/oracle", Icon: OracleIcon },
 ];
 
-const SYSTEM_ITEMS: NavItem[] = [
-  { id: "oracle", label: "MAGI Oracle", path: "/oracle", Icon: OracleIcon },
-  { id: "settings", label: "Settings", path: "/settings", Icon: SettingsIcon },
-];
+const SYSTEM_ITEMS: NavItem[] = [{ id: "settings", label: "Settings", path: "/settings", Icon: SettingsIcon }];
 
 export function App() {
   const navigate = useNavigate();

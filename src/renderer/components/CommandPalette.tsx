@@ -146,6 +146,14 @@ export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, open, close, navigateTo]);
 
+  // ── Open via custom event (sidebar hint) ─────────────────────────
+
+  useEffect(() => {
+    const handleOpen = () => open();
+    window.addEventListener("magi:open-palette", handleOpen);
+    return () => window.removeEventListener("magi:open-palette", handleOpen);
+  }, [open]);
+
   // ── Focus input on open ──────────────────────────────────────────
 
   useEffect(() => {

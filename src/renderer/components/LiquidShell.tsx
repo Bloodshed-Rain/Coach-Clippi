@@ -71,17 +71,26 @@ export function LiquidShell({
     );
   };
 
+  const goHome = () => {
+    const home = analyzeItems.find((i) => i.path === "/dashboard");
+    if (home) {
+      onNavigate(home, location.pathname === "/dashboard" || location.pathname === "/");
+    }
+  };
+
   return (
     <div className="app-layout liquid-shell">
-      <motion.img
-        className="magi-brand-logo"
-        src={magiLogo}
-        alt="MAGI"
-        draggable={false}
-        initial={{ opacity: 0, scale: 0.8, rotate: -10 }}
-        animate={{ opacity: 1, scale: 1, rotate: 0 }}
-        transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
-      />
+      <button type="button" className="magi-brand-home" onClick={goHome} aria-label="Go to Dashboard">
+        <motion.img
+          className="magi-brand-logo"
+          src={magiLogo}
+          alt=""
+          draggable={false}
+          initial={{ opacity: 0, scale: 0.8, rotate: -10 }}
+          animate={{ opacity: 1, scale: 1, rotate: 0 }}
+          transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
+        />
+      </button>
       <nav className="sidebar" aria-label="Main navigation">
         <div className="brand" aria-hidden="true" />
 
@@ -92,6 +101,15 @@ export function LiquidShell({
         {systemItems.map(renderItem)}
 
         <div className="sidebar-footer">
+          <button
+            type="button"
+            className="sidebar-search-hint"
+            onClick={() => window.dispatchEvent(new CustomEvent("magi:open-palette"))}
+            aria-label="Open command palette"
+          >
+            <span className="sidebar-search-hint-label">Search</span>
+            <kbd className="cmd-kbd">Ctrl K</kbd>
+          </button>
           <div className="sidebar-footer-row">
             <span
               className="sidebar-status-dot"
