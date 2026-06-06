@@ -2357,6 +2357,8 @@ export interface DaySession {
   games: number;
   wins: number;
   losses: number;
+  /** Games whose result is neither win nor loss (draw / unparsed) — keeps games == wins + losses + draws. */
+  draws: number;
   opponents: string[];
   gameIds: number[];
   gameResults: { id: number; result: string }[];
@@ -2385,6 +2387,7 @@ export function getSessionsByDay(daysBack: number = 90): DaySession[] {
       games: 0,
       wins: 0,
       losses: 0,
+      draws: 0,
       opponents: [] as string[],
       gameIds: [] as number[],
       gameResults: [] as { id: number; result: string }[],
@@ -2392,6 +2395,7 @@ export function getSessionsByDay(daysBack: number = 90): DaySession[] {
     existing.games += 1;
     if (r.result === "win") existing.wins += 1;
     else if (r.result === "loss") existing.losses += 1;
+    else existing.draws += 1;
     existing.gameIds.push(r.id);
     existing.gameResults.push({ id: r.id, result: r.result });
     if (!existing.opponents.includes(r.opponentTag)) existing.opponents.push(r.opponentTag);
@@ -2469,7 +2473,11 @@ const METRIC_COLUMN: Record<TrendMetric, string> = {
   avgDeathPercent: "gs.avg_death_percent",
 };
 
-export function getTrendSeries(metric: TrendMetric, range: "7d" | "30d" | "all", filterChar: string | null): number[] {
+export function getTrendSeries(
+  metric: TrendMetric,
+  range: "7d" | "30d" | "all",
+  filterChar: string | null,
+): TrendPoint[] {
   const column = METRIC_COLUMN[metric];
   const where: string[] = [];
   const params: (string | number)[] = [];
@@ -2481,16 +2489,15 @@ export function getTrendSeries(metric: TrendMetric, range: "7d" | "30d" | "all",
   }
   const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const sql = `
-    SELECT ${column} as v
+    SELECT ${column} as value, g.played_at as playedAt
     FROM games g
     JOIN game_stats gs ON gs.game_id = g.id
     ${whereClause}
     ORDER BY g.played_at ASC
   `;
-  const rows = getDb()
+  return getDb()
     .prepare(sql)
-    .all(...params) as Array<{ v: number }>;
-  return rows.map((r) => r.v);
+    .all(...params) as TrendPoint[];
 }
 
 // ── Practice plans ──────────────────────────────────────────────────

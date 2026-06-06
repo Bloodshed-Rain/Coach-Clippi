@@ -27,7 +27,14 @@ export function StatGroupCard({ title, items }: StatGroupCardProps) {
                 color: it.good === true ? "var(--win)" : it.good === false ? "var(--loss)" : "var(--text)",
               }}
             >
+              {/* Non-color cue (WCAG 1.4.1): a glyph backs up the good/bad color. */}
+              {it.good !== undefined && (
+                <span className="stat-trend" aria-hidden="true">
+                  {it.good ? "▲" : "▼"}
+                </span>
+              )}
               {String(it.value)}
+              {it.good !== undefined && <span className="sr-only">{it.good ? " (on target)" : " (needs work)"}</span>}
             </div>
           </div>
         ))}

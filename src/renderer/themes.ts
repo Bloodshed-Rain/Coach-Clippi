@@ -80,7 +80,7 @@ export const THEMES: Record<string, Theme> = {
     borderMuted: "rgba(255,255,255,0.18)",
     text: "#f5f7fa",
     textSecondary: "#cfd4dc",
-    textMuted: "#6a707b",
+    textMuted: "#9aa1ad", // raised to clear WCAG AA 4.5:1 on surface-1/2/3 (was #6a707b ≈ 3.3:1)
     accent: "#c7ccd6", // chrome
     accentHover: "#e8ebf0",
     accentMuted: "rgba(199,204,214,0.14)",
@@ -129,7 +129,7 @@ export const THEMES: Record<string, Theme> = {
     borderMuted: "rgba(148, 163, 184, 0.2)",
     text: "#f8fafc",
     textSecondary: "#cbd5e1",
-    textMuted: "#64748b",
+    textMuted: "#a8b5c6", // raised to clear WCAG AA 4.5:1 on surface-1/2 (was #64748b ≈ 2.2:1 on surface-2)
     accent: "#22d3ee",
     accentHover: "#06b6d4",
     accentMuted: "rgba(34, 211, 238, 0.15)",
@@ -172,7 +172,7 @@ export const THEMES: Record<string, Theme> = {
     borderMuted: "rgba(255,255,255,0.14)",
     text: "#ffffff",
     textSecondary: "#d4d4d4",
-    textMuted: "#737373",
+    textMuted: "#a3a3a3", // raised to clear WCAG AA 4.5:1 (was #737373 ≈ 3.9:1)
     accent: "#3b82f6",
     accentHover: "#2563eb",
     accentMuted: "rgba(59,130,246,0.15)",
@@ -215,7 +215,7 @@ export const THEMES: Record<string, Theme> = {
     borderMuted: "rgba(51,255,51,0.15)",
     text: "#33ff33",
     textSecondary: "#29cc29",
-    textMuted: "#1a801a",
+    textMuted: "#2fd02f", // raised to clear WCAG AA 4.5:1 (was #1a801a ≈ 3.7:1)
     accent: "#33ff33",
     accentHover: "#29cc29",
     accentMuted: "rgba(51,255,51,0.12)",
@@ -259,7 +259,7 @@ export const THEMES: Record<string, Theme> = {
     borderMuted: "rgba(217,175,106,0.18)",
     text: "#f5e6c8",
     textSecondary: "#c9a96e",
-    textMuted: "#8b6d3f",
+    textMuted: "#b89461", // raised to clear WCAG AA 4.5:1 (was #8b6d3f ≈ 3.6:1)
     accent: "#d9a540",
     accentHover: "#c4922e",
     accentMuted: "rgba(217,165,64,0.14)",
@@ -303,7 +303,7 @@ export const THEMES: Record<string, Theme> = {
     borderMuted: "rgba(15, 23, 42, 0.14)",
     text: "#0f172a",
     textSecondary: "#475569",
-    textMuted: "#94a3b8",
+    textMuted: "#5b6675", // darkened to clear WCAG AA 4.5:1 on light surfaces (was #94a3b8 ≈ 2.4:1)
     accent: "#0ea5e9",
     accentHover: "#0284c7",
     accentMuted: "rgba(14, 165, 233, 0.1)",

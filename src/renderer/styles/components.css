@@ -37,6 +37,15 @@
   outline-offset: 3px;
 }
 
+/* ── Global focus-visible baseline (a11y, WCAG 2.4.7) ───────────────
+   Low-specificity ring for every focusable control so nothing is left
+   without a keyboard affordance; components with their own
+   :focus-visible rule override this automatically. */
+:where(button, a[href], [role="button"], [tabindex="0"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ── Cards ─────────────────────────────────────────────────────── */
 .card {
   background: rgba(30, 41, 59, 0.6); /* Translucent surface-1 */
@@ -249,11 +258,19 @@
   pointer-events: none;
   z-index: 1;
 }
-.data-table tbody tr:hover::after {
+.data-table tbody tr:hover::after,
+.data-table tbody tr:focus-visible::after {
   transform: scaleX(1);
 }
-.data-table tbody tr:hover td {
+.data-table tbody tr:hover td,
+.data-table tbody tr:focus-visible td {
   background: var(--surface-2);
+}
+/* Keyboard focus ring for interactive rows (negative offset stays inside
+   the overflow:hidden cells). */
+.data-table tbody tr:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 /* ── Tab Bar — Sharp underline style ───────────────────────────── */
@@ -293,20 +310,9 @@
   outline-offset: -2px;
 }
 
-/* ── Win Rate Bar ──────────────────────────────────────────────── */
-.winrate-bar {
-  width: 88px;
-  height: 3px;
-  background: var(--surface-3);
-  border-radius: 0;
-  overflow: hidden;
-}
-.winrate-bar-fill {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 0;
-  transition: width 0.5s var(--ease-spring);
-}
+/* ── Win Rate Bar — single canonical definition lives below (~line 2340).
+   The earlier 88px/sharp duplicate was removed; WinrateBar is only ever
+   used full-width inside cards, where the rounded flex variant applies. */
 
 /* ── Game Cards — Flush rows, not floating cards ───────────────── */
 .game-list {
@@ -648,6 +654,34 @@
   margin: 0 0 20px;
   font-size: 13px;
   color: var(--text-muted);
+}
+/* One-tap starter chips (e.g. Oracle suggested prompts) */
+.empty-state-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 520px;
+  margin: 0 0 20px;
+}
+.empty-state-chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.empty-state-chip:hover {
+  background: var(--surface-3);
+  border-color: var(--border-muted);
+  color: var(--text);
 }
 
 /* ── Discovery Card ──────────────────────────────────────────────── */
@@ -2315,13 +2349,22 @@ body[data-theme="liquid"] .pill.active {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+  box-sizing: border-box;
 }
+/* Non-color cue (WCAG 1.4.1 — do not rely on hue alone): win is a FILLED
+   disc, loss is a hollow RING, draw is a filled caution disc. Shape carries
+   the outcome so red/green colorblind users can still read W/L at a glance. */
 .result-dot.win {
   background: var(--win);
   box-shadow: 0 0 8px rgba(var(--green-rgb), 0.5);
 }
 .result-dot.loss {
-  background: var(--loss);
+  background: transparent;
+  border: 2px solid var(--loss);
+}
+.result-dot.draw {
+  background: var(--caution);
+  box-shadow: 0 0 6px rgba(var(--yellow-rgb), 0.4);
 }
 
 body[data-theme="liquid"] .result-dot.win {
@@ -2336,15 +2379,11 @@ body[data-theme="liquid"] .result-dot.win {
     inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 body[data-theme="liquid"] .result-dot.loss {
-  background: radial-gradient(
-    circle at 30% 30%,
-    rgba(255, 255, 255, 0.6),
-    rgba(255, 138, 158, 0.9) 40%,
-    rgba(180, 80, 100, 1)
-  );
+  background: transparent;
+  border: 2px solid rgba(255, 138, 158, 0.92);
   box-shadow:
-    0 0 12px rgba(255, 138, 158, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    0 0 10px rgba(255, 138, 158, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .winrate-bar {
@@ -2369,28 +2408,10 @@ body[data-theme="liquid"] .winrate-bar-fill {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.data-table th {
-  text-align: left;
-  padding: 10px 12px;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-  font-weight: 600;
-  border-bottom: 1px solid var(--border);
-}
-.data-table td {
-  padding: 12px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-.data-table tr:hover td {
-  background: var(--surface-2);
-}
+/* NOTE: the canonical .data-table base rules live near line 200 (accent 2px
+   header, fixed layout, zebra, hover sweep). The duplicate base block that
+   used to sit here silently overrode the accent header to a 1px border — it
+   was removed. Only the liquid-specific padding overrides remain below. */
 body[data-theme="liquid"] .data-table th {
   font-size: 11px;
   padding: 14px 16px;
@@ -2776,6 +2797,13 @@ body[data-theme="liquid"] .tweaks-chip.active {
 }
 .stat-group-value-text {
   font-size: 13px;
+}
+/* Good/bad glyph that backs up the value color (non-color cue). */
+.stat-trend {
+  font-size: 0.62em;
+  margin-right: 4px;
+  vertical-align: middle;
+  opacity: 0.85;
 }
 
 .sessions-grid {

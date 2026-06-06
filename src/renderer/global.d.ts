@@ -72,6 +72,7 @@ declare global {
         games: number;
         wins: number;
         losses: number;
+        draws: number;
         opponents: string[];
         gameIds: number[];
         gameResults: Array<{ id: number; result: "win" | "loss" | "draw" | string }>;
@@ -86,7 +87,7 @@ declare global {
           | "avgDeathPercent",
         range: "7d" | "30d" | "all",
         filterChar: string | null,
-      ) => Promise<number[]>;
+      ) => Promise<Array<{ playedAt: string; value: number }>>;
       openInDolphin: (replayPath: string) => Promise<boolean>;
       openInDolphinAtFrame: (replayPath: string, frame: number) => Promise<boolean>;
       embedReplayOpen: (

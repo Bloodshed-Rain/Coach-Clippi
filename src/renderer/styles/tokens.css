@@ -1,61 +1,63 @@
 /* ── Design Tokens ─────────────────────────────────────────────────
    Single source of truth for colors, typography, spacing, and motion.
-   Green-charcoal base — Spring Green accent used surgically.
-   Fallback values match themes.ts dark theme; JS applies overrides.
+   Chrome/glass base — neutral accent. These :root values are FIRST-PAINT
+   FALLBACKS ONLY: themes.ts applyTheme() overrides every color token at
+   runtime, so keep these aligned to the default "liquid" theme to avoid a
+   flash of unstyled/mismatched color (FOUC) on cold start.
    ────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Surfaces — deep navy-slate gradient for a cleaner, "higher-tech" dark mode */
-  --bg: #0f172a; /* Slate 900 */
-  --surface-1: #1e293b; /* Slate 800 */
-  --surface-2: #334155; /* Slate 700 */
-  --surface-3: #475569; /* Slate 600 */
+  /* Surfaces — aligned to the default "liquid" theme (composited over #0a0d14) */
+  --bg: #0a0d14;
+  --surface-1: #14171d;
+  --surface-2: #1e2027;
+  --surface-3: #272a30;
 
   /* Legacy surface aliases */
-  --bg-card: #1e293b;
-  --bg-elevated: #334155;
-  --bg-hover: #475569;
+  --bg-card: #14171d;
+  --bg-elevated: #1e2027;
+  --bg-hover: #272a30;
 
   /* Named palette */
   --charcoal: #1e293b;
   --dark-spruce: #0f172a;
   --ember: #ef4444; /* Red 500 */
 
-  /* Borders — slate with better contrast */
-  --border: rgba(148, 163, 184, 0.1); /* Slate 400 */
-  --border-subtle: rgba(148, 163, 184, 0.05);
-  --border-muted: rgba(148, 163, 184, 0.2);
+  /* Borders — aligned to liquid (hairline white) */
+  --border: rgba(255, 255, 255, 0.1);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-muted: rgba(255, 255, 255, 0.18);
 
-  /* Typography — pure white and clearer slate-grays */
-  --text: #f8fafc; /* Slate 50 */
-  --text-secondary: #cbd5e1; /* Slate 300 */
-  --text-dim: #94a3b8; /* Slate 400 */
-  --text-muted: #64748b; /* Slate 500 */
+  /* Typography — aligned to liquid; --text-muted meets WCAG AA on surfaces */
+  --text: #f5f7fa;
+  --text-secondary: #cfd4dc;
+  --text-dim: #cfd4dc; /* applyTheme aliases --text-dim to textSecondary at runtime */
+  --text-muted: #9aa1ad; /* AA 4.5:1+ on surface-1/2/3 */
   --text-title: #ffffff;
-  --text-label: #cbd5e1;
+  --text-label: #cfd4dc;
 
-  /* Accent — Electric Cyan/Indigo for a punchier feel */
-  --accent: #22d3ee; /* Cyan 400 */
-  --accent-hover: #06b6d4; /* Cyan 500 */
-  --accent-dim: #0891b2; /* Cyan 600 */
-  --accent-muted: rgba(34, 211, 238, 0.15);
-  --accent-glow: rgba(34, 211, 238, 0.1);
+  /* Accent — aligned to liquid (chrome); themes.ts sets per-theme accent at runtime */
+  --accent: #c7ccd6;
+  --accent-hover: #e8ebf0;
+  --accent-dim: #e8ebf0;
+  --accent-muted: rgba(199, 204, 214, 0.14);
+  --accent-glow: rgba(199, 204, 214, 0.1);
 
-  /* Semantic */
-  --green: #4ade80; /* Green 400 */
-  --red: #f87171; /* Red 400 */
-  --yellow: #fbbf24; /* Amber 400 */
-  --win: #4ade80;
-  --loss: #f87171;
-  --caution: #fbbf24;
-  --secondary: #818cf8; /* Indigo 400 */
-  --secondary-dim: #6366f1;
+  /* Semantic — aligned to liquid */
+  --green: #7ee8c5;
+  --red: #ff8a9e;
+  --yellow: #ffd47a;
+  --win: #7ee8c5;
+  --loss: #ff8a9e;
+  --caution: #ffd47a;
+  --secondary: #c7ccd6;
+  --secondary-dim: #e8ebf0;
 
-  /* RGB variants */
-  --accent-rgb: 34, 211, 238;
-  --green-rgb: 74, 222, 128;
-  --red-rgb: 248, 113, 113;
-  --yellow-rgb: 251, 191, 36;
+  /* RGB variants — aligned to liquid */
+  --accent-rgb: 199, 204, 214;
+  --green-rgb: 126, 232, 197;
+  --red-rgb: 255, 138, 158;
+  --yellow-rgb: 255, 212, 122;
 
   /* Chart palette */
   --chart-indigo: #818cf8;
@@ -100,15 +102,15 @@
   --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 
   /* Theme-specific app background. JS applies per-theme overrides from themes.ts. */
-  --app-bg-image: radial-gradient(760px 520px at 12% 18%, rgba(34, 211, 238, 0.16), transparent 62%),
-    radial-gradient(760px 540px at 88% 74%, rgba(129, 140, 248, 0.12), transparent 64%),
-    linear-gradient(135deg, #0f172a 0%, #08111f 48%, #101c2d 100%);
+  --app-bg-image: radial-gradient(900px 620px at 14% 18%, rgba(160, 168, 255, 0.18), transparent 62%),
+    radial-gradient(880px 680px at 92% 82%, rgba(255, 138, 158, 0.14), transparent 60%),
+    linear-gradient(145deg, #0a0d14 0%, #171b28 54%, #070910 100%);
   --app-bg-position: center;
   --app-bg-size: cover;
   --app-bg-repeat: no-repeat;
   --app-bg-blend-mode: normal;
-  --magi-bg-logo-opacity: 0.15;
-  --magi-bg-logo-filter: drop-shadow(0 24px 60px rgba(0, 0, 0, 0.45)) hue-rotate(150deg) saturate(0.85);
+  --magi-bg-logo-opacity: 0.18;
+  --magi-bg-logo-filter: drop-shadow(0 28px 70px rgba(0, 0, 0, 0.5)) saturate(1.05);
   --magi-bg-logo-position: center;
   --magi-bg-logo-size: min(1120px, 76vw) auto;
 
@@ -119,11 +121,11 @@
   /* Layout */
   --rail-width: 220px;
 
-  /* Sidebar — darker green-charcoal to create depth channel */
-  --sidebar-bg: rgba(19, 25, 22, 0.7); /* Translucent for glassmorphism */
-  --sidebar-hover: rgba(28, 34, 30, 0.8);
-  --sidebar-active-bg: rgba(24, 255, 109, 0.06);
-  --sidebar-accent: #18ff6d;
+  /* Sidebar — aligned to liquid (no more green); applyTheme overrides per theme */
+  --sidebar-bg: rgba(10, 13, 20, 0.65);
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.12);
+  --sidebar-accent: #f5f7fa;
 
   /* Legacy compat — neutralized */
   --gradient-start: transparent;
@@ -132,9 +134,9 @@
   --bg-glass-strong: #242b26;
   --border-glow: rgba(255, 255, 255, 0.12);
   --shimmer: transparent;
-  --plasma-a: #18ff6d;
-  --plasma-b: #18ff6d;
-  --plasma-c: #18ff6d;
+  --plasma-a: #c7ccd6;
+  --plasma-b: #c7ccd6;
+  --plasma-c: #c7ccd6;
   --surface-noise: transparent;
   --blue-rgb: 99, 102, 241;
   --purple-rgb: 139, 92, 246;

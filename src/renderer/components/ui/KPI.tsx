@@ -8,7 +8,7 @@ interface KPIProps {
 }
 
 export function KPI({ label, value, sub, subTone = "neutral" }: KPIProps) {
-  const subColor = subTone === "good" ? "var(--win)" : subTone === "bad" ? "var(--loss)" : "var(--text-muted)";
+  const subColor = subTone === "good" ? "var(--win)" : subTone === "bad" ? "var(--loss)" : "var(--text-secondary)";
   return (
     <div className="kpi">
       <div className="kpi-label">{label}</div>

@@ -1,16 +1,30 @@
 import { CSSProperties } from "react";
 
-export function buildSparklinePoints(values: number[], w: number, h: number): string {
+export function buildSparklinePoints(
+  values: number[],
+  w: number,
+  h: number,
+  domain?: [number, number],
+): string {
   if (values.length === 0) return "";
-  if (values.length === 1) return `0,${h}`;
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const range = max - min || 1;
+  // When a fixed `domain` is given, map values onto it (so a 1pp wiggle reads as
+  // small, not as a full-height swing). Otherwise auto-scale to the data range.
+  const lo = domain ? domain[0] : Math.min(...values);
+  const hi = domain ? domain[1] : Math.max(...values);
+  const range = hi - lo || 1;
+  const yOf = (v: number) => {
+    const t = (v - lo) / range;
+    const clamped = t < 0 ? 0 : t > 1 ? 1 : t;
+    return h - clamped * h;
+  };
+  if (values.length === 1) {
+    const y = yOf(values[0]!);
+    return `0,${y} ${w},${y}`;
+  }
   return values
     .map((v, i) => {
       const x = (i / (values.length - 1)) * w;
-      const y = h - ((v - min) / range) * h;
-      return `${x},${y}`;
+      return `${x},${yOf(v)}`;
     })
     .join(" ");
 }
@@ -22,6 +36,8 @@ interface SparklineProps {
   height?: number;
   /** When true, shows a subtle area fill and 3 dashed gridlines (chart kind only). */
   fill?: boolean;
+  /** Fixed y-domain [min,max]; prevents misleading auto-scaling (e.g. [0,100] for %). */
+  domain?: [number, number];
   className?: string;
   style?: CSSProperties;
 }
@@ -32,12 +48,13 @@ export function Sparkline({
   color = "var(--accent)",
   height,
   fill,
+  domain,
   className,
   style,
 }: SparklineProps) {
   const w = kind === "chart" ? 1000 : 120;
   const h = height ?? (kind === "chart" ? 200 : 32);
-  const pts = buildSparklinePoints(values, w, h);
+  const pts = buildSparklinePoints(values, w, h, domain);
   if (!pts) return null;
 
   const showFill = fill ?? kind === "chart";
