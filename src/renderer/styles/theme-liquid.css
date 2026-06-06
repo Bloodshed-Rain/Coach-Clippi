@@ -3,7 +3,7 @@
    ════════════════════════════════════════════════════════════════ */
 
 body[data-theme="liquid"] {
-  background: #0a0d14;
+  background-color: #0a0d14;
 }
 
 body[data-theme="liquid"]::before {

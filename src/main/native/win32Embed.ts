@@ -65,6 +65,7 @@ interface Bindings {
   IsWindowVisible: (hwnd: bigint) => boolean;
   GetWindowTextW: (hwnd: bigint, buf: Uint16Array, max: number) => number;
   GetClassNameW: (hwnd: bigint, buf: Uint16Array, max: number) => number;
+  GetParent: (hwnd: bigint) => unknown;
   GetWindowRect: (hwnd: bigint, rect: RectShape) => boolean;
   SetParent: (child: bigint, parent: bigint | null) => bigint;
   SetWindowLongPtrW: (hwnd: bigint, idx: number, value: number | bigint) => bigint;
@@ -123,6 +124,7 @@ function getBindings(): Bindings {
     koffi.out(koffi.pointer("uint16")),
     "int",
   ]);
+  const GetParent = user32.func("__stdcall", "GetParent", "void *", ["void *"]);
   const GetWindowRect = user32.func("__stdcall", "GetWindowRect", "bool", ["void *", koffi.out(koffi.pointer(RECT))]);
   const SetParent = user32.func("__stdcall", "SetParent", "void *", ["void *", "void *"]);
   const SetWindowLongPtrW = user32.func("__stdcall", "SetWindowLongPtrW", "intptr", ["void *", "int", "intptr"]);
@@ -149,6 +151,7 @@ function getBindings(): Bindings {
     IsWindowVisible: IsWindowVisible as Bindings["IsWindowVisible"],
     GetWindowTextW: GetWindowTextW as Bindings["GetWindowTextW"],
     GetClassNameW: GetClassNameW as Bindings["GetClassNameW"],
+    GetParent: GetParent as Bindings["GetParent"],
     GetWindowRect: GetWindowRect as Bindings["GetWindowRect"],
     SetParent: SetParent as Bindings["SetParent"],
     SetWindowLongPtrW: SetWindowLongPtrW as Bindings["SetWindowLongPtrW"],
@@ -242,6 +245,38 @@ function findChildWindows(parent: bigint): bigint[] {
     koffi.unregister(cb);
   }
   return handles;
+}
+
+function getPathFromAncestorToDescendant(ancestor: bigint, descendant: bigint): bigint[] {
+  const b = getBindings();
+  const path: bigint[] = [];
+  const seen = new Set<bigint>();
+  let current = descendant;
+
+  while (current !== 0n && !seen.has(current)) {
+    if (current === ancestor) return path;
+    seen.add(current);
+    path.unshift(current);
+    current = hwndAddr(b.GetParent(current));
+  }
+
+  // If Dolphin returns an unexpected window tree, still preserve the old
+  // behavior by fitting the selected render HWND itself.
+  return [descendant];
+}
+
+function fitRenderPathToMainClient(mainHwnd: bigint, renderHwnd: bigint, frameChanged: boolean = false): void {
+  const b = getBindings();
+  const rect: RectShape = { left: 0, top: 0, right: 0, bottom: 0 };
+  if (!b.GetClientRect(mainHwnd, rect)) return;
+
+  const w = Math.max(1, rect.right - rect.left);
+  const h = Math.max(1, rect.bottom - rect.top);
+  const flags = SWP_NOZORDER | SWP_NOACTIVATE | (frameChanged ? SWP_FRAMECHANGED : 0);
+
+  for (const hwnd of getPathFromAncestorToDescendant(mainHwnd, renderHwnd)) {
+    b.SetWindowPos(hwnd, null, 0, 0, w, h, flags);
+  }
 }
 
 interface DolphinWindowInfo {
@@ -538,9 +573,11 @@ export function setFloatBounds(hwnd: bigint, screenX: number, screenY: number, w
  */
 export function coverShellWithRender(mainHwnd: bigint, renderHwnd: bigint): void {
   const b = getBindings();
+  const renderPath = getPathFromAncestorToDescendant(mainHwnd, renderHwnd);
+  const keepVisible = new Set(renderPath);
 
   for (const child of findChildWindows(mainHwnd)) {
-    if (child === renderHwnd) continue;
+    if (keepVisible.has(child)) continue;
     // Skip descendants of the render panel — those belong to Slippi's
     // overlay (frame counter, controller display, etc.) and should stay
     // visible if Dolphin chose to show them.
@@ -548,11 +585,7 @@ export function coverShellWithRender(mainHwnd: bigint, renderHwnd: bigint): void
     b.ShowWindow(child, SW_HIDE);
   }
 
-  const rect: RectShape = { left: 0, top: 0, right: 0, bottom: 0 };
-  if (!b.GetClientRect(mainHwnd, rect)) return;
-  const w = rect.right - rect.left;
-  const h = rect.bottom - rect.top;
-  b.SetWindowPos(renderHwnd, null, 0, 0, w, h, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+  fitRenderPathToMainClient(mainHwnd, renderHwnd, true);
 }
 
 /**
@@ -561,12 +594,7 @@ export function coverShellWithRender(mainHwnd: bigint, renderHwnd: bigint): void
  * — call this on every drag/resize tick.
  */
 export function refitRender(mainHwnd: bigint, renderHwnd: bigint): void {
-  const b = getBindings();
-  const rect: RectShape = { left: 0, top: 0, right: 0, bottom: 0 };
-  if (!b.GetClientRect(mainHwnd, rect)) return;
-  const w = rect.right - rect.left;
-  const h = rect.bottom - rect.top;
-  b.SetWindowPos(renderHwnd, null, 0, 0, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+  fitRenderPathToMainClient(mainHwnd, renderHwnd);
 }
 
 /** True if `candidate` is a descendant of `ancestor` in the window tree. */

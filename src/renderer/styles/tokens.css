@@ -99,6 +99,19 @@
   --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);
   --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 
+  /* Theme-specific app background. JS applies per-theme overrides from themes.ts. */
+  --app-bg-image: radial-gradient(760px 520px at 12% 18%, rgba(34, 211, 238, 0.16), transparent 62%),
+    radial-gradient(760px 540px at 88% 74%, rgba(129, 140, 248, 0.12), transparent 64%),
+    linear-gradient(135deg, #0f172a 0%, #08111f 48%, #101c2d 100%);
+  --app-bg-position: center;
+  --app-bg-size: cover;
+  --app-bg-repeat: no-repeat;
+  --app-bg-blend-mode: normal;
+  --magi-bg-logo-opacity: 0.15;
+  --magi-bg-logo-filter: drop-shadow(0 24px 60px rgba(0, 0, 0, 0.45)) hue-rotate(150deg) saturate(0.85);
+  --magi-bg-logo-position: center;
+  --magi-bg-logo-size: min(1120px, 76vw) auto;
+
   /* Easing */
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncier modern spring */
   --ease-out: cubic-bezier(0, 0, 0.2, 1);

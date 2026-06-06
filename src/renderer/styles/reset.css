@@ -9,7 +9,13 @@
 }
 
 body {
-  background: var(--bg) url("../assets/app-bg.png") center center / cover no-repeat fixed;
+  background-color: var(--bg);
+  background-image: var(--app-bg-image);
+  background-position: var(--app-bg-position);
+  background-size: var(--app-bg-size);
+  background-repeat: var(--app-bg-repeat);
+  background-attachment: fixed;
+  background-blend-mode: var(--app-bg-blend-mode);
   color: var(--text);
   font-family: var(--font-sans);
   font-size: 14px;

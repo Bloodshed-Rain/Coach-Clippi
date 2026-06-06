@@ -1,3 +1,13 @@
+.dashboard-empty-wrap {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.dashboard-empty-wrap .empty-state {
+  padding: 0 24px;
+}
+
 .dash-split {
   display: grid;
   grid-template-columns: 2fr 1fr;

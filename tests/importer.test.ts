@@ -7,7 +7,7 @@ import Database from "better-sqlite3";
 // We test importer logic against a temporary DB
 // to avoid polluting the real database
 
-const TEST_REPLAYS_DIR = path.resolve(__dirname, "../test-replays");
+const TEST_REPLAYS_DIR = path.resolve(__dirname, "fixtures");
 
 function getTestReplays(count: number = 3): string[] {
   const files = fs.readdirSync(TEST_REPLAYS_DIR).filter((f) => f.endsWith(".slp"));

@@ -204,8 +204,11 @@ body[data-theme="liquid"] .replay-player-modal {
 .replay-embed {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   background: var(--surface, #0a0c10);
   border-right: 1px solid var(--border, rgba(255, 255, 255, 0.06));
   overflow: hidden;
@@ -213,6 +216,9 @@ body[data-theme="liquid"] .replay-player-modal {
 
 .replay-embed .replay-embed-stage {
   flex: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
   min-height: 0; /* allow shrink inside flex column without forcing 360px */
 }
 

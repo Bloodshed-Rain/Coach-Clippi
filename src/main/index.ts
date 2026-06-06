@@ -33,6 +33,58 @@ import { resolveLLMConfig } from "./handlers/analysis";
 import { shutdownEmbeddedReplay } from "./handlers/embeddedReplay";
 
 let mainWindow: BrowserWindow | null = null;
+let splashWindow: BrowserWindow | null = null;
+
+// Minimum time the splash stays up so a fast boot still reads as intentional
+// rather than a flicker. Capped by the actual main-window readiness.
+const SPLASH_MIN_MS = 3500;
+let splashShownAt = 0;
+
+function createSplashWindow(): void {
+  const splashPath = process.env["VITE_DEV_SERVER_URL"]
+    ? path.resolve(__dirname, "../../build/splash.html")
+    : path.resolve(process.resourcesPath ?? __dirname, "splash.html");
+
+  splashWindow = new BrowserWindow({
+    width: 640,
+    height: 440,
+    frame: false,
+    resizable: false,
+    movable: false,
+    center: true,
+    show: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    // Paint dark immediately — before the HTML parses — so there's no white flash.
+    backgroundColor: "#0a0d14",
+    title: "MAGI",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  splashShownAt = Date.now();
+  splashWindow.loadFile(splashPath).catch((err) => {
+    console.error("Splash failed to load:", err);
+  });
+  splashWindow.on("closed", () => {
+    splashWindow = null;
+  });
+
+  // Safety net: never let the splash get stuck on top if ready-to-show never fires.
+  setTimeout(() => closeSplash(), 12000);
+}
+
+// Fade the splash over the (already shown) main window, then destroy it.
+function closeSplash(): void {
+  if (!splashWindow || splashWindow.isDestroyed()) return;
+  const win = splashWindow;
+  win.webContents.executeJavaScript("document.body.classList.add('fade-out')").catch(() => {});
+  setTimeout(() => {
+    if (!win.isDestroyed()) win.destroy();
+  }, 300); // matches the 280ms CSS opacity transition in splash.html
+}
 
 function createWindow(): void {
   const iconPath = process.env["VITE_DEV_SERVER_URL"]
@@ -45,6 +97,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     show: false,
+    backgroundColor: "#0f172a", // matches --bg; avoids a white flash before the renderer paints
     icon: iconPath,
     autoHideMenuBar: true,
     webPreferences: {
@@ -67,7 +120,13 @@ function createWindow(): void {
   }
 
   mainWindow.once("ready-to-show", () => {
-    mainWindow?.show();
+    // Hold the splash for at least SPLASH_MIN_MS, then show main and fade the splash
+    // over it (alwaysOnTop keeps the fade above the now-visible main window).
+    const wait = Math.max(0, SPLASH_MIN_MS - (Date.now() - splashShownAt));
+    setTimeout(() => {
+      mainWindow?.show();
+      closeSplash();
+    }, wait);
   });
 
   // Block ALL navigation — this is a single-page app, never navigate away.
@@ -115,6 +174,10 @@ function createWindow(): void {
 // ── App lifecycle ────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
+  // Show the boot splash immediately so the logo covers DB/IPC init and the
+  // renderer's cold start (the window below stays hidden until ready-to-show).
+  createSplashWindow();
+
   getDb();
 
   // Wire up the real analysis pipeline for replayAnalyzer dedup.

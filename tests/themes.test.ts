@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { THEMES, THEME_ORDER, getResolvedTheme } from "../src/renderer/themes";
+import { THEMES, THEME_ORDER, applyTheme, getResolvedTheme } from "../src/renderer/themes";
 
 describe("themes", () => {
   it("includes all six themes with stable ids", () => {
@@ -16,6 +16,11 @@ describe("themes", () => {
     expect(liquid.radiusMd).toBe("20px");
   });
 
+  it("uses a distinct app background for each theme", () => {
+    const backgroundImages = THEME_ORDER.map((id) => THEMES[id]!.appBackgroundImage);
+    expect(new Set(backgroundImages).size).toBe(THEME_ORDER.length);
+  });
+
   it("non-liquid themes leave optional tokens undefined", () => {
     expect(THEMES["telemetry"]!.surfaceBlur).toBeUndefined();
     expect(THEMES["tournament"]!.radiusMd).toBeUndefined();
@@ -24,5 +29,32 @@ describe("themes", () => {
   it("getResolvedTheme falls back to liquid for unknown ids", () => {
     const t = getResolvedTheme("does-not-exist", "liquid");
     expect(t.id).toBe("liquid");
+  });
+
+  it("applies data-theme to root and body selectors", () => {
+    const setProperty = vi.fn();
+    const rootSetAttribute = vi.fn();
+    const bodySetAttribute = vi.fn();
+    const originalDocument = globalThis.document;
+
+    globalThis.document = {
+      documentElement: {
+        setAttribute: rootSetAttribute,
+        style: { setProperty },
+      },
+      body: {
+        setAttribute: bodySetAttribute,
+      },
+    } as unknown as Document;
+
+    try {
+      applyTheme(THEMES["crt"]!);
+    } finally {
+      globalThis.document = originalDocument;
+    }
+
+    expect(rootSetAttribute).toHaveBeenCalledWith("data-theme", "crt");
+    expect(bodySetAttribute).toHaveBeenCalledWith("data-theme", "crt");
+    expect(setProperty).toHaveBeenCalledWith("--app-bg-image", THEMES["crt"]!.appBackgroundImage);
   });
 });

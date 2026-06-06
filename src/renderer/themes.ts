@@ -24,6 +24,15 @@ export interface Theme {
   shadowSm: string;
   shadowMd: string;
   shadowLg: string;
+  appBackgroundImage: string;
+  appBackgroundPosition: string;
+  appBackgroundSize: string;
+  appBackgroundRepeat: string;
+  appBackgroundBlendMode: string;
+  magiBackgroundOpacity: string;
+  magiBackgroundFilter: string;
+  magiBackgroundPosition: string;
+  magiBackgroundSize: string;
   fontMono: string;
   fontSans: string;
   fontDisplay: string;
@@ -85,6 +94,16 @@ export const THEMES: Record<string, Theme> = {
     shadowSm: "0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08)",
     shadowMd: "0 20px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12)",
     shadowLg: "0 40px 120px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.14)",
+    appBackgroundImage:
+      "radial-gradient(900px 620px at 14% 18%, rgba(160,168,255,0.18), transparent 62%), radial-gradient(880px 680px at 92% 82%, rgba(255,138,158,0.14), transparent 60%), linear-gradient(145deg, #0a0d14 0%, #171b28 54%, #070910 100%)",
+    appBackgroundPosition: "center",
+    appBackgroundSize: "cover",
+    appBackgroundRepeat: "no-repeat",
+    appBackgroundBlendMode: "normal",
+    magiBackgroundOpacity: "0.18",
+    magiBackgroundFilter: "drop-shadow(0 28px 70px rgba(0,0,0,0.5)) saturate(1.05)",
+    magiBackgroundPosition: "center",
+    magiBackgroundSize: "min(1180px, 78vw) auto",
     fontMono: FONT_MONO,
     fontSans: "'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
     fontDisplay: "'Inter', -apple-system, 'SF Pro Display', sans-serif",
@@ -124,6 +143,16 @@ export const THEMES: Record<string, Theme> = {
     shadowSm: "0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25)",
     shadowMd: "0 4px 16px rgba(0,0,0,0.4)",
     shadowLg: "0 12px 40px rgba(0,0,0,0.5)",
+    appBackgroundImage:
+      "radial-gradient(760px 520px at 12% 18%, rgba(34,211,238,0.16), transparent 62%), radial-gradient(760px 540px at 88% 74%, rgba(129,140,248,0.12), transparent 64%), linear-gradient(135deg, #0f172a 0%, #08111f 48%, #101c2d 100%)",
+    appBackgroundPosition: "center",
+    appBackgroundSize: "cover",
+    appBackgroundRepeat: "no-repeat",
+    appBackgroundBlendMode: "normal",
+    magiBackgroundOpacity: "0.15",
+    magiBackgroundFilter: "drop-shadow(0 24px 60px rgba(0,0,0,0.45)) hue-rotate(150deg) saturate(0.85)",
+    magiBackgroundPosition: "center",
+    magiBackgroundSize: "min(1120px, 76vw) auto",
     fontMono: FONT_MONO,
     fontSans: FONT_SANS,
     fontDisplay: FONT_DISPLAY,
@@ -157,6 +186,16 @@ export const THEMES: Record<string, Theme> = {
     shadowSm: "0 1px 3px rgba(0,0,0,0.6)",
     shadowMd: "0 4px 16px rgba(0,0,0,0.6)",
     shadowLg: "0 12px 40px rgba(0,0,0,0.7)",
+    appBackgroundImage:
+      "radial-gradient(680px 460px at 20% 16%, rgba(59,130,246,0.16), transparent 62%), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(180deg, #000000 0%, #05070b 52%, #000000 100%)",
+    appBackgroundPosition: "center",
+    appBackgroundSize: "cover, 44px 44px, cover",
+    appBackgroundRepeat: "no-repeat, repeat, no-repeat",
+    appBackgroundBlendMode: "normal",
+    magiBackgroundOpacity: "0.22",
+    magiBackgroundFilter: "drop-shadow(0 24px 60px rgba(0,0,0,0.75)) grayscale(0.2) contrast(1.1)",
+    magiBackgroundPosition: "center",
+    magiBackgroundSize: "min(1100px, 74vw) auto",
     fontMono: FONT_MONO,
     fontSans: FONT_SANS,
     fontDisplay: FONT_DISPLAY,
@@ -190,6 +229,17 @@ export const THEMES: Record<string, Theme> = {
     shadowSm: "0 0 4px rgba(51,255,51,0.25)",
     shadowMd: "0 0 12px rgba(51,255,51,0.3)",
     shadowLg: "0 0 24px rgba(51,255,51,0.35)",
+    appBackgroundImage:
+      "radial-gradient(700px 520px at 20% 20%, rgba(51,255,51,0.12), transparent 66%), repeating-linear-gradient(0deg, rgba(51,255,51,0.035) 0 1px, transparent 1px 5px), radial-gradient(circle at 50% 50%, #0a160a 0%, #050a05 72%)",
+    appBackgroundPosition: "center",
+    appBackgroundSize: "cover",
+    appBackgroundRepeat: "no-repeat",
+    appBackgroundBlendMode: "screen, normal, normal",
+    magiBackgroundOpacity: "0.13",
+    magiBackgroundFilter:
+      "drop-shadow(0 0 34px rgba(51,255,51,0.2)) sepia(1) hue-rotate(70deg) saturate(1.8) brightness(0.9)",
+    magiBackgroundPosition: "center",
+    magiBackgroundSize: "min(1080px, 74vw) auto",
     fontMono: FONT_MONO,
     fontSans: FONT_MONO,
     fontDisplay: FONT_MONO,
@@ -223,6 +273,17 @@ export const THEMES: Record<string, Theme> = {
     shadowSm: "0 2px 6px rgba(0,0,0,0.4)",
     shadowMd: "0 6px 18px rgba(0,0,0,0.5)",
     shadowLg: "0 16px 48px rgba(0,0,0,0.6)",
+    appBackgroundImage:
+      "radial-gradient(760px 520px at 18% 20%, rgba(217,165,64,0.14), transparent 64%), radial-gradient(640px 520px at 86% 78%, rgba(125,186,90,0.08), transparent 64%), linear-gradient(145deg, #1a1006 0%, #271708 48%, #120904 100%)",
+    appBackgroundPosition: "center",
+    appBackgroundSize: "cover",
+    appBackgroundRepeat: "no-repeat",
+    appBackgroundBlendMode: "normal",
+    magiBackgroundOpacity: "0.16",
+    magiBackgroundFilter:
+      "drop-shadow(0 24px 58px rgba(0,0,0,0.55)) sepia(0.75) hue-rotate(330deg) saturate(1.2) brightness(0.92)",
+    magiBackgroundPosition: "center",
+    magiBackgroundSize: "min(1120px, 76vw) auto",
     fontMono: FONT_MONO,
     fontSans: FONT_SANS,
     fontDisplay: FONT_DISPLAY,
@@ -256,6 +317,16 @@ export const THEMES: Record<string, Theme> = {
     shadowSm: "0 1px 2px rgba(0,0,0,0.05)",
     shadowMd: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)",
     shadowLg: "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)",
+    appBackgroundImage:
+      "radial-gradient(760px 520px at 10% 12%, rgba(14,165,233,0.14), transparent 66%), radial-gradient(720px 540px at 90% 78%, rgba(99,102,241,0.1), transparent 66%), linear-gradient(145deg, #ffffff 0%, #f8fafc 58%, #eef5ff 100%)",
+    appBackgroundPosition: "center",
+    appBackgroundSize: "cover",
+    appBackgroundRepeat: "no-repeat",
+    appBackgroundBlendMode: "normal",
+    magiBackgroundOpacity: "0.1",
+    magiBackgroundFilter: "drop-shadow(0 18px 46px rgba(15,23,42,0.12)) saturate(0.75) brightness(1.12)",
+    magiBackgroundPosition: "center",
+    magiBackgroundSize: "min(1120px, 76vw) auto",
     fontMono: FONT_MONO,
     fontSans: FONT_SANS,
     fontDisplay: FONT_DISPLAY,
@@ -297,6 +368,7 @@ export function applyTheme(theme: Theme): void {
   };
 
   root.setAttribute("data-theme", theme.id);
+  document.body?.setAttribute("data-theme", theme.id);
 
   root.style.setProperty("--bg", theme.bg);
   root.style.setProperty("--surface-1", theme.surface1);
@@ -321,6 +393,15 @@ export function applyTheme(theme: Theme): void {
   root.style.setProperty("--shadow-sm", theme.shadowSm);
   root.style.setProperty("--shadow-md", theme.shadowMd);
   root.style.setProperty("--shadow-lg", theme.shadowLg);
+  root.style.setProperty("--app-bg-image", theme.appBackgroundImage);
+  root.style.setProperty("--app-bg-position", theme.appBackgroundPosition);
+  root.style.setProperty("--app-bg-size", theme.appBackgroundSize);
+  root.style.setProperty("--app-bg-repeat", theme.appBackgroundRepeat);
+  root.style.setProperty("--app-bg-blend-mode", theme.appBackgroundBlendMode);
+  root.style.setProperty("--magi-bg-logo-opacity", theme.magiBackgroundOpacity);
+  root.style.setProperty("--magi-bg-logo-filter", theme.magiBackgroundFilter);
+  root.style.setProperty("--magi-bg-logo-position", theme.magiBackgroundPosition);
+  root.style.setProperty("--magi-bg-logo-size", theme.magiBackgroundSize);
   root.style.setProperty("--font-mono", theme.fontMono);
   root.style.setProperty("--font-sans", theme.fontSans);
   root.style.setProperty("--font-display", theme.fontDisplay);

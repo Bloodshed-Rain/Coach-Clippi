@@ -33,25 +33,55 @@ export function LiquidShell({
   const renderItem = (item: NavItem) => {
     const isActive = location.pathname === item.path || (location.pathname === "/" && item.path === "/dashboard");
     return (
-      <button
+      <motion.button
         key={item.id}
         className={`nav-item${isActive ? " active" : ""}`}
         onClick={() => onNavigate(item, isActive)}
         aria-current={isActive ? "page" : undefined}
         aria-label={item.label}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        style={{ position: "relative" }}
       >
-        <span className="nav-icon">
+        {isActive && (
+          <motion.div
+            layoutId="liquid-active-pill"
+            initial={false}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "var(--sidebar-active-bg)",
+              boxShadow: "inset 0 0 12px -6px rgba(var(--accent-rgb), 0.15)",
+              borderRadius: "inherit",
+              zIndex: 0,
+            }}
+          />
+        )}
+        <span className="nav-icon" style={{ position: "relative", zIndex: 1 }}>
           <item.Icon size={18} />
         </span>
-        <span className="nav-label">{item.label}</span>
-        {item.badge !== undefined && <span className="nav-badge">{item.badge}</span>}
-      </button>
+        <span className="nav-label" style={{ position: "relative", zIndex: 1 }}>{item.label}</span>
+        {item.badge !== undefined && (
+          <span className="nav-badge" style={{ position: "relative", zIndex: 1 }}>
+            {item.badge}
+          </span>
+        )}
+      </motion.button>
     );
   };
 
   return (
     <div className="app-layout liquid-shell">
-      <img className="magi-brand-logo" src={magiLogo} alt="MAGI" draggable={false} />
+      <motion.img
+        className="magi-brand-logo"
+        src={magiLogo}
+        alt="MAGI"
+        draggable={false}
+        initial={{ opacity: 0, scale: 0.8, rotate: -10 }}
+        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+        transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
+      />
       <nav className="sidebar" aria-label="Main navigation">
         <div className="brand" aria-hidden="true" />
 

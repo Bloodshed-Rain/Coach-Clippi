@@ -159,6 +159,8 @@ out/
 # Slippi replay files (user data, too large for git)
 test-replays/
 *.slp
+# ...except the small committed test fixtures
+!tests/fixtures/*.slp
 
 # Secrets (never commit)
 .coach-clippi/

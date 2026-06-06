@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { useGameDetail } from "../hooks/queries";
@@ -113,7 +114,12 @@ export function GameTheater() {
     .padStart(2, "0");
 
   return (
-    <div className="game-theater">
+    <motion.div
+      className="game-theater"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="game-theater-stage-col">
         {game.replayPath ? (
           <ReplayEmbed replayPath={game.replayPath} startFrame={seekFrame} reopenKey={reopenKey} />
@@ -124,7 +130,7 @@ export function GameTheater() {
         )}
       </div>
 
-      <aside className="game-theater-side-col custom-scrollbar">
+      <motion.aside className="game-theater-side-col custom-scrollbar">
         <header className="game-theater-side-head">
           <button className="btn btn-ghost game-theater-back" onClick={() => navigate(-1)} aria-label="Back">
             <ChevronLeft size={16} />
@@ -161,7 +167,7 @@ export function GameTheater() {
           preloadedText={preloadedCoaching}
           onTimestampSeek={game.replayPath ? handleTimestampSeek : undefined}
         />
-      </aside>
-    </div>
+      </motion.aside>
+    </motion.div>
   );
 }

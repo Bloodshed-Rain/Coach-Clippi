@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 import { processGame, findPlayerIdx, computeAdaptationSignals, assembleUserPrompt } from "../src/pipeline";
 
-const TEST_REPLAYS_DIR = path.resolve(__dirname, "../test-replays");
+const TEST_REPLAYS_DIR = path.resolve(__dirname, "fixtures");
 
 function getTestReplay(): string {
   const files = fs.readdirSync(TEST_REPLAYS_DIR).filter((f) => f.endsWith(".slp"));

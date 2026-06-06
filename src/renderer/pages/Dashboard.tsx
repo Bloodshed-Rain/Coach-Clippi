@@ -109,11 +109,13 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
 
   if (games.length === 0) {
     return (
-      <EmptyState
-        title="No replays imported yet"
-        sub="Point MAGI at your Slippi folder to start tracking stats and coaching."
-        cta={{ label: "Open Settings", onClick: () => navigate("/settings") }}
-      />
+      <div className="dashboard-empty-wrap">
+        <EmptyState
+          title="No replays imported yet"
+          sub="Point MAGI at your Slippi folder to start tracking stats and coaching."
+          cta={{ label: "Open Settings", onClick: () => navigate("/settings") }}
+        />
+      </div>
     );
   }
 
@@ -198,16 +200,18 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
         <Card title="Recent Form">
           <div className="dash-dot-strip">
             {last10.map((g) => (
-              <button
+              <motion.button
                 key={g.id}
                 type="button"
                 className="result-dot-button"
                 onClick={() => navigate(`/game/${g.id}`)}
                 aria-label={`Open ${g.result} vs ${g.opponentTag}`}
                 title={`${g.result} vs ${g.opponentTag}`}
+                whileHover={{ scale: 1.2 }}
+                whileTap={{ scale: 0.9 }}
               >
                 <ResultDot result={g.result === "win" ? "win" : "loss"} />
-              </button>
+              </motion.button>
             ))}
             <span style={{ marginLeft: 12, fontSize: 12, color: "var(--text-muted)" }}>
               Last 10 ·{" "}
@@ -288,10 +292,25 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
               <th></th>
             </tr>
           </thead>
-          <tbody>
+          <motion.tbody
+            initial="hidden"
+            animate="show"
+            variants={{
+              hidden: { opacity: 0 },
+              show: {
+                opacity: 1,
+                transition: { staggerChildren: 0.05 },
+              },
+            }}
+          >
             {recent.slice(0, 10).map((g) => (
-              <tr
+              <motion.tr
                 key={g.id}
+                variants={{
+                  hidden: { opacity: 0, x: -10 },
+                  show: { opacity: 1, x: 0, transition: { type: "spring", bounce: 0.2 } },
+                }}
+                whileHover={{ scale: 1.01, backgroundColor: "var(--surface-2)" }}
                 onClick={() => navigate(`/game/${g.id}`)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -302,7 +321,7 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
                 tabIndex={0}
                 role="button"
                 aria-label={`Open ${g.playerCharacter} versus ${g.opponentCharacter} game`}
-                style={{ cursor: "pointer" }}
+                style={{ cursor: "pointer", originX: 0 }}
               >
                 <td>
                   <ResultDot result={g.result === "win" ? "win" : "loss"} />
@@ -319,9 +338,9 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
                 <td className="mono">{(g.lCancelRate * 100).toFixed(0)}%</td>
                 <td className="mono">{g.avgDamagePerOpening.toFixed(1)}</td>
                 <td style={{ color: "var(--text-muted)" }}>›</td>
-              </tr>
+              </motion.tr>
             ))}
-          </tbody>
+          </motion.tbody>
         </DataTable>
       </Card>
     </motion.div>

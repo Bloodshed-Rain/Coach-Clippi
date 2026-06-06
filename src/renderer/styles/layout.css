@@ -5,6 +5,21 @@
   width: 100%;
   height: 100%;
   position: relative;
+  isolation: isolate;
+}
+
+.app-layout::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("../../../magimelee.svg");
+  background-repeat: no-repeat;
+  background-position: var(--magi-bg-logo-position);
+  background-size: var(--magi-bg-logo-size);
+  opacity: var(--magi-bg-logo-opacity);
+  filter: var(--magi-bg-logo-filter);
 }
 
 /* ── Sidebar — fixed icon rail ─────────────────────────────────── */
@@ -65,9 +80,7 @@
 }
 
 .nav-item.active {
-  background: var(--sidebar-active-bg);
   color: var(--accent);
-  box-shadow: inset 0 0 12px -6px rgba(var(--accent-rgb), 0.15);
 }
 
 /* Active indicator — steady left bar */
