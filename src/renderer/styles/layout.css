@@ -130,10 +130,11 @@
   position: relative;
   background: transparent;
   transition: background-color 0.15s ease;
-  /* Cap content width on ultrawide displays; center the leftover space.
-     Sidebar (flex-shrink: 0) stays fixed. */
+  /* Cap content width on ultrawide displays. NOTE: do NOT use margin-inline:auto
+     here — on a flex:1 item, auto inline margins absorb the free space that
+     flex-grow needs, collapsing this column to content width and breaking the
+     auto-fill card grids. max-width alone caps growth without that side effect. */
   max-width: 1600px;
-  margin-inline: auto;
 }
 
 /* Subtle dot-grid background texture & animated gradient mesh */
