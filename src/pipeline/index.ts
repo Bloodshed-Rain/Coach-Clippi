@@ -13,6 +13,8 @@ export {
   SYSTEM_PROMPT_AGGREGATE,
   assembleDiscoveryPrompt,
   SYSTEM_PROMPT_DISCOVERY,
+  SYSTEM_PROMPT_SCOUT,
+  assembleOpponentDossierPrompt,
 } from "./prompt.js";
 
 export type {

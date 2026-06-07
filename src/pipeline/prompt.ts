@@ -395,6 +395,80 @@ export function assembleDiscoveryPrompt(discoveryData: any, playerHistory?: any)
 }
 
 /** Strip null/undefined values and empty arrays from an object for cleaner LLM input */
+export const SYSTEM_PROMPT_SCOUT = `You are MAGI, an elite Super Smash Bros. Melee scout. You are NOT coaching the player on their own play — you are producing a SCOUTING REPORT on a specific OPPONENT so the player can beat them next time.
+
+Write for a competitive player who is about to play this opponent again. Be specific and actionable. Use the data provided; never invent numbers. Structure the report with these markdown H2 sections (use "## "):
+
+## Head-to-Head
+One or two sentences on the record and the trend, and which character/stage is worst for the player.
+
+## How They Beat You
+The concrete ways this opponent takes stocks and wins neutral against the player, grounded in the data.
+
+## Their Tendencies
+Their habits and patterns (only if tendency data is provided; otherwise infer cautiously from outcomes and say so).
+
+## Game Plan
+3-4 numbered, concrete adjustments the player should make next set. Each adjustment names the situation and the counter.
+
+## Punish Checklist
+Specific punishes/conversions the player is leaving on the table against this opponent.
+
+Keep it tight. No filler, no generic Melee advice that isn't tied to this matchup.`;
+
+export interface DossierHeadToHead {
+  opponentTag: string;
+  wins: number;
+  losses: number;
+  totalGames: number;
+  winRate: number;
+  characterBreakdown: { opponentCharacter: string; wins: number; losses: number; totalGames: number; winRate: number }[];
+  stageBreakdown: { stage: string; wins: number; losses: number; totalGames: number; winRate: number }[];
+}
+
+/** The opponent's own tendencies (Phase B). Null until tendency extraction runs. */
+export interface OpponentTendencies {
+  gamesAnalyzed: number;
+  wakeup?: { roll: number; getupAttack: number; standUp: number };
+  topKillMoves?: { move: string; count: number }[];
+  [k: string]: unknown;
+}
+
+/**
+ * Build the opponent scouting prompt. Frames the analysis around BEATING the
+ * opponent (not self-coaching). `tendencies` is the opponent's own habits when
+ * available (Phase B); when null, the model infers cautiously from outcomes.
+ */
+export function assembleOpponentDossierPrompt(
+  headToHead: DossierHeadToHead,
+  yourStatsVsThem: unknown,
+  playerHistory: PlayerHistory | null,
+  tendencies: OpponentTendencies | null,
+): string {
+  const lines: string[] = [];
+  if (playerHistory) {
+    lines.push(assemblePlayerContext(playerHistory));
+    lines.push("");
+  }
+  lines.push(`=== SCOUTING TARGET: ${headToHead.opponentTag} ===`);
+  lines.push(`Goal: produce a game plan to BEAT ${headToHead.opponentTag} next set.`);
+  lines.push("");
+  lines.push("=== HEAD-TO-HEAD (player's record vs this opponent) ===");
+  lines.push(JSON.stringify(stripNulls(headToHead), null, 2));
+  lines.push("");
+  lines.push("=== PLAYER'S OWN STATS IN THESE GAMES (how the player performed vs them) ===");
+  lines.push(JSON.stringify(stripNulls(yourStatsVsThem), null, 2));
+  if (tendencies) {
+    lines.push("");
+    lines.push("=== OPPONENT TENDENCIES (the opponent's own habits, extracted from the replays) ===");
+    lines.push(JSON.stringify(stripNulls(tendencies), null, 2));
+  } else {
+    lines.push("");
+    lines.push("(No per-habit tendency data available — infer cautiously from outcomes and stage/character splits.)");
+  }
+  return lines.join("\n");
+}
+
 function stripNulls(obj: unknown): unknown {
   if (obj === null || obj === undefined) return undefined;
   if (Array.isArray(obj)) {
