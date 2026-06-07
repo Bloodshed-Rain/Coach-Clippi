@@ -22,6 +22,8 @@ const api = {
   analyzeTrends: (trendSummary: string) => ipcRenderer.invoke("analyze:trends", trendSummary),
   analyzeScoped: (scope: string, id: string | number, targetPlayer?: string, streamId?: string) =>
     ipcRenderer.invoke("analyze:scoped", scope, id, targetPlayer, streamId),
+  generateDossier: (opponentKey: string, targetPlayer?: string, streamId?: string) =>
+    ipcRenderer.invoke("analyze:dossier", opponentKey, targetPlayer, streamId),
   analyzeDiscovery: (streamId?: string) => ipcRenderer.invoke("analyze:discovery", streamId),
   analyzeSession: (date: string) => ipcRenderer.invoke("llm:analyzeSession", date),
   generatePracticePlan: (weaknessSummary: string) => ipcRenderer.invoke("llm:generatePracticePlan", weaknessSummary),

@@ -9,6 +9,7 @@ import {
   getGamesBySession,
   getGameById,
   getAggregateStats,
+  getOpponentDetail,
   getDeepInsightsData,
   insertGame,
   insertGameStats,
@@ -24,6 +25,8 @@ import {
   SYSTEM_PROMPT_AGGREGATE,
   assembleDiscoveryPrompt,
   SYSTEM_PROMPT_DISCOVERY,
+  SYSTEM_PROMPT_SCOUT,
+  assembleOpponentDossierPrompt,
   type GameResult,
 } from "../../pipeline/index.js";
 import { callLLM, callLLMStream, getActiveModelId, type LLMConfig } from "../../llm.js";
@@ -253,6 +256,73 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
       analysis,
       scope,
       String(id),
+    );
+    return analysis;
+  });
+
+  // Opponent scouting dossier — scout-framed, streamed over the shared analyze:stream
+  // channel, cached under scope='dossier'. Phase B will pass real tendencies (4th arg).
+  safeHandle("analyze:dossier", async (_e, opponentKey: string, targetPlayer?: string, streamId?: string) => {
+    const llmConfig = resolveLLMConfig();
+    const win = getMainWindow();
+    const db = getDb();
+
+    const cached = db
+      .prepare(
+        "SELECT analysis_text FROM coaching_analyses WHERE scope = 'dossier' AND scope_identifier = ? ORDER BY created_at DESC LIMIT 1",
+      )
+      .get(String(opponentKey)) as { analysis_text: string } | undefined;
+    if (cached) {
+      try {
+        win?.webContents.send("analyze:stream", cached.analysis_text, streamId);
+        win?.webContents.send("analyze:stream-end", streamId);
+      } catch {
+        // window may have closed
+      }
+      return cached.analysis_text;
+    }
+
+    const detail = getOpponentDetail(String(opponentKey));
+    if (!detail || detail.totalGames === 0) throw new Error("No games found against this opponent.");
+
+    const headToHead = {
+      opponentTag: detail.opponentTag,
+      wins: detail.wins,
+      losses: detail.losses,
+      totalGames: detail.totalGames,
+      winRate: detail.winRate,
+      characterBreakdown: detail.characterBreakdown,
+      stageBreakdown: detail.stageBreakdown,
+    };
+    const yourStatsVsThem = getAggregateStats({ opponentKey: String(opponentKey) });
+    const playerHistory = targetPlayer ? getPlayerHistory(targetPlayer) ?? null : null;
+
+    const userPrompt = assembleOpponentDossierPrompt(headToHead, yourStatsVsThem, playerHistory, null);
+
+    const analysis = await llmQueue.enqueue(() =>
+      callLLMStream({ systemPrompt: SYSTEM_PROMPT_SCOUT, userPrompt, config: llmConfig }, (chunk) => {
+        try {
+          win?.webContents.send("analyze:stream", chunk, streamId);
+        } catch {
+          // ignore
+        }
+      }),
+    );
+
+    try {
+      win?.webContents.send("analyze:stream-end", streamId);
+    } catch {
+      // ignore
+    }
+
+    insertCoachingAnalysis(
+      null,
+      null,
+      llmConfig.modelId || "pollinations",
+      analysis,
+      "dossier",
+      String(opponentKey),
+      `${detail.opponentTag} Dossier`,
     );
     return analysis;
   });

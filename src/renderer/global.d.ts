@@ -19,6 +19,7 @@ declare global {
       analyzeRecent: (count: number, targetPlayer: string, streamId?: string) => Promise<string>;
       analyzeTrends: (trendSummary: string) => Promise<string>;
       analyzeScoped: (scope: string, id: string | number, targetPlayer?: string, streamId?: string) => Promise<string>;
+      generateDossier: (opponentKey: string, targetPlayer?: string, streamId?: string) => Promise<string>;
       analyzeDiscovery: (streamId?: string) => Promise<string>;
       analyzeSession: (date: string) => Promise<string>;
       generatePracticePlan: (weaknessSummary: string) => Promise<{
