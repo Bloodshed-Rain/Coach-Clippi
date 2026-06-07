@@ -1,4 +1,4 @@
-import { LayoutDashboard, Swords, Clock, TrendingUp, Gamepad2, SlidersHorizontal, Library } from "lucide-react";
+import { LayoutDashboard, Swords, Clock, TrendingUp, Gamepad2, SlidersHorizontal, Library, Target } from "lucide-react";
 
 interface IconProps {
   size?: number;
@@ -18,6 +18,10 @@ export function HistoryIcon({ size = 22 }: IconProps) {
 
 export function TrendsIcon({ size = 22 }: IconProps) {
   return <TrendingUp size={size} strokeWidth={1.8} />;
+}
+
+export function RivalsIcon({ size = 22 }: IconProps) {
+  return <Target size={size} strokeWidth={1.8} />;
 }
 
 export function CharactersIcon({ size = 22 }: IconProps) {

@@ -4,7 +4,7 @@ import { ChevronRight, Zap, UserCircle } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────
 
-type Page = "dashboard" | "sessions" | "library" | "trends" | "characters" | "practice" | "oracle" | "settings";
+type Page = "dashboard" | "sessions" | "library" | "trends" | "characters" | "rivals" | "practice" | "oracle" | "settings";
 
 interface CommandItem {
   id: string;
@@ -129,6 +129,7 @@ export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
           "library",
           "trends",
           "characters",
+          "rivals",
           "practice",
           "oracle",
           "settings",
@@ -253,10 +254,21 @@ export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
         },
       },
       {
+        id: "nav-rivals",
+        label: "Rivals",
+        category: "navigate",
+        shortcut: isMac() ? "\u2318 6" : "Ctrl+6",
+        icon: <NavIcon />,
+        action: () => {
+          navigateTo("rivals");
+          close();
+        },
+      },
+      {
         id: "nav-practice",
         label: "Practice",
         category: "navigate",
-        shortcut: isMac() ? "\u2318 6" : "Ctrl+6",
+        shortcut: isMac() ? "\u2318 7" : "Ctrl+7",
         icon: <NavIcon />,
         action: () => {
           navigateTo("practice");
@@ -267,7 +279,7 @@ export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
         id: "nav-oracle",
         label: "MAGI Oracle",
         category: "navigate",
-        shortcut: isMac() ? "\u2318 7" : "Ctrl+7",
+        shortcut: isMac() ? "\u2318 8" : "Ctrl+8",
         icon: <NavIcon />,
         action: () => {
           navigateTo("oracle");
@@ -278,7 +290,7 @@ export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
         id: "nav-settings",
         label: "Settings",
         category: "navigate",
-        shortcut: isMac() ? "\u2318 8" : "Ctrl+8",
+        shortcut: isMac() ? "\u2318 9" : "Ctrl+9",
         icon: <NavIcon />,
         action: () => {
           navigateTo("settings");

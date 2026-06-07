@@ -7,6 +7,7 @@ const Library = lazy(() => import("./pages/Library").then((m) => ({ default: m.L
 const Trends = lazy(() => import("./pages/Trends").then((m) => ({ default: m.Trends })));
 const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m.Settings })));
 const Characters = lazy(() => import("./pages/Characters").then((m) => ({ default: m.Characters })));
+const Rivals = lazy(() => import("./pages/Rivals").then((m) => ({ default: m.Rivals })));
 const Practice = lazy(() => import("./pages/Practice").then((m) => ({ default: m.Practice })));
 const Oracle = lazy(() => import("./pages/Oracle").then((m) => ({ default: m.Oracle })));
 const GameTheater = lazy(() => import("./pages/GameTheater").then((m) => ({ default: m.GameTheater })));
@@ -21,6 +22,7 @@ import {
   LibraryIcon,
   PracticeIcon,
   OracleIcon,
+  RivalsIcon,
 } from "./components/NavIcons";
 import { CommandPalette } from "./components/CommandPalette";
 import { LiquidShell, type NavItem as LiquidNavItem } from "./components/LiquidShell";
@@ -29,7 +31,7 @@ import { ReplayPlayer } from "./components/ReplayPlayer";
 import { useGlobalStore, type Density } from "./stores/useGlobalStore";
 import { useOverallRecord } from "./hooks/queries";
 
-type Page = "dashboard" | "sessions" | "library" | "trends" | "characters" | "practice" | "oracle" | "settings";
+type Page = "dashboard" | "sessions" | "library" | "trends" | "characters" | "rivals" | "practice" | "oracle" | "settings";
 
 interface NavItem extends LiquidNavItem {
   id: Page;
@@ -41,6 +43,7 @@ const ANALYZE_ITEMS: NavItem[] = [
   { id: "library", label: "Library", path: "/library", Icon: LibraryIcon },
   { id: "trends", label: "Trends", path: "/trends", Icon: TrendsIcon },
   { id: "characters", label: "Characters", path: "/characters", Icon: CharactersIcon },
+  { id: "rivals", label: "Rivals", path: "/rivals", Icon: RivalsIcon },
   { id: "practice", label: "Practice", path: "/practice", Icon: PracticeIcon },
   { id: "oracle", label: "MAGI Oracle", path: "/oracle", Icon: OracleIcon },
 ];
@@ -135,6 +138,7 @@ export function App() {
           <Route path="/library" element={<Library refreshKey={refreshKey} />} />
           <Route path="/trends" element={<Trends refreshKey={refreshKey} />} />
           <Route path="/characters" element={<Characters refreshKey={refreshKey} />} />
+          <Route path="/rivals" element={<Rivals refreshKey={refreshKey} />} />
           <Route path="/practice" element={<Practice refreshKey={refreshKey} />} />
           <Route path="/oracle" element={<Oracle refreshKey={refreshKey} />} />
           <Route path="/settings" element={<Settings onImport={triggerRefresh} />} />
