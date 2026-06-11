@@ -4,7 +4,7 @@ import { ChevronRight, Zap, UserCircle } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────
 
-type Page = "dashboard" | "sessions" | "library" | "trends" | "characters" | "rivals" | "practice" | "oracle" | "settings";
+type Page = "dashboard" | "sessions" | "library" | "trends" | "characters" | "rivals" | "cornerman" | "practice" | "oracle" | "settings";
 
 interface CommandItem {
   id: string;
