@@ -185,8 +185,27 @@ const api = {
     ipcRenderer.on("cornerman:card", listener);
     return () => ipcRenderer.removeListener("cornerman:card", listener);
   },
-  onCornermanSetUpdate: (callback: (status: unknown) => void) => {
-    const listener = (_event: unknown, status: unknown) => callback(status);
+  onCornermanSetUpdate: (
+    callback: (status: {
+      active: boolean;
+      opponentTag: string | null;
+      opponentKey: string | null;
+      wins: number;
+      losses: number;
+      gamesCount: number;
+    }) => void,
+  ) => {
+    const listener = (
+      _event: unknown,
+      status: {
+        active: boolean;
+        opponentTag: string | null;
+        opponentKey: string | null;
+        wins: number;
+        losses: number;
+        gamesCount: number;
+      },
+    ) => callback(status);
     ipcRenderer.on("cornerman:set-update", listener);
     return () => ipcRenderer.removeListener("cornerman:set-update", listener);
   },
