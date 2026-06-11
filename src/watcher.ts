@@ -4,12 +4,18 @@ import path from "path";
 import { importReplay } from "./importer";
 import { closeDb } from "./db";
 import { resolveTarget, resolveReplayFolder } from "./config";
+import type { GameResult } from "./pipeline";
 
 interface WatcherOptions {
   replayFolder: string;
   targetPlayer: string | null;
   importExisting?: boolean;
-  onImport?: (result: { filePath: string; skipped: boolean; gameId?: number | undefined }) => void;
+  onImport?: (result: {
+    filePath: string;
+    skipped: boolean;
+    gameId?: number | undefined;
+    gameResult?: GameResult | undefined;
+  }) => void;
   onError?: (error: Error, filePath: string) => void;
 }
 
@@ -65,6 +71,7 @@ export function watchReplays(options: WatcherOptions): { close: () => void } {
               filePath,
               skipped: result.skipped,
               gameId: result.gameId,
+              gameResult: result.gameResult,
             });
           } catch (err) {
             const error = err instanceof Error ? err : new Error(String(err));
@@ -108,6 +115,7 @@ export function watchReplays(options: WatcherOptions): { close: () => void } {
         filePath: absolutePath,
         skipped: result.skipped,
         gameId: result.gameId,
+        gameResult: result.gameResult,
       });
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
