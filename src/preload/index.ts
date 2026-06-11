@@ -107,6 +107,12 @@ const api = {
     ipcRenderer.invoke("watcher:start", replayFolder, targetPlayer),
   stopWatcher: () => ipcRenderer.invoke("watcher:stop"),
 
+  // Cornerman — live between-games coaching
+  cornermanStart: (replayFolder: string, targetPlayer: string) =>
+    ipcRenderer.invoke("cornerman:start", replayFolder, targetPlayer),
+  cornermanStop: () => ipcRenderer.invoke("cornerman:stop"),
+  cornermanStatus: () => ipcRenderer.invoke("cornerman:status"),
+
   // Queue status
   getQueueStatus: () => ipcRenderer.invoke("queue:status"),
 
@@ -163,6 +169,31 @@ const api = {
     const listener = (_event: unknown, streamId?: string) => callback(streamId);
     ipcRenderer.on("analyze:stream-end", listener);
     return () => ipcRenderer.removeListener("analyze:stream-end", listener);
+  },
+  onCornermanStream: (callback: (chunk: string) => void) => {
+    const listener = (_event: unknown, chunk: string) => callback(chunk);
+    ipcRenderer.on("cornerman:stream", listener);
+    return () => ipcRenderer.removeListener("cornerman:stream", listener);
+  },
+  onCornermanCard: (
+    callback: (card: { text: string; gameNumber: number; opponentTag: string; wins: number; losses: number }) => void,
+  ) => {
+    const listener = (
+      _event: unknown,
+      card: { text: string; gameNumber: number; opponentTag: string; wins: number; losses: number },
+    ) => callback(card);
+    ipcRenderer.on("cornerman:card", listener);
+    return () => ipcRenderer.removeListener("cornerman:card", listener);
+  },
+  onCornermanSetUpdate: (callback: (status: unknown) => void) => {
+    const listener = (_event: unknown, status: unknown) => callback(status);
+    ipcRenderer.on("cornerman:set-update", listener);
+    return () => ipcRenderer.removeListener("cornerman:set-update", listener);
+  },
+  onCornermanError: (callback: (message: string) => void) => {
+    const listener = (_event: unknown, message: string) => callback(message);
+    ipcRenderer.on("cornerman:error", listener);
+    return () => ipcRenderer.removeListener("cornerman:error", listener);
   },
 };
 

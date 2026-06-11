@@ -8,6 +8,23 @@ declare module "*.png" {
 }
 
 declare global {
+  interface CornermanStatus {
+    active: boolean;
+    opponentTag: string | null;
+    opponentKey: string | null;
+    wins: number;
+    losses: number;
+    gamesCount: number;
+  }
+
+  interface CornermanCard {
+    text: string;
+    gameNumber: number;
+    opponentTag: string;
+    wins: number;
+    losses: number;
+  }
+
   interface Window {
     clippi: {
       loadConfig: () => Promise<any>;
@@ -113,6 +130,13 @@ declare global {
       onWatcherError: (callback: (message: string) => void) => () => void;
       onAnalysisStream: (callback: (chunk: string, streamId?: string) => void) => () => void;
       onAnalysisStreamEnd: (callback: (streamId?: string) => void) => () => void;
+      cornermanStart: (replayFolder: string, targetPlayer: string) => Promise<CornermanStatus>;
+      cornermanStop: () => Promise<CornermanStatus>;
+      cornermanStatus: () => Promise<CornermanStatus>;
+      onCornermanStream: (callback: (chunk: string) => void) => () => void;
+      onCornermanCard: (callback: (card: CornermanCard) => void) => () => void;
+      onCornermanSetUpdate: (callback: (status: CornermanStatus) => void) => () => void;
+      onCornermanError: (callback: (message: string) => void) => () => void;
     };
   }
 }
