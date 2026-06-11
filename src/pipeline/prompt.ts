@@ -1,4 +1,5 @@
-import type { GameResult, PlayerHistory } from "./types.js";
+import type { GameResult, PlayerHistory, HabitProfile } from "./types.js";
+import { computeAdaptationSignals, findPlayerIdx } from "./adaptation.js";
 // ── System prompt ─────────────────────────────────────────────────────
 
 // prettier-ignore
@@ -699,3 +700,107 @@ You have access to a summary of the user's last games below. When the user asks 
 - If the data doesn't support an answer, say so plainly and suggest what replay or stat would.
 - Format: short paragraphs. Use **bold** sparingly. Use numbered lists for multi-step advice.
 - Do not invent stats. If something isn't in the data, don't reference it.`;
+
+// ── Cornerman (between-games coaching) ────────────────────────────────
+
+export const SYSTEM_PROMPT_CORNERMAN = `You are MAGI's Cornerman — the coach in a Melee player's corner BETWEEN GAMES of a live set. The player has roughly 20 seconds to read you. Brevity is life or death.
+
+Output EXACTLY this markdown structure and nothing else — no greeting, no recap, no sign-off:
+
+## The Read
+2-3 bullets. The opponent's most exploitable habits THIS SET, each with its number from the data (e.g. "Teched in place 5/7 after knockdown — charge a smash, don't chase").
+
+## Where You're Bleeding
+1-2 bullets. The concrete way the player is losing stocks or neutral, grounded in the data.
+
+## The Adjustment
+ONE imperative sentence. The single highest-leverage change for the next game.
+
+Hard rules: at most 120 words total. Never invent numbers. Prefer habits with high counts over one-off events. If a prior scouting dossier is provided, use it only when this set's data is thin — live data wins conflicts.`;
+
+function formatHabit(label: string, habit: HabitProfile): string {
+  if (habit.options.length === 0) return `  ${label}: no data`;
+  const parts = habit.options
+    .slice(0, 4)
+    .map((o) => `${o.action} ${(o.frequency * 100).toFixed(0)}%`);
+  return `  ${label}: ${parts.join(", ")} (entropy ${habit.entropy.toFixed(2)})`;
+}
+
+/** Max characters of a prior dossier to inject — live set data is the priority */
+const CORNERMAN_DOSSIER_CAP = 2000;
+
+/**
+ * Build the between-games Cornerman prompt from the live set so far.
+ * `games` is chronological; the last entry is the game that just finished.
+ */
+export function assembleCornermanPrompt(
+  games: GameResult[],
+  targetTag: string,
+  setScore: { wins: number; losses: number },
+  dossierText: string | null,
+): string {
+  const last = games[games.length - 1]!;
+  const lastIdx = findPlayerIdx(last.gameSummary, targetTag);
+  const lastOppIdx = lastIdx === 0 ? 1 : 0;
+  const opponent = last.gameSummary.players[lastOppIdx];
+
+  const lines: string[] = [];
+  lines.push(
+    `=== LIVE SET vs ${opponent.tag} (${opponent.character}) — score ${setScore.wins}-${setScore.losses}, ${games.length} game(s) played, game ${games.length + 1} starting ===`,
+  );
+  lines.push(`You are advising: ${targetTag}`);
+  lines.push("");
+
+  for (let i = 0; i < games.length; i++) {
+    const gr = games[i]!;
+    const idx = findPlayerIdx(gr.gameSummary, targetTag);
+    const oppIdx = idx === 0 ? 1 : 0;
+    const me = gr.gameSummary.players[idx];
+    const opp = gr.gameSummary.players[oppIdx];
+    const myInsights = gr.derivedInsights[idx];
+    const oppInsights = gr.derivedInsights[oppIdx];
+    const won = gr.gameSummary.result.winner === me.tag;
+
+    lines.push(`--- Game ${i + 1}: ${gr.gameSummary.stage}, ${won ? "WON" : "LOST"} ---`);
+    lines.push(
+      `  Your numbers: neutral WR ${(me.neutralWinRate * 100).toFixed(0)}%, openings/kill ${me.openingsPerKill.toFixed(1)}, conversion rate ${(me.conversionRate * 100).toFixed(0)}%, avg death ${me.avgDeathPercent.toFixed(0)}%`,
+    );
+    lines.push(
+      `  Opponent numbers: neutral WR ${(opp.neutralWinRate * 100).toFixed(0)}%, openings/kill ${opp.openingsPerKill.toFixed(1)}, edgeguard success ${(opp.edgeguardSuccessRate * 100).toFixed(0)}%`,
+    );
+    lines.push(formatHabit("Opponent after knockdown", oppInsights.afterKnockdown));
+    lines.push(formatHabit("Opponent at ledge", oppInsights.afterLedgeGrab));
+    lines.push(formatHabit("Opponent under shield pressure", oppInsights.afterShieldPressure));
+    const deaths = myInsights.keyMoments.filter((m) => m.type === "death").slice(0, 4);
+    if (deaths.length > 0) {
+      lines.push(`  Your deaths: ${deaths.map((d) => `[${d.timestamp}] ${d.description}`).join("; ")}`);
+    }
+    lines.push("");
+  }
+
+  if (games.length >= 2) {
+    lines.push("=== ADAPTATION ACROSS SET ===");
+    const mySignals = computeAdaptationSignals(games, targetTag);
+    const oppSignals = computeAdaptationSignals(games, opponent.tag);
+    lines.push("Your trajectory:");
+    for (const s of mySignals) {
+      lines.push(`  ${s.metric}: ${s.game1Value.toFixed(2)} -> ${s.lastGameValue.toFixed(2)} (${s.direction})`);
+    }
+    lines.push("Opponent trajectory:");
+    for (const s of oppSignals) {
+      lines.push(`  ${s.metric}: ${s.game1Value.toFixed(2)} -> ${s.lastGameValue.toFixed(2)} (${s.direction})`);
+    }
+    lines.push("");
+  }
+
+  if (dossierText) {
+    lines.push("=== PRIOR SCOUTING DOSSIER ===");
+    lines.push("(pre-set data; use only where live set data is thin)");
+    lines.push("");
+    lines.push(dossierText.length > CORNERMAN_DOSSIER_CAP ? dossierText.slice(0, CORNERMAN_DOSSIER_CAP) + "…" : dossierText);
+    lines.push("");
+  }
+
+  lines.push(`Produce the between-games card for game ${games.length + 1}.`);
+  return lines.join("\n");
+}
