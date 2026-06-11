@@ -90,7 +90,9 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
       }),
     );
   } catch (err) {
-    broadcast("cornerman:error", err instanceof Error ? err.message : String(err));
+    if (session === mySession) {
+      broadcast("cornerman:error", err instanceof Error ? err.message : String(err));
+    }
     return;
   }
 

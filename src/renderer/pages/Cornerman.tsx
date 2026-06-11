@@ -1,22 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { CoachingCards } from "../components/CoachingCards";
+import { useGlobalStore } from "../stores/useGlobalStore";
 import "../styles/rivals.css";
-
-interface HistoryCard {
-  text: string;
-  gameNumber: number;
-  opponentTag: string;
-  wins: number;
-  losses: number;
-}
 
 export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
   const [status, setStatus] = useState<CornermanStatus | null>(null);
   const [streaming, setStreaming] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [history, setHistory] = useState<HistoryCard[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const cornermanHistory = useGlobalStore((s) => s.cornermanHistory);
 
   useEffect(() => {
     window.clippi.cornermanStatus().then(setStatus).catch(() => {});
@@ -28,7 +22,7 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
     const offCard = window.clippi.onCornermanCard((card) => {
       setIsStreaming(false);
       setStreaming("");
-      setHistory((prev) => [card, ...prev]);
+      useGlobalStore.getState().addCornermanCard(card);
     });
     const offUpdate = window.clippi.onCornermanSetUpdate((s) => setStatus(s));
     const offError = window.clippi.onCornermanError((message) => {
@@ -50,7 +44,7 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
     try {
       const config = await window.clippi.loadConfig();
       const folder: string | undefined = config?.replayFolder ?? undefined;
-      const tag: string | undefined = config?.targetPlayer ?? undefined;
+      const tag: string | undefined = config?.connectCode || config?.targetPlayer || undefined;
       if (!folder || !tag) {
         setError("Set your replay folder and player tag in Settings first.");
         return;
@@ -104,7 +98,10 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
         ) : active ? (
           <span>In your corner — waiting for the first game to finish…</span>
         ) : (
-          <span>Inactive</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span>Inactive</span>
+            <span style={{ opacity: 0.7 }}>Cards are saved to your analysis history.</span>
+          </div>
         )}
       </div>
 
@@ -125,8 +122,8 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
         </div>
       )}
 
-      {history.map((card, i) => (
-        <div className="card dossier-panel" key={`${card.opponentTag}-${card.gameNumber}-${i}`}>
+      {cornermanHistory.map((card) => (
+        <div className="card dossier-panel" key={card.id}>
           <div className="dossier-panel-head">
             <h3>
               After Game {card.gameNumber} — {card.wins}-{card.losses} vs {card.opponentTag}
