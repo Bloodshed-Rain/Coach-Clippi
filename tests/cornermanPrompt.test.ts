@@ -26,8 +26,15 @@ describe("assembleCornermanPrompt", () => {
     expect(prompt).toContain("1-0");
     expect(prompt).toContain("after knockdown");
     expect(prompt).toContain("at ledge");
+    expect(prompt).toContain("You are advising:");
     expect(prompt).not.toContain("=== ADAPTATION ACROSS SET ===");
     expect(prompt).not.toContain("=== PRIOR SCOUTING DOSSIER ===");
+    // Habit lines must use count/total format, not percentage
+    expect(prompt).toMatch(/Opponent under shield pressure: .+ \d+\/\d+/);
+    // Guard against the count*100 regression (e.g. "500%")
+    expect(prompt).not.toMatch(/\d{3,}%/);
+    // Closing directive
+    expect(prompt).toContain("Produce the between-games card for game 2");
   });
 
   it("includes the adaptation section with two or more games", () => {
@@ -35,6 +42,10 @@ describe("assembleCornermanPrompt", () => {
     expect(prompt).toContain("=== ADAPTATION ACROSS SET ===");
     expect(prompt).toContain("Game 1");
     expect(prompt).toContain("Game 2");
+    // Guard against the count*100 regression
+    expect(prompt).not.toMatch(/\d{3,}%/);
+    // Closing directive for two games
+    expect(prompt).toContain("Produce the between-games card for game 3");
   });
 
   it("includes and truncates a prior dossier", () => {
@@ -42,5 +53,9 @@ describe("assembleCornermanPrompt", () => {
     const prompt = assembleCornermanPrompt([game1], targetTag, { wins: 0, losses: 1 }, longDossier);
     expect(prompt).toContain("=== PRIOR SCOUTING DOSSIER ===");
     expect(prompt.length).toBeLessThan(longDossier.length + 4000);
+  });
+
+  it("throws when called with an empty games array", () => {
+    expect(() => assembleCornermanPrompt([], targetTag, { wins: 0, losses: 0 }, null)).toThrow();
   });
 });

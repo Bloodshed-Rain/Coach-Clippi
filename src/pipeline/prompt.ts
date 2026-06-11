@@ -720,9 +720,9 @@ Hard rules: at most 120 words total. Never invent numbers. Prefer habits with hi
 
 function formatHabit(label: string, habit: HabitProfile): string {
   if (habit.options.length === 0) return `  ${label}: no data`;
-  const parts = habit.options
-    .slice(0, 4)
-    .map((o) => `${o.action} ${(o.frequency * 100).toFixed(0)}%`);
+  const total = habit.options.reduce((sum, o) => sum + o.frequency, 0);
+  // options are already sorted descending by frequency (buildHabitProfile sorts them)
+  const parts = habit.options.slice(0, 4).map((o) => `${o.action} ${o.frequency}/${total}`);
   return `  ${label}: ${parts.join(", ")} (entropy ${habit.entropy.toFixed(2)})`;
 }
 
@@ -732,6 +732,7 @@ const CORNERMAN_DOSSIER_CAP = 2000;
 /**
  * Build the between-games Cornerman prompt from the live set so far.
  * `games` is chronological; the last entry is the game that just finished.
+ * Callers should bound `games` (the live handler slices to recent games) — every entry is rendered in full.
  */
 export function assembleCornermanPrompt(
   games: GameResult[],
@@ -739,6 +740,7 @@ export function assembleCornermanPrompt(
   setScore: { wins: number; losses: number },
   dossierText: string | null,
 ): string {
+  if (games.length === 0) throw new Error("assembleCornermanPrompt requires at least one game");
   const last = games[games.length - 1]!;
   const lastIdx = findPlayerIdx(last.gameSummary, targetTag);
   const lastOppIdx = lastIdx === 0 ? 1 : 0;
@@ -759,9 +761,16 @@ export function assembleCornermanPrompt(
     const opp = gr.gameSummary.players[oppIdx];
     const myInsights = gr.derivedInsights[idx];
     const oppInsights = gr.derivedInsights[oppIdx];
-    const won = gr.gameSummary.result.winner === me.tag;
+    const pStocks = gr.gameSummary.result.finalStocks[idx];
+    const oStocks = gr.gameSummary.result.finalStocks[oppIdx];
+    const outcome =
+      (pStocks > 0 && oStocks > 0) || gr.gameSummary.result.winner === "Unknown"
+        ? "DRAW (no contest)"
+        : gr.gameSummary.result.winner === me.tag
+          ? "WON"
+          : "LOST";
 
-    lines.push(`--- Game ${i + 1}: ${gr.gameSummary.stage}, ${won ? "WON" : "LOST"} ---`);
+    lines.push(`--- Game ${i + 1}: ${gr.gameSummary.stage}, ${outcome} ---`);
     lines.push(
       `  Your numbers: neutral WR ${(me.neutralWinRate * 100).toFixed(0)}%, openings/kill ${me.openingsPerKill.toFixed(1)}, conversion rate ${(me.conversionRate * 100).toFixed(0)}%, avg death ${me.avgDeathPercent.toFixed(0)}%`,
     );
