@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { CoachingCards } from "../components/CoachingCards";
+import "../styles/rivals.css";
 
 interface HistoryCard {
   text: string;
@@ -66,6 +67,8 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
     setBusy(true);
     try {
       setStatus(await window.clippi.cornermanStop());
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }
