@@ -29,6 +29,7 @@ export function setFileWatcher(watcher: { close: () => void } | null): void {
 
 let importListener: ((result: WatcherImportEvent) => void) | null = null;
 
+/** Single-slot hook; one consumer at a time — currently Cornerman. */
 export function setImportListener(fn: ((result: WatcherImportEvent) => void) | null): void {
   importListener = fn;
 }

@@ -27,8 +27,8 @@ export function startReplayWatcher(replayFolder: string, targetPlayer: string): 
         // Fan out the full payload (incl. gameResult) to the in-process listener (Cornerman).
         try {
           getImportListener()?.(result);
-        } catch {
-          // Listener errors must never break the import flow
+        } catch (err) {
+          console.error("[watcher] import listener failed:", err);
         }
 
         // Fire desktop notification if the game has highlights
