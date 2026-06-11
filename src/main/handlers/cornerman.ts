@@ -61,6 +61,10 @@ function getCachedDossier(opponentKey: string): string | null {
 async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
   if (!session || event.skipped || !event.gameResult) return;
 
+  // Capture the session reference now so we can detect stop/restart after the
+  // async LLM call resolves (Issue 2: stale broadcast guard).
+  const mySession = session;
+
   const outcome = advanceLiveSet(session.setState, event.gameResult, session.targetTag, Date.now());
   if (!outcome) return; // handwarmer / false start
   session.setState = outcome.state;
@@ -68,29 +72,42 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
   broadcast("cornerman:set-update", currentStatus());
 
   const { games, wins, losses, opponentKey, opponentTag } = outcome.state;
+  const totalGames = games.length; // full count before slicing for prompt cap
   const userPrompt = assembleCornermanPrompt(
     games.slice(-MAX_PROMPT_GAMES).map((g) => g.gameResult),
     session.targetTag,
     { wins, losses },
     getCachedDossier(opponentKey),
+    totalGames,
   );
   const llmConfig = resolveLLMConfig();
 
+  let card: string;
   try {
-    const card = await llmQueue.enqueue(() =>
+    card = await llmQueue.enqueue(() =>
       callLLMStream({ systemPrompt: SYSTEM_PROMPT_CORNERMAN, userPrompt, config: llmConfig }, (chunk) => {
         broadcast("cornerman:stream", chunk);
       }),
     );
+  } catch (err) {
+    broadcast("cornerman:error", err instanceof Error ? err.message : String(err));
+    return;
+  }
 
+  // If the user stopped or restarted cornerman while the LLM was in flight,
+  // skip the card broadcast and notification — they belong to a dead session.
+  // The DB insert still runs because we already paid for the tokens.
+  if (session === mySession) {
     broadcast("cornerman:card", {
       text: card,
-      gameNumber: games.length,
+      gameNumber: totalGames,
       opponentTag,
       wins,
       losses,
     });
+  }
 
+  try {
     insertCoachingAnalysis(
       event.gameId ?? null,
       null,
@@ -98,9 +115,13 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
       card,
       "cornerman",
       opponentKey,
-      `Cornerman G${games.length} vs ${opponentTag}`,
+      `Cornerman G${totalGames} vs ${opponentTag}`,
     );
+  } catch (err) {
+    console.error("[cornerman] failed to persist card:", err);
+  }
 
+  if (session === mySession) {
     try {
       new Notification({
         title: `MAGI Cornerman — ${wins}-${losses} vs ${opponentTag}`,
@@ -109,8 +130,6 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
     } catch {
       // notifications are best-effort
     }
-  } catch (err) {
-    broadcast("cornerman:error", err instanceof Error ? err.message : String(err));
   }
 }
 

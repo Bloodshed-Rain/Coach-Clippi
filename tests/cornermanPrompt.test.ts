@@ -58,4 +58,13 @@ describe("assembleCornermanPrompt", () => {
   it("throws when called with an empty games array", () => {
     expect(() => assembleCornermanPrompt([], targetTag, { wins: 0, losses: 0 }, null)).toThrow();
   });
+
+  it("keeps numbering truthful when games are sliced to a recent window", () => {
+    const prompt = assembleCornermanPrompt([game1, game2], targetTag, { wins: 3, losses: 2 }, null, 5);
+    expect(prompt).toContain("5 game(s) played, game 6 starting");
+    expect(prompt).toContain("--- Game 4:");
+    expect(prompt).toContain("--- Game 5:");
+    expect(prompt).not.toContain("--- Game 1:");
+    expect(prompt).toContain("Produce the between-games card for game 6");
+  });
 });

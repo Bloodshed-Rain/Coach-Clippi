@@ -733,12 +733,15 @@ const CORNERMAN_DOSSIER_CAP = 2000;
  * Build the between-games Cornerman prompt from the live set so far.
  * `games` is chronological; the last entry is the game that just finished.
  * Callers should bound `games` (the live handler slices to recent games) — every entry is rendered in full.
+ * When callers slice to recent games, pass the full set length as `totalGames` so header/per-game
+ * numbering stays truthful (e.g. 2 of 5 games passed → labels read "Game 4" and "Game 5").
  */
 export function assembleCornermanPrompt(
   games: GameResult[],
   targetTag: string,
   setScore: { wins: number; losses: number },
   dossierText: string | null,
+  totalGames: number = games.length,
 ): string {
   if (games.length === 0) throw new Error("assembleCornermanPrompt requires at least one game");
   const last = games[games.length - 1]!;
@@ -748,7 +751,7 @@ export function assembleCornermanPrompt(
 
   const lines: string[] = [];
   lines.push(
-    `=== LIVE SET vs ${opponent.tag} (${opponent.character}) — score ${setScore.wins}-${setScore.losses}, ${games.length} game(s) played, game ${games.length + 1} starting ===`,
+    `=== LIVE SET vs ${opponent.tag} (${opponent.character}) — score ${setScore.wins}-${setScore.losses}, ${totalGames} game(s) played, game ${totalGames + 1} starting ===`,
   );
   lines.push(`You are advising: ${targetTag}`);
   lines.push("");
@@ -770,7 +773,7 @@ export function assembleCornermanPrompt(
           ? "WON"
           : "LOST";
 
-    lines.push(`--- Game ${i + 1}: ${gr.gameSummary.stage}, ${outcome} ---`);
+    lines.push(`--- Game ${totalGames - games.length + i + 1}: ${gr.gameSummary.stage}, ${outcome} ---`);
     lines.push(
       `  Your numbers: neutral WR ${(me.neutralWinRate * 100).toFixed(0)}%, openings/kill ${me.openingsPerKill.toFixed(1)}, conversion rate ${(me.conversionRate * 100).toFixed(0)}%, avg death ${me.avgDeathPercent.toFixed(0)}%`,
     );
@@ -810,6 +813,6 @@ export function assembleCornermanPrompt(
     lines.push("");
   }
 
-  lines.push(`Produce the between-games card for game ${games.length + 1}.`);
+  lines.push(`Produce the between-games card for game ${totalGames + 1}.`);
   return lines.join("\n");
 }
