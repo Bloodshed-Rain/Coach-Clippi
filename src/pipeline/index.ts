@@ -15,6 +15,8 @@ export {
   SYSTEM_PROMPT_DISCOVERY,
   SYSTEM_PROMPT_SCOUT,
   assembleOpponentDossierPrompt,
+  SYSTEM_PROMPT_CORNERMAN,
+  assembleCornermanPrompt,
 } from "./prompt.js";
 
 export type {

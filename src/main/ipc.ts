@@ -52,6 +52,7 @@ import { registerStatsHandlers } from "./handlers/stats.js";
 import { registerWatcherHandlers } from "./handlers/watcher.js";
 import { registerStockTimelineHandlers } from "./handlers/stockTimeline.js";
 import { registerEmbeddedReplayHandlers } from "./handlers/embeddedReplay.js";
+import { registerCornermanHandlers } from "./handlers/cornerman.js";
 
 export function setupIPC(): void {
   registerConfigHandlers(safeHandle);
@@ -64,4 +65,5 @@ export function setupIPC(): void {
   registerDolphinHandlers(safeHandle);
   registerStockTimelineHandlers(safeHandle);
   registerEmbeddedReplayHandlers(safeHandle);
+  registerCornermanHandlers(safeHandle);
 }

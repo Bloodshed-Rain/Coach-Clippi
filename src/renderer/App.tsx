@@ -11,6 +11,10 @@ const Rivals = lazy(() => import("./pages/Rivals").then((m) => ({ default: m.Riv
 const Practice = lazy(() => import("./pages/Practice").then((m) => ({ default: m.Practice })));
 const Oracle = lazy(() => import("./pages/Oracle").then((m) => ({ default: m.Oracle })));
 const GameTheater = lazy(() => import("./pages/GameTheater").then((m) => ({ default: m.GameTheater })));
+const Cornerman = lazy(() => import("./pages/Cornerman").then((m) => ({ default: m.Cornerman })));
+const CornermanOverlay = lazy(() =>
+  import("./pages/CornermanOverlay").then((m) => ({ default: m.CornermanOverlay })),
+);
 
 import { applyTheme, getResolvedTheme, THEMES, type ColorMode } from "./themes";
 import {
@@ -23,6 +27,7 @@ import {
   PracticeIcon,
   OracleIcon,
   RivalsIcon,
+  CornermanIcon,
 } from "./components/NavIcons";
 import { CommandPalette } from "./components/CommandPalette";
 import { LiquidShell, type NavItem as LiquidNavItem } from "./components/LiquidShell";
@@ -31,7 +36,7 @@ import { ReplayPlayer } from "./components/ReplayPlayer";
 import { useGlobalStore, type Density } from "./stores/useGlobalStore";
 import { useOverallRecord } from "./hooks/queries";
 
-type Page = "dashboard" | "sessions" | "library" | "trends" | "characters" | "rivals" | "practice" | "oracle" | "settings";
+type Page = "dashboard" | "sessions" | "library" | "trends" | "characters" | "rivals" | "cornerman" | "practice" | "oracle" | "settings";
 
 interface NavItem extends LiquidNavItem {
   id: Page;
@@ -44,6 +49,7 @@ const ANALYZE_ITEMS: NavItem[] = [
   { id: "trends", label: "Trends", path: "/trends", Icon: TrendsIcon },
   { id: "characters", label: "Characters", path: "/characters", Icon: CharactersIcon },
   { id: "rivals", label: "Rivals", path: "/rivals", Icon: RivalsIcon },
+  { id: "cornerman", label: "Cornerman", path: "/cornerman", Icon: CornermanIcon },
   { id: "practice", label: "Practice", path: "/practice", Icon: PracticeIcon },
   { id: "oracle", label: "MAGI Oracle", path: "/oracle", Icon: OracleIcon },
 ];
@@ -139,6 +145,7 @@ export function App() {
           <Route path="/trends" element={<Trends refreshKey={refreshKey} />} />
           <Route path="/characters" element={<Characters refreshKey={refreshKey} />} />
           <Route path="/rivals" element={<Rivals refreshKey={refreshKey} />} />
+          <Route path="/cornerman" element={<Cornerman refreshKey={refreshKey} />} />
           <Route path="/practice" element={<Practice refreshKey={refreshKey} />} />
           <Route path="/oracle" element={<Oracle refreshKey={refreshKey} />} />
           <Route path="/settings" element={<Settings onImport={triggerRefresh} />} />
@@ -148,6 +155,14 @@ export function App() {
     ),
     [location, refreshKey, triggerRefresh],
   );
+
+  if (location.pathname === "/overlay") {
+    return (
+      <Suspense fallback={null}>
+        <CornermanOverlay />
+      </Suspense>
+    );
+  }
 
   return (
     <>
