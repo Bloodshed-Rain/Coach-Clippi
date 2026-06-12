@@ -133,6 +133,7 @@ declare global {
       cornermanStart: (replayFolder: string, targetPlayer: string) => Promise<CornermanStatus>;
       cornermanStop: () => Promise<CornermanStatus>;
       cornermanStatus: () => Promise<CornermanStatus>;
+      cornermanOverlayDismiss: () => Promise<boolean>;
       onCornermanStream: (callback: (chunk: string) => void) => () => void;
       onCornermanCard: (callback: (card: CornermanCard) => void) => () => void;
       onCornermanSetUpdate: (callback: (status: CornermanStatus) => void) => () => void;

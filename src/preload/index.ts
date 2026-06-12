@@ -112,6 +112,7 @@ const api = {
     ipcRenderer.invoke("cornerman:start", replayFolder, targetPlayer),
   cornermanStop: () => ipcRenderer.invoke("cornerman:stop"),
   cornermanStatus: () => ipcRenderer.invoke("cornerman:status"),
+  cornermanOverlayDismiss: () => ipcRenderer.invoke("cornerman:overlay-dismiss"),
 
   // Queue status
   getQueueStatus: () => ipcRenderer.invoke("queue:status"),

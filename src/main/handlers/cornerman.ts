@@ -8,6 +8,13 @@ import { type SafeHandleFn } from "../ipc.js";
 import { getMainWindow, setImportListener, type WatcherImportEvent } from "../state.js";
 import { resolveLLMConfig } from "./analysis.js";
 import { startReplayWatcher } from "./watcher.js";
+import {
+  ensureOverlayWindow,
+  getOverlayWindow,
+  showOverlayWindow,
+  hideOverlayWindow,
+  destroyOverlayWindow,
+} from "../overlayWindow.js";
 
 /** Cap on games rendered into the prompt — long friendlies runs vs the same
  *  opponent are one "set"; the card should focus on recent games anyway. */
@@ -45,6 +52,11 @@ function broadcast(channel: string, ...args: unknown[]): void {
     getMainWindow()?.webContents.send(channel, ...args);
   } catch {
     // window may have closed
+  }
+  try {
+    getOverlayWindow()?.webContents.send(channel, ...args);
+  } catch {
+    // overlay may have closed
   }
 }
 
@@ -84,8 +96,14 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
 
   let card: string;
   try {
+    let shownThisCard = false;
     card = await llmQueue.enqueue(() =>
       callLLMStream({ systemPrompt: SYSTEM_PROMPT_CORNERMAN, userPrompt, config: llmConfig }, (chunk) => {
+        if (session !== mySession) return; // stale session — drop chunks, don't pop the toast
+        if (!shownThisCard) {
+          shownThisCard = true;
+          showOverlayWindow();
+        }
         broadcast("cornerman:stream", chunk);
       }),
     );
@@ -138,6 +156,7 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
 export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
   safeHandle("cornerman:start", (_e, replayFolder: string, targetPlayer: string) => {
     startReplayWatcher(replayFolder, targetPlayer);
+    ensureOverlayWindow();
     session = { targetTag: targetPlayer, setState: null };
     setImportListener((event) => {
       // Fire-and-forget; failures are logged so they're not silently invisible
@@ -152,10 +171,16 @@ export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
   safeHandle("cornerman:stop", () => {
     session = null;
     setImportListener(null);
+    destroyOverlayWindow();
     // The folder watcher stays up — it's the app-wide live import; stop it via watcher:stop.
     broadcast("cornerman:set-update", currentStatus());
     return currentStatus();
   });
 
   safeHandle("cornerman:status", () => currentStatus());
+
+  safeHandle("cornerman:overlay-dismiss", () => {
+    hideOverlayWindow();
+    return true;
+  });
 }
