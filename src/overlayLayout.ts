@@ -12,11 +12,11 @@ export interface Rect {
 }
 
 /** Bottom-right corner of the given display work area, inset by OVERLAY_MARGIN.
- *  Clamped so tiny work areas never push the window off the top-left. */
+ *  Clamped so the result never falls left of or above the work-area origin. */
 export function computeOverlayBounds(workArea: Rect): Rect {
   return {
-    x: Math.max(workArea.x, workArea.x + workArea.width - OVERLAY_WIDTH - OVERLAY_MARGIN),
-    y: Math.max(workArea.y, workArea.y + workArea.height - OVERLAY_HEIGHT - OVERLAY_MARGIN),
+    x: workArea.x + Math.max(0, workArea.width - OVERLAY_WIDTH - OVERLAY_MARGIN),
+    y: workArea.y + Math.max(0, workArea.height - OVERLAY_HEIGHT - OVERLAY_MARGIN),
     width: OVERLAY_WIDTH,
     height: OVERLAY_HEIGHT,
   };

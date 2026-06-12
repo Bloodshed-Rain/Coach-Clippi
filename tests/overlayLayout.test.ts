@@ -26,7 +26,23 @@ describe("computeOverlayBounds", () => {
   it("never returns coordinates left/above the work area origin on tiny screens", () => {
     const workArea = { x: 0, y: 0, width: 300, height: 200 };
     const b = computeOverlayBounds(workArea);
-    expect(b.x).toBeGreaterThanOrEqual(0);
-    expect(b.y).toBeGreaterThanOrEqual(0);
+    expect(b.x).toBe(0); // clamped to the work-area origin
+    expect(b.y).toBe(0);
+  });
+
+  it("clamps one dimension independently when only that dimension overflows", () => {
+    const narrow = computeOverlayBounds({ x: 0, y: 0, width: 300, height: 1080 });
+    expect(narrow.x).toBe(0); // clamped
+    expect(narrow.y).toBe(1080 - OVERLAY_HEIGHT - OVERLAY_MARGIN);
+
+    const short = computeOverlayBounds({ x: 0, y: 0, width: 1920, height: 200 });
+    expect(short.x).toBe(1920 - OVERLAY_WIDTH - OVERLAY_MARGIN);
+    expect(short.y).toBe(0); // clamped
+  });
+
+  it("handles negative-origin work areas (monitor left of primary)", () => {
+    const b = computeOverlayBounds({ x: -1920, y: 0, width: 1920, height: 1040 });
+    expect(b.x).toBe(-1920 + 1920 - OVERLAY_WIDTH - OVERLAY_MARGIN);
+    expect(b.y).toBe(1040 - OVERLAY_HEIGHT - OVERLAY_MARGIN);
   });
 });
