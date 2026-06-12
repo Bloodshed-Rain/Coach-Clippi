@@ -40,9 +40,8 @@ export function ensureOverlayWindow(): void {
   overlayWindow.webContents.on("will-navigate", (event, url) => {
     const devServer = process.env["VITE_DEV_SERVER_URL"];
     if (devServer) {
-      const devOrigin = new URL(devServer).origin;
-      const navOrigin = new URL(url).origin;
-      if (navOrigin === devOrigin && (url === devServer || url === devServer + "/" || url.includes("/@vite"))) {
+      // Allow Vite HMR full reloads of this window's own URL (hash included) and Vite internals.
+      if (url.startsWith(devServer) || url.includes("/@vite")) {
         return;
       }
     }
@@ -62,8 +61,9 @@ export function ensureOverlayWindow(): void {
     overlayWindow.loadFile(path.join(__dirname, "../../../dist/renderer/index.html"), { hash: "/overlay" });
   }
 
-  overlayWindow.on("closed", () => {
-    overlayWindow = null;
+  const win = overlayWindow;
+  win.on("closed", () => {
+    if (overlayWindow === win) overlayWindow = null;
   });
 }
 
