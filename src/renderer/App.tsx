@@ -12,6 +12,9 @@ const Practice = lazy(() => import("./pages/Practice").then((m) => ({ default: m
 const Oracle = lazy(() => import("./pages/Oracle").then((m) => ({ default: m.Oracle })));
 const GameTheater = lazy(() => import("./pages/GameTheater").then((m) => ({ default: m.GameTheater })));
 const Cornerman = lazy(() => import("./pages/Cornerman").then((m) => ({ default: m.Cornerman })));
+const CornermanOverlay = lazy(() =>
+  import("./pages/CornermanOverlay").then((m) => ({ default: m.CornermanOverlay })),
+);
 
 import { applyTheme, getResolvedTheme, THEMES, type ColorMode } from "./themes";
 import {
@@ -152,6 +155,14 @@ export function App() {
     ),
     [location, refreshKey, triggerRefresh],
   );
+
+  if (location.pathname === "/overlay") {
+    return (
+      <Suspense fallback={null}>
+        <CornermanOverlay />
+      </Suspense>
+    );
+  }
 
   return (
     <>
