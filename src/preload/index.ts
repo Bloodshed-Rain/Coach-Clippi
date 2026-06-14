@@ -112,7 +112,11 @@ const api = {
     ipcRenderer.invoke("cornerman:start", replayFolder, targetPlayer),
   cornermanStop: () => ipcRenderer.invoke("cornerman:stop"),
   cornermanStatus: () => ipcRenderer.invoke("cornerman:status"),
+  cornermanOverlayShow: () => ipcRenderer.invoke("cornerman:overlay-show"),
   cornermanOverlayDismiss: () => ipcRenderer.invoke("cornerman:overlay-dismiss"),
+  cornermanOverlayResize: (handle: string, deltaX: number, deltaY: number) =>
+    ipcRenderer.invoke("cornerman:overlay-resize", handle, deltaX, deltaY),
+  cornermanOverlayResizeEnd: () => ipcRenderer.invoke("cornerman:overlay-resize-end"),
 
   // Queue status
   getQueueStatus: () => ipcRenderer.invoke("queue:status"),
@@ -209,6 +213,38 @@ const api = {
     ) => callback(status);
     ipcRenderer.on("cornerman:set-update", listener);
     return () => ipcRenderer.removeListener("cornerman:set-update", listener);
+  },
+  onCornermanLiveEvent: (callback: (event: {
+    id: string;
+    type: string;
+    title: string;
+    body: string;
+    timestamp: string;
+    frame: number;
+    actorTag: string;
+    actorCharacter: string;
+    victimTag: string | null;
+    victimCharacter: string | null;
+    importance: "info" | "high";
+  }) => void) => {
+    const listener = (
+      _event: unknown,
+      liveEvent: {
+        id: string;
+        type: string;
+        title: string;
+        body: string;
+        timestamp: string;
+        frame: number;
+        actorTag: string;
+        actorCharacter: string;
+        victimTag: string | null;
+        victimCharacter: string | null;
+        importance: "info" | "high";
+      },
+    ) => callback(liveEvent);
+    ipcRenderer.on("cornerman:live-event", listener);
+    return () => ipcRenderer.removeListener("cornerman:live-event", listener);
   },
   onCornermanError: (callback: (message: string) => void) => {
     const listener = (_event: unknown, message: string) => callback(message);

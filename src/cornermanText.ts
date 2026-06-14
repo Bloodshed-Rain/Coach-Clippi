@@ -1,0 +1,40 @@
+const CORNERMAN_SHORTHAND_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/\bASDI\b/g, "automatic smash directional influence"],
+  [/\bSDI\b/g, "smash directional influence"],
+  [/\bDI\b/g, "directional influence"],
+  [/\bOOS\b/g, "out of shield"],
+  [/\bOPK\b/g, "openings per kill"],
+  [/\bWR\b/g, "win rate"],
+  [/\bGALINT\b/g, "invincibility after leaving ledge"],
+  [/\bSHFFL\b/g, "short-hop fast-fall aerial"],
+  [/\bCC\b/g, "crouch cancel"],
+  [/\bdmg\s*\/\s*op\b/gi, "damage per opening"],
+  [/\bopenings\s*\/\s*kill\b/gi, "openings per kill"],
+  [/\bavg\.?\b/gi, "average"],
+  [/\bconv\.?\b/gi, "conversion"],
+  [/\bdmg\b/gi, "damage"],
+  [/\bopp\.?\b/gi, "opponent"],
+  [/\bnair\b/g, "neutral air"],
+  [/\bfair\b/g, "forward air"],
+  [/\bbair\b/g, "back air"],
+  [/\buair\b/g, "up air"],
+  [/\bdair\b/g, "down air"],
+  [/\bf[- ]?smash\b/gi, "forward smash"],
+  [/\bu[- ]?smash\b/gi, "up smash"],
+  [/\bd[- ]?smash\b/gi, "down smash"],
+  [/\bf[- ]?tilt\b/gi, "forward tilt"],
+  [/\bu[- ]?tilt\b/gi, "up tilt"],
+  [/\bd[- ]?tilt\b/gi, "down tilt"],
+  [/\bup[- ]?b\b/gi, "up special"],
+  [/\bside[- ]?b\b/gi, "side special"],
+  [/\bdown[- ]?b\b/gi, "down special"],
+  [/\bG(\d+)\b/g, "Game $1"],
+  [/\b([+-]?\d+(?:\.\d+)?)\s*pp\b/g, "$1 percentage points"],
+];
+
+export function expandCornermanShorthand(text: string): string {
+  return CORNERMAN_SHORTHAND_REPLACEMENTS.reduce(
+    (expanded, [pattern, replacement]) => expanded.replace(pattern, replacement),
+    text,
+  );
+}

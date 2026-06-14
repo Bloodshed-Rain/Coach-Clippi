@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { CoachingCards } from "../components/CoachingCards";
+import { CornermanLiveAlerts } from "../components/CornermanLiveAlerts";
 import { useGlobalStore } from "../stores/useGlobalStore";
 import "../styles/rivals.css";
 
@@ -9,11 +10,15 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [liveEvents, setLiveEvents] = useState<CornermanLiveEvent[]>([]);
 
   const cornermanHistory = useGlobalStore((s) => s.cornermanHistory);
 
   useEffect(() => {
-    window.clippi.cornermanStatus().then(setStatus).catch(() => {});
+    window.clippi
+      .cornermanStatus()
+      .then(setStatus)
+      .catch(() => {});
     const offStream = window.clippi.onCornermanStream((chunk) => {
       setIsStreaming(true);
       setError(null);
@@ -25,6 +30,9 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
       useGlobalStore.getState().addCornermanCard(card);
     });
     const offUpdate = window.clippi.onCornermanSetUpdate((s) => setStatus(s));
+    const offLiveEvent = window.clippi.onCornermanLiveEvent((event) => {
+      setLiveEvents((prev) => [event, ...prev.filter((e) => e.id !== event.id)].slice(0, 8));
+    });
     const offError = window.clippi.onCornermanError((message) => {
       setIsStreaming(false);
       setStreaming(""); // no stream-end event on the error path — drop the orphaned partial text
@@ -34,6 +42,7 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
       offStream();
       offCard();
       offUpdate();
+      offLiveEvent();
       offError();
     };
   }, []);
@@ -68,6 +77,15 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
     }
   }, []);
 
+  const showPopup = useCallback(async () => {
+    setError(null);
+    try {
+      await window.clippi.cornermanOverlayShow();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
+
   const active = status?.active ?? false;
   const inSet = active && (status?.gamesCount ?? 0) > 0;
 
@@ -88,6 +106,9 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
             Start Corner Session
           </button>
         )}
+        <button className="btn" onClick={showPopup} disabled={busy}>
+          Show Popup
+        </button>
         {inSet ? (
           <span>
             <strong>
@@ -111,13 +132,24 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
         </div>
       )}
 
+      {liveEvents.length > 0 && (
+        <div className="card dossier-panel">
+          <div className="dossier-panel-head">
+            <h3>Live alerts</h3>
+          </div>
+          <div className="dossier-panel-body">
+            <CornermanLiveAlerts events={liveEvents} />
+          </div>
+        </div>
+      )}
+
       {isStreaming && (
         <div className="card dossier-panel">
           <div className="dossier-panel-head">
             <h3>Incoming adjustment…</h3>
           </div>
           <div className="dossier-panel-body">
-            <CoachingCards text={streaming} isStreaming />
+            <CoachingCards text={streaming} isStreaming expandShorthand />
           </div>
         </div>
       )}
@@ -130,7 +162,7 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
             </h3>
           </div>
           <div className="dossier-panel-body">
-            <CoachingCards text={card.text} isStreaming={false} />
+            <CoachingCards text={card.text} isStreaming={false} expandShorthand />
           </div>
         </div>
       ))}

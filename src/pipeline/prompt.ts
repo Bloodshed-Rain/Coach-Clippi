@@ -708,7 +708,7 @@ export const SYSTEM_PROMPT_CORNERMAN = `You are MAGI's Cornerman — the coach i
 Output EXACTLY this markdown structure and nothing else — no greeting, no recap, no sign-off:
 
 ## The Read
-2-3 bullets. The opponent's most exploitable habits THIS SET, each with its number from the data (e.g. "Teched in place 5/7 after knockdown — charge a smash, don't chase").
+2-3 bullets. The opponent's most exploitable habits THIS SET, each with its number from the data (e.g. "They teched in place 5/7 times after knockdown — charge a smash, don't chase").
 
 ## Where You're Bleeding
 1-2 bullets. The concrete way the player is losing stocks or neutral, grounded in the data.
@@ -716,14 +716,14 @@ Output EXACTLY this markdown structure and nothing else — no greeting, no reca
 ## The Adjustment
 ONE imperative sentence. The single highest-leverage change for the next game.
 
-Hard rules: at most 120 words total. Never invent numbers. Prefer habits with high counts over one-off events. If a prior scouting dossier is provided, use it only when this set's data is thin — live data wins conflicts.`;
+Hard rules: at most 120 words total. Never invent numbers. Prefer habits with high counts over one-off events. Use plain language a busy player can read mid-set. Do not use unexplained abbreviations or internal stat names: write "neutral win rate", "average death percent", "out of shield", "directional influence", "crouch cancel", and "invincibility after leaving ledge" instead of WR, avg, OOS, DI, CC, or GALINT. If a prior scouting dossier is provided, use it only when this set's data is thin — live data wins conflicts.`;
 
 function formatHabit(label: string, habit: HabitProfile): string {
   if (habit.options.length === 0) return `  ${label}: no data`;
   const total = habit.options.reduce((sum, o) => sum + o.frequency, 0);
   // options are already sorted descending by frequency (buildHabitProfile sorts them)
   const parts = habit.options.slice(0, 4).map((o) => `${o.action} ${o.frequency}/${total}`);
-  return `  ${label}: ${parts.join(", ")} (entropy ${habit.entropy.toFixed(2)})`;
+  return `  ${label}: ${parts.join(", ")}`;
 }
 
 /** Max characters of a prior dossier to inject — live set data is the priority */
@@ -775,10 +775,10 @@ export function assembleCornermanPrompt(
 
     lines.push(`--- Game ${totalGames - games.length + i + 1}: ${gr.gameSummary.stage}, ${outcome} ---`);
     lines.push(
-      `  Your numbers: neutral WR ${(me.neutralWinRate * 100).toFixed(0)}%, openings/kill ${me.openingsPerKill.toFixed(1)}, conversion rate ${(me.conversionRate * 100).toFixed(0)}%, avg death ${me.avgDeathPercent.toFixed(0)}%`,
+      `  Your numbers: neutral win rate ${(me.neutralWinRate * 100).toFixed(0)}%, openings per kill ${me.openingsPerKill.toFixed(1)}, conversion rate ${(me.conversionRate * 100).toFixed(0)}%, average death percent ${me.avgDeathPercent.toFixed(0)}%`,
     );
     lines.push(
-      `  Opponent numbers: neutral WR ${(opp.neutralWinRate * 100).toFixed(0)}%, openings/kill ${opp.openingsPerKill.toFixed(1)}, edgeguard success ${(opp.edgeguardSuccessRate * 100).toFixed(0)}%`,
+      `  Opponent numbers: neutral win rate ${(opp.neutralWinRate * 100).toFixed(0)}%, openings per kill ${opp.openingsPerKill.toFixed(1)}, edgeguard success ${(opp.edgeguardSuccessRate * 100).toFixed(0)}%`,
     );
     lines.push(formatHabit("Opponent after knockdown", oppInsights.afterKnockdown));
     lines.push(formatHabit("Opponent at ledge", oppInsights.afterLedgeGrab));

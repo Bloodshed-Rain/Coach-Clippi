@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import {
   useCharacterList,
@@ -9,9 +9,11 @@ import {
 import { Card } from "../components/ui/Card";
 import { DataTable } from "../components/ui/DataTable";
 import { WinrateBar } from "../components/ui/WinrateBar";
-import { StatGroupCard, type StatItem } from "../components/ui/StatGroupCard";
+import { type StatItem } from "../components/ui/StatGroupCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { CoachingModal } from "../components/CoachingModal";
+import { PlayerRadar } from "../components/RadarChart";
+import { computeRadarStats, type RadarGameStats, type RadarStats } from "../radarStats";
 
 // ── Character card art (dynamic, falls back to emoji) ────────────────
 
@@ -56,7 +58,7 @@ function CharacterCardImage({
   if (!filename) return null;
   const src = new URL(`../assets/characters/${filename}`, import.meta.url).href;
   const className = variant === "portrait" ? "char-hero-portrait" : "char-card-bg-img";
-  const style: React.CSSProperties = {
+  const style: CSSProperties = {
     WebkitMaskImage: `url(${src})`,
     maskImage: `url(${src})`,
     backgroundColor: color ?? "var(--text)",
@@ -342,6 +344,28 @@ function avgField(rows: any[], field: string): number {
   return n > 0 ? sum / n : 0;
 }
 
+const RADAR_AXIS_LABELS: Record<keyof RadarStats, string> = {
+  neutral: "Neutral",
+  punish: "Punish",
+  techSkill: "Execution",
+  defense: "Defense",
+  edgeguard: "Edgeguard",
+  consistency: "Consistency",
+  mixups: "Mixups",
+  diQuality: "DI",
+};
+
+function rankRadarAxes(
+  stats: RadarStats,
+  direction: "strongest" | "lowest",
+  count: number,
+): Array<{ key: keyof RadarStats; label: string; value: number }> {
+  return (Object.keys(RADAR_AXIS_LABELS) as Array<keyof RadarStats>)
+    .map((key) => ({ key, label: RADAR_AXIS_LABELS[key], value: stats[key] }))
+    .sort((a, b) => (direction === "strongest" ? b.value - a.value : a.value - b.value))
+    .slice(0, count);
+}
+
 // ── Page ─────────────────────────────────────────────────────────────
 
 export function Characters({ refreshKey: _ }: { refreshKey: number }) {
@@ -460,8 +484,11 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
   const { data: gameStats, isLoading: statsLoading } = useCharacterGameStats(character);
   const [coachOpen, setCoachOpen] = useState(false);
 
-  const gameStatRows = useMemo(() => (Array.isArray(gameStats) ? gameStats : []), [gameStats]);
+  const gameStatRows = useMemo<RadarGameStats[]>(() => (Array.isArray(gameStats) ? gameStats : []), [gameStats]);
   const totalGames = gameStatRows.length;
+  const radarStats = useMemo(() => computeRadarStats(gameStatRows), [gameStatRows]);
+  const radarStrengths = useMemo(() => rankRadarAxes(radarStats, "strongest", 3), [radarStats]);
+  const radarTargets = useMemo(() => rankRadarAxes(radarStats, "lowest", 2), [radarStats]);
 
   const heroStats: Array<[string, string]> =
     totalGames > 0
@@ -496,7 +523,13 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
         </button>
         <Card tone="chrome-plate">
           <EmptyState
-            icon={CHARACTER_IMAGE_NAMES[character] ? <CharacterCardImage character={character} variant="portrait" color={meta.color} /> : meta.emoji}
+            icon={
+              CHARACTER_IMAGE_NAMES[character] ? (
+                <CharacterCardImage character={character} variant="portrait" color={meta.color} />
+              ) : (
+                meta.emoji
+              )
+            }
             title={`No ${character} games yet`}
             sub={`You haven't played ${character} yet — import replays to see stats and matchups.`}
           />
@@ -582,7 +615,55 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
       </Card>
 
       <div className="character-detail-bottom">
-        <Card title="Matchups">
+        <Card
+          tone="chrome-plate"
+          className="character-radar-card"
+          style={{ "--char-color": meta.color, "--char-glow": meta.glowColor } as CSSProperties}
+        >
+          <div className="character-radar-head">
+            <div>
+              <div className="character-radar-eyebrow">Character form</div>
+              <h3>{character} radar</h3>
+              <p>
+                Built from this character's games only. The shape favors repeatable strengths over one-off highlight
+                moments.
+              </p>
+            </div>
+            <div className="character-radar-sample">
+              <span className="mono">{totalGames}</span>
+              <small>{totalGames === 1 ? "game" : "games"}</small>
+            </div>
+          </div>
+
+          <PlayerRadar stats={radarStats} games={gameStatRows} accentColor={meta.color} />
+
+          <div className="character-radar-readout">
+            <div>
+              <div className="character-radar-label">Strengths</div>
+              <div className="character-radar-pills">
+                {radarStrengths.map((axis) => (
+                  <span className="character-radar-pill character-radar-pill-strong" key={axis.key}>
+                    {axis.label}
+                    <b>{Math.round(axis.value)}</b>
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="character-radar-label">Lab targets</div>
+              <div className="character-radar-pills">
+                {radarTargets.map((axis) => (
+                  <span className="character-radar-pill" key={axis.key}>
+                    {axis.label}
+                    <b>{Math.round(axis.value)}</b>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card title="Matchups" className="character-matchups-card">
           <DataTable>
             <thead>
               <tr>

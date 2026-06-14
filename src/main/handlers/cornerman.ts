@@ -1,10 +1,11 @@
 import { Notification } from "electron";
 import { getDb, insertCoachingAnalysis } from "../../db.js";
 import { advanceLiveSet, type LiveSetState } from "../../cornerman.js";
+import { startCornermanLiveMonitor, type CornermanLiveMonitor } from "../../cornermanLiveMonitor.js";
 import { SYSTEM_PROMPT_CORNERMAN, assembleCornermanPrompt } from "../../pipeline/index.js";
 import { callLLMStream } from "../../llm.js";
 import { llmQueue } from "../../llmQueue.js";
-import { type SafeHandleFn } from "../ipc.js";
+import { type SafeHandleFn, validatePath } from "../ipc.js";
 import { getMainWindow, setImportListener, type WatcherImportEvent } from "../state.js";
 import { resolveLLMConfig } from "./analysis.js";
 import { startReplayWatcher } from "./watcher.js";
@@ -14,6 +15,8 @@ import {
   showOverlayWindow,
   hideOverlayWindow,
   destroyOverlayWindow,
+  resizeOverlayWindow,
+  finishOverlayResize,
 } from "../overlayWindow.js";
 
 /** Cap on games rendered into the prompt — long friendlies runs vs the same
@@ -26,6 +29,7 @@ interface CornermanSession {
 }
 
 let session: CornermanSession | null = null;
+let liveMonitor: CornermanLiveMonitor | null = null;
 
 export interface CornermanStatus {
   active: boolean;
@@ -58,6 +62,11 @@ function broadcast(channel: string, ...args: unknown[]): void {
   } catch {
     // overlay may have closed
   }
+}
+
+function stopLiveMonitor(): void {
+  liveMonitor?.close();
+  liveMonitor = null;
 }
 
 /** Latest cached dossier text for an opponent, if the user ever generated one */
@@ -155,8 +164,24 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
 
 export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
   safeHandle("cornerman:start", (_e, replayFolder: string, targetPlayer: string) => {
-    startReplayWatcher(replayFolder, targetPlayer);
+    const safeFolder = validatePath(replayFolder);
+    startReplayWatcher(safeFolder, targetPlayer);
     ensureOverlayWindow();
+    stopLiveMonitor();
+    liveMonitor = startCornermanLiveMonitor({
+      replayFolder: safeFolder,
+      targetPlayer,
+      onEvents: (events) => {
+        ensureOverlayWindow();
+        showOverlayWindow();
+        for (const liveEvent of events) {
+          broadcast("cornerman:live-event", liveEvent);
+        }
+      },
+      onError: (err, filePath) => {
+        console.warn(`[cornerman] live monitor skipped ${filePath}: ${err.message}`);
+      },
+    });
     session = { targetTag: targetPlayer, setState: null };
     setImportListener((event) => {
       // Fire-and-forget; failures are logged so they're not silently invisible
@@ -170,6 +195,7 @@ export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
 
   safeHandle("cornerman:stop", () => {
     session = null;
+    stopLiveMonitor();
     setImportListener(null);
     destroyOverlayWindow();
     // The folder watcher stays up — it's the app-wide live import; stop it via watcher:stop.
@@ -179,8 +205,21 @@ export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
 
   safeHandle("cornerman:status", () => currentStatus());
 
+  safeHandle("cornerman:overlay-show", () => {
+    ensureOverlayWindow();
+    showOverlayWindow();
+    broadcast("cornerman:set-update", currentStatus());
+    return true;
+  });
+
   safeHandle("cornerman:overlay-dismiss", () => {
     hideOverlayWindow();
     return true;
   });
+
+  safeHandle("cornerman:overlay-resize", (_e, handle: unknown, deltaX: unknown, deltaY: unknown) =>
+    resizeOverlayWindow(handle, deltaX, deltaY),
+  );
+
+  safeHandle("cornerman:overlay-resize-end", () => finishOverlayResize());
 }

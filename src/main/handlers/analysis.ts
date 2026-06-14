@@ -101,7 +101,7 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
       if (existingGame) {
         const cachedAnalysis = db
           .prepare(
-            "SELECT analysis_text FROM coaching_analyses WHERE game_id = ? ORDER BY created_at DESC LIMIT 1",
+            "SELECT analysis_text FROM coaching_analyses WHERE game_id = ? AND scope = 'game' ORDER BY created_at DESC LIMIT 1",
           )
           .get(existingGame.id) as { analysis_text: string } | undefined;
         if (cachedAnalysis) {
@@ -183,11 +183,21 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
     // Check cache for ALL scopes (ignore model_used to reuse any past analysis)
     let cached: { analysis_text: string } | undefined;
     if (scope === "game") {
-      cached = db.prepare("SELECT analysis_text FROM coaching_analyses WHERE game_id = ? ORDER BY created_at DESC LIMIT 1").get(Number(id)) as any;
+      cached = db
+        .prepare(
+          "SELECT analysis_text FROM coaching_analyses WHERE game_id = ? AND scope = 'game' ORDER BY created_at DESC LIMIT 1",
+        )
+        .get(Number(id)) as any;
     } else if (scope === "session") {
-      cached = db.prepare("SELECT analysis_text FROM coaching_analyses WHERE session_id = ? ORDER BY created_at DESC LIMIT 1").get(Number(id)) as any;
+      cached = db
+        .prepare("SELECT analysis_text FROM coaching_analyses WHERE session_id = ? ORDER BY created_at DESC LIMIT 1")
+        .get(Number(id)) as any;
     } else {
-      cached = db.prepare("SELECT analysis_text FROM coaching_analyses WHERE scope = ? AND scope_identifier = ? ORDER BY created_at DESC LIMIT 1").get(scope, String(id)) as any;
+      cached = db
+        .prepare(
+          "SELECT analysis_text FROM coaching_analyses WHERE scope = ? AND scope_identifier = ? ORDER BY created_at DESC LIMIT 1",
+        )
+        .get(scope, String(id)) as any;
     }
     if (cached) return cached.analysis_text;
 
@@ -295,7 +305,7 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
       stageBreakdown: detail.stageBreakdown,
     };
     const yourStatsVsThem = getAggregateStats({ opponentKey: String(opponentKey) });
-    const playerHistory = targetPlayer ? getPlayerHistory(targetPlayer) ?? null : null;
+    const playerHistory = targetPlayer ? (getPlayerHistory(targetPlayer) ?? null) : null;
 
     const userPrompt = assembleOpponentDossierPrompt(headToHead, yourStatsVsThem, playerHistory, null);
 

@@ -8,11 +8,13 @@ body.overlay-mode {
 .overlay-toast {
   display: flex;
   flex-direction: column;
+  position: relative;
   height: 100vh;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(10, 13, 20, 0.92);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 13, 20, var(--cornerman-toast-alpha, 0.42));
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px) saturate(1.15);
   overflow: hidden;
 }
 
@@ -21,7 +23,8 @@ body.overlay-mode {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 13, 20, var(--cornerman-head-alpha, 0.14));
   -webkit-app-region: drag; /* drag the window by its header */
   user-select: none;
 }
@@ -41,6 +44,8 @@ body.overlay-mode {
 }
 
 .overlay-toast-close {
+  position: relative;
+  z-index: 30;
   -webkit-app-region: no-drag;
   background: none;
   border: none;
@@ -62,8 +67,122 @@ body.overlay-mode {
   padding: 10px 12px;
 }
 
+.overlay-toast-controls {
+  display: flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(10, 13, 20, calc(var(--cornerman-head-alpha, 0.14) * 0.75));
+}
+
+.overlay-transparency {
+  display: grid;
+  grid-template-columns: auto 1fr 34px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  color: var(--text-secondary, #cfd4dc);
+  font-size: 11px;
+  -webkit-app-region: no-drag;
+}
+
+.overlay-transparency input {
+  width: 100%;
+  accent-color: var(--accent, #7dd3fc);
+}
+
+.overlay-transparency-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #f5f7fa);
+}
+
+.overlay-toast .cc-card {
+  background: rgba(20, 23, 29, var(--cornerman-card-alpha, 0.48));
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.overlay-toast .cc-card-header:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.overlay-toast .cc-card-content {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
 .overlay-toast-waiting {
   color: var(--text-secondary, #cfd4dc);
   font-size: 12px;
   padding: 12px;
+}
+
+.overlay-resize-grip {
+  position: absolute;
+  z-index: 20;
+  width: 30px;
+  height: 30px;
+  -webkit-app-region: no-drag;
+  touch-action: none;
+  user-select: none;
+}
+
+.overlay-resize-grip::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  opacity: 0.72;
+}
+
+.overlay-resize-grip-top-left {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.overlay-resize-grip-top-right {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.overlay-resize-grip-bottom-left {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.overlay-resize-grip-bottom-right {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+
+.overlay-resize-grip-top-left::after {
+  top: 4px;
+  left: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.58);
+  border-left: 1px solid rgba(255, 255, 255, 0.58);
+}
+
+.overlay-resize-grip-top-right::after {
+  top: 4px;
+  right: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.58);
+  border-right: 1px solid rgba(255, 255, 255, 0.58);
+}
+
+.overlay-resize-grip-bottom-left::after {
+  bottom: 4px;
+  left: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.58);
+  border-left: 1px solid rgba(255, 255, 255, 0.58);
+}
+
+.overlay-resize-grip-bottom-right::after {
+  right: 4px;
+  bottom: 4px;
+  border-right: 1px solid rgba(255, 255, 255, 0.58);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.58);
 }

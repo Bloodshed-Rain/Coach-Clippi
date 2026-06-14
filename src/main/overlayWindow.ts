@@ -1,22 +1,72 @@
 import { BrowserWindow, screen } from "electron";
 import * as path from "path";
-import { computeOverlayBounds } from "../overlayLayout.js";
+import {
+  computeOverlayBounds,
+  normalizeOverlayCorner,
+  normalizeOverlaySize,
+  OVERLAY_MIN_HEIGHT,
+  OVERLAY_MIN_WIDTH,
+  isOverlayResizeHandle,
+  resizeOverlayBounds,
+  snapOverlayBoundsToCorner,
+  type OverlayResizeHandle,
+} from "../overlayLayout.js";
+import { loadConfig, saveConfig } from "../config.js";
 
 let overlayWindow: BrowserWindow | null = null;
+let snapTimer: NodeJS.Timeout | null = null;
+let snapping = false;
+let manualResizing = false;
+
+function snapAndSave(win: BrowserWindow): void {
+  if (win.isDestroyed()) return;
+  const display = screen.getDisplayMatching(win.getBounds());
+  const snapped = snapOverlayBoundsToCorner(win.getBounds(), display.workArea);
+
+  snapping = true;
+  win.setBounds(snapped.bounds);
+  setTimeout(() => {
+    snapping = false;
+  }, 0);
+
+  try {
+    saveConfig({
+      cornermanOverlayCorner: snapped.corner,
+      cornermanOverlaySize: { width: snapped.bounds.width, height: snapped.bounds.height },
+    });
+  } catch {
+    // Position persistence is best-effort.
+  }
+}
+
+function scheduleSnapAndSave(win: BrowserWindow): void {
+  if (snapping || manualResizing || win.isDestroyed()) return;
+  if (snapTimer) clearTimeout(snapTimer);
+  snapTimer = setTimeout(() => {
+    snapTimer = null;
+    snapAndSave(win);
+  }, 180);
+}
 
 /** Create the hidden overlay toast window (idempotent). Called on cornerman:start
  *  so the renderer is already loaded by the time the first card streams. */
 export function ensureOverlayWindow(): void {
   if (overlayWindow && !overlayWindow.isDestroyed()) return;
 
-  const bounds = computeOverlayBounds(screen.getPrimaryDisplay().workArea);
+  const config = loadConfig();
+  const bounds = computeOverlayBounds(screen.getPrimaryDisplay().workArea, {
+    corner: normalizeOverlayCorner(config.cornermanOverlayCorner),
+    size: normalizeOverlaySize(config.cornermanOverlaySize),
+  });
 
   overlayWindow = new BrowserWindow({
     ...bounds,
     show: false,
     frame: false,
     transparent: true,
-    resizable: false, // transparent + resizable is broken on Windows
+    resizable: true,
+    minWidth: OVERLAY_MIN_WIDTH,
+    minHeight: OVERLAY_MIN_HEIGHT,
     skipTaskbar: true,
     focusable: true,
     title: "MAGI Cornerman",
@@ -62,13 +112,38 @@ export function ensureOverlayWindow(): void {
   }
 
   const win = overlayWindow;
+  win.on("move", () => scheduleSnapAndSave(win));
+  win.on("resize", () => scheduleSnapAndSave(win));
   win.on("closed", () => {
+    if (snapTimer) {
+      clearTimeout(snapTimer);
+      snapTimer = null;
+    }
     if (overlayWindow === win) overlayWindow = null;
   });
 }
 
 export function getOverlayWindow(): BrowserWindow | null {
   return overlayWindow && !overlayWindow.isDestroyed() ? overlayWindow : null;
+}
+
+export function resizeOverlayWindow(handle: unknown, deltaX: unknown, deltaY: unknown): boolean {
+  const win = getOverlayWindow();
+  if (!win || !isOverlayResizeHandle(handle)) return false;
+  const dx = typeof deltaX === "number" && Number.isFinite(deltaX) ? deltaX : 0;
+  const dy = typeof deltaY === "number" && Number.isFinite(deltaY) ? deltaY : 0;
+
+  manualResizing = true;
+  win.setBounds(resizeOverlayBounds(win.getBounds(), handle as OverlayResizeHandle, dx, dy));
+  return true;
+}
+
+export function finishOverlayResize(): boolean {
+  const win = getOverlayWindow();
+  manualResizing = false;
+  if (!win) return false;
+  snapAndSave(win);
+  return true;
 }
 
 /** Show without stealing focus from the game. */

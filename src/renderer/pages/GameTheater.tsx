@@ -81,7 +81,7 @@ export function GameTheater() {
   const preloadedCoaching = useMemo(() => {
     if (!game?.coachingAnalyses?.length) return undefined;
     const gameScope = game.coachingAnalyses.find((a) => a.scope === "game");
-    return (gameScope ?? game.coachingAnalyses[0])?.analysisText;
+    return gameScope?.analysisText;
   }, [game]);
 
   if (gameId == null) {
@@ -160,8 +160,6 @@ export function GameTheater() {
           />
         )}
 
-        <GameStats game={game} />
-
         <CoachingPanel
           scope="game"
           id={game.id}
@@ -170,6 +168,8 @@ export function GameTheater() {
           preloadedText={preloadedCoaching}
           onTimestampSeek={game.replayPath ? handleTimestampSeek : undefined}
         />
+
+        <GameStats game={game} />
       </motion.aside>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, type CSSProperties } from "react";
 import {
   Radar,
   RadarChart as RechartsRadarChart,
@@ -19,49 +19,46 @@ const AXES: { key: keyof RadarStats; label: string; description: string }[] = [
     key: "neutral",
     label: "Neutral",
     description:
-      "Neutral — winning the first hit. To improve: stop throwing out moves at max range hoping to catch something. Watch your opponent's habits for 10 seconds before committing. Use dash-dance and empty short-hops to bait, then punish the option they show you. Losing neutral usually means you're approaching predictably or autopiloting the same aerial.",
+      "How often this character wins the first meaningful opening. High Neutral means the character is getting into their game plan cleanly.",
   },
   {
     key: "punish",
     label: "Punish",
     description:
-      "Punish — converting openings into stocks. To improve: finish your combos instead of resetting to neutral. After the first hit, react to their DI before picking the next move. Learn two kill confirms for your character at mid percent (e.g. uthrow→uair, grab→dthrow→knee) and drill them until they're automatic. High openings-per-kill = you're winning neutral but dropping punishes.",
+      "Damage per opening and conversion rate. High Punish means openings are becoming percent, positioning, or stocks.",
   },
   {
     key: "techSkill",
-    label: "Tech Skill",
-    description:
-      "Tech Skill — execution. To improve: L-cancel EVERY aerial in training mode for 10 minutes a day until it's muscle memory (target 90%+). Practice wavedash out of shield and ledgedash on a 20XX setup. Shield-drop through platforms instead of rolling off. Tech skill gates everything else — sloppy execution caps your punish game.",
+    label: "Execution",
+    description: "L-canceling plus movement volume. This is the character's execution floor across real games.",
   },
   {
     key: "mixups",
     label: "Mixups",
     description:
-      "Mixups — being unpredictable. To improve: vary your approach — not just dash-attack every time. Mix empty land → grab, crossup aerial, and retreat fair. On ledge, alternate between tournament-winner (ledgedash), rolling, jumping, and getup attack. If your opponent reads you, change ONE option — they'll guess wrong for a while.",
+      "Ledge, knockdown, and shield-pressure entropy. High Mixups means the same situations are producing varied choices.",
   },
   {
     key: "edgeguard",
     label: "Edgeguard",
-    description:
-      "Edgeguard — killing them offstage. To improve: COMMIT. Most failed edgeguards are from staying onstage and throwing a lazy fair. Hop offstage with a bair/dair and actually take the risk. Learn your character's gimp tools (Marth's dtilt, Fox's bair, Falco's dair). Going offstage and dying is still better than letting them back for free — that's data for next time.",
+    description: "How often offstage chances turn into finished stocks or denied recoveries.",
   },
   {
     key: "diQuality",
-    label: "DI Quality",
+    label: "DI",
     description:
-      "DI Quality — surviving hits. To improve: DI away and up on horizontal kill moves (fsmash, bair), DI into the stage on spikes. For combos, survival DI (full away) breaks follow-ups at higher percents. The biggest gain: stop holding the same direction every hit — watch the attacker's angle and DI perpendicular to the knockback vector.",
+      "Combo DI and survival DI. This shows how well the character escapes damage and lives through kill attempts.",
   },
   {
     key: "defense",
     label: "Defense",
     description:
-      "Defense — not getting hit. To improve: stop rolling behind shield, opponents are reading it. Use wavedash out of shield, shield-grab, or up-B OoS instead. Power-shield projectiles on reaction (hold shield tap, don't mash). When getting pressured, spot-dodge out once then reset spacing — don't try to outlast infinite shield pressure.",
+      "Average death percent, recovery success, and power shields. High Defense means this character is hard to finish cleanly.",
   },
   {
     key: "consistency",
     label: "Consistency",
-    description:
-      "Consistency — performing the same across games. To improve: warm up before ranked/tournament sets — 5 minutes of tech skill drills and a friendly. High variance usually means you tilt after losses or overadjust after one read. Reset between games: take a breath, identify ONE thing to change, then play your game. Don't try to fix everything at once.",
+    description: "How stable this character's neutral, punish damage, and survivability are from game to game.",
   },
 ];
 
@@ -144,28 +141,34 @@ interface RadarProps {
   games?: RadarGameStats[];
   /** Hide the period selector */
   hideComparison?: boolean;
+  /** Character-specific accent color. */
+  accentColor?: string;
 }
 
-export function PlayerRadar({ stats, games, hideComparison }: RadarProps) {
+export function PlayerRadar({ stats, games, hideComparison, accentColor }: RadarProps) {
   const [period, setPeriod] = useState<Period>("none");
 
-  const comparison = useMemo(() => {
-    if (period === "none" || !games || games.length === 0) return null;
+  const { currentStats, comparison } = useMemo(() => {
+    if (period === "none" || !games || games.length === 0) return { currentStats: stats, comparison: null };
     const dates = getPeriodDates(period);
-    if (!dates) return null;
-    return computeRadarForPeriod(games, dates.previous, dates.current);
-  }, [period, games]);
+    if (!dates) return { currentStats: stats, comparison: null };
+    return {
+      currentStats: computeRadarForPeriod(games, dates.current) ?? stats,
+      comparison: computeRadarForPeriod(games, dates.previous, dates.current),
+    };
+  }, [period, games, stats]);
 
   const data = AXES.map(({ key, label }: { key: keyof RadarStats; label: string }) => ({
     axis: label,
-    current: stats[key],
+    current: currentStats[key],
     ...(comparison ? { previous: comparison[key] } : {}),
   }));
 
   const showComparison = comparison !== null;
+  const style = accentColor ? ({ "--radar-accent": accentColor } as CSSProperties) : undefined;
 
   return (
-    <div>
+    <div className="player-radar" style={style}>
       <ResponsiveContainer width="100%" height={300}>
         <RechartsRadarChart data={data} cx="50%" cy="50%" outerRadius="68%">
           <PolarGrid stroke="var(--border)" strokeDasharray="3 3" gridType="polygon" />
@@ -194,13 +197,15 @@ export function PlayerRadar({ stats, games, hideComparison }: RadarProps) {
 
           {/* Current period */}
           <Radar
-            name={showComparison ? "Current" : "Skill"}
+            name={showComparison ? "Current window" : "Character form"}
             dataKey="current"
-            stroke="var(--accent)"
-            fill="var(--accent)"
-            fillOpacity={0.15}
+            stroke="var(--radar-accent, var(--accent))"
+            fill="var(--radar-accent, var(--accent))"
+            fillOpacity={0.18}
             strokeWidth={2}
-            dot={{ r: 3.5, fill: "var(--bg-card)", strokeWidth: 2, stroke: "var(--accent)" } as any}
+            dot={
+              { r: 3.5, fill: "var(--bg-card)", strokeWidth: 2, stroke: "var(--radar-accent, var(--accent))" } as any
+            }
           />
 
           <Tooltip content={<RadarTooltip />} />

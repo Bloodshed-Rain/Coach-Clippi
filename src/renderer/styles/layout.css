@@ -11,7 +11,10 @@
 .app-layout::before {
   content: "";
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: var(--rail-width);
   z-index: 0;
   pointer-events: none;
   background-image: url("../../../magimelee.svg");
@@ -146,7 +149,10 @@
     radial-gradient(circle at 15% 50%, rgba(var(--accent-rgb), 0.05), transparent 25%),
     radial-gradient(circle at 85% 30%, rgba(var(--blue-rgb, 99, 102, 241), 0.04), transparent 25%),
     radial-gradient(circle, var(--border-subtle) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 24px 24px;
+  background-size:
+    100% 100%,
+    100% 100%,
+    24px 24px;
   pointer-events: none;
   opacity: 0.8;
   z-index: 0;
@@ -154,8 +160,18 @@
 }
 
 @keyframes meshPan {
-  0% { background-position: 0% 0%, 100% 100%, 0 0; }
-  100% { background-position: 10% 10%, 90% 90%, 0 0; }
+  0% {
+    background-position:
+      0% 0%,
+      100% 100%,
+      0 0;
+  }
+  100% {
+    background-position:
+      10% 10%,
+      90% 90%,
+      0 0;
+  }
 }
 .main-content > * {
   position: relative;

@@ -15,6 +15,7 @@ describe("SYSTEM_PROMPT_CORNERMAN", () => {
     expect(SYSTEM_PROMPT_CORNERMAN).toContain("## Where You're Bleeding");
     expect(SYSTEM_PROMPT_CORNERMAN).toContain("## The Adjustment");
     expect(SYSTEM_PROMPT_CORNERMAN.toLowerCase()).toContain("120 words");
+    expect(SYSTEM_PROMPT_CORNERMAN).toContain("Do not use unexplained abbreviations");
   });
 });
 
@@ -27,6 +28,11 @@ describe("assembleCornermanPrompt", () => {
     expect(prompt).toContain("after knockdown");
     expect(prompt).toContain("at ledge");
     expect(prompt).toContain("You are advising:");
+    expect(prompt).toContain("neutral win rate");
+    expect(prompt).toContain("openings per kill");
+    expect(prompt).toContain("average death percent");
+    expect(prompt).not.toContain("neutral WR");
+    expect(prompt).not.toContain("entropy");
     expect(prompt).not.toContain("=== ADAPTATION ACROSS SET ===");
     expect(prompt).not.toContain("=== PRIOR SCOUTING DOSSIER ===");
     // Habit lines must use count/total format, not percentage
