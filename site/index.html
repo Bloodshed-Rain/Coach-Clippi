@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MAGI - Melee Analysis through Generative Intelligence</title>
+    <title>MAGI - Melee Analysis Thru Generative Intelligence</title>
     <meta
       name="description"
       content="MAGI is a local-first desktop app for Slippi replay stats, live Cornerman alerts, AI coaching, practice plans, Oracle chat, and Dolphin replay review."
@@ -306,6 +306,36 @@
         line-height: 0.92;
         letter-spacing: 0;
         text-transform: uppercase;
+      }
+
+      .hero-initial {
+        display: inline-block;
+        background: var(--initial-gradient);
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 0 18px color-mix(in srgb, var(--initial-glow) 42%, transparent));
+      }
+
+      .hero-initial.melee {
+        --initial-glow: #a0a8ff;
+        --initial-gradient: linear-gradient(135deg, #ffffff 0%, #a0a8ff 48%, #7ee8c5 100%);
+      }
+
+      .hero-initial.analysis {
+        --initial-glow: var(--win);
+        --initial-gradient: linear-gradient(135deg, #7ee8c5 0%, #f5f7fb 42%, #a0a8ff 100%);
+      }
+
+      .hero-initial.generative {
+        --initial-glow: #e8a3d4;
+        --initial-gradient: linear-gradient(135deg, #e8a3d4 0%, #f5f7fb 38%, #ff8a9e 100%);
+      }
+
+      .hero-initial.intelligence {
+        --initial-glow: var(--loss);
+        --initial-gradient: linear-gradient(135deg, #ff8a9e 0%, #e8a3d4 46%, #a0a8ff 100%);
       }
 
       .hero-copy {
@@ -722,7 +752,11 @@
       <header class="hero">
         <div class="hero-inner parallax-layer">
           <div class="eyebrow">MAGI v1.6.1 - local desktop replay analysis</div>
-          <h1>Melee coaching while the set is still alive.</h1>
+          <h1>
+            <span class="hero-initial melee">M</span>elee <span class="hero-initial analysis">A</span>nalysis Thru
+            <span class="hero-initial generative">G</span>enerative
+            <span class="hero-initial intelligence">I</span>ntelligence.
+          </h1>
           <p class="hero-copy">
             Import `.slp` files, track the habits that decide sets, get live Cornerman popups for major in-game moments,
             ask an Oracle about your recent games, generate practice plans, and review replays through a redesigned
@@ -1026,7 +1060,7 @@
 
     <footer>
       <div class="foot-inner">
-        <span>MAGI - Melee Analysis through Generative Intelligence</span>
+        <span>MAGI - Melee Analysis Thru Generative Intelligence</span>
         <span>MIT License - local-first desktop app</span>
       </div>
     </footer>
