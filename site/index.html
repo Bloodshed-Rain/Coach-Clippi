@@ -51,6 +51,44 @@
         line-height: 1.5;
       }
 
+      .wireframe-bg {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .wireframe-char {
+        position: absolute;
+        display: block;
+        width: auto;
+        max-width: none;
+        opacity: 0;
+        animation: wf-drift 28s ease-in-out infinite alternate;
+        user-select: none;
+        -webkit-user-drag: none;
+        will-change: opacity, translate, scale, rotate;
+      }
+
+      @keyframes wf-drift {
+        from {
+          translate: 0 0;
+          scale: 1;
+        }
+
+        to {
+          translate: 0 -16px;
+          scale: 1.02;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .wireframe-bg {
+          display: none;
+        }
+      }
+
       a {
         color: inherit;
       }
@@ -137,10 +175,17 @@
         display: flex;
         align-items: flex-end;
         background:
-          linear-gradient(90deg, rgba(9, 11, 18, 0.95) 0%, rgba(9, 11, 18, 0.76) 42%, rgba(9, 11, 18, 0.42) 100%),
-          url("screenshots/app-dashboard.png") center / cover no-repeat;
+          linear-gradient(90deg, rgba(9, 11, 18, 0.96) 0%, rgba(9, 11, 18, 0.78) 42%, rgba(9, 11, 18, 0.36) 100%),
+          linear-gradient(180deg, rgba(9, 11, 18, 0.12), rgba(9, 11, 18, 0.62));
         border-bottom: 1px solid var(--line);
         position: relative;
+        z-index: 1;
+      }
+
+      main,
+      footer {
+        position: relative;
+        z-index: 1;
       }
 
       .hero-inner {
@@ -551,6 +596,8 @@
     </style>
   </head>
   <body>
+    <div class="wireframe-bg" id="wireframe-bg" aria-hidden="true"></div>
+
     <nav class="site-nav" aria-label="Primary">
       <a class="brand" href="#top">
         <img src="magilogo2.png" alt="MAGI logo" />
@@ -598,12 +645,16 @@
             <div class="stat"><b>Local</b><span>SQLite data</span></div>
             <div class="stat"><b>Live</b><span>Cornerman alerts</span></div>
             <div class="stat"><b>35+</b><span>Event types</span></div>
-            <div class="stat"><b>No-key</b><span>AI fallback</span></div>
+            <div class="stat"><b>8-axis</b><span>Character radar</span></div>
           </div>
           <div class="update-strip" aria-label="Latest updates">
             <div class="update-card">
               <b>Frame-aware popups</b>Ken combos, waveshines, power shields, stitch faces, and high-combo kills as they
               happen.
+            </div>
+            <div class="update-card">
+              <b>Character radar</b>Each character page gets a form chart for neutral, punish, execution, defense, and
+              more.
             </div>
             <div class="update-card">
               <b>Clean analysis history</b>Cornerman cards stay separate from full library game analysis.
@@ -621,7 +672,8 @@
             <h2>Current app surface</h2>
             <p>
               MAGI is not a landing-page mockup. The desktop app currently ships a replay database, trend dashboard,
-              sessions view, library filters, character pages, practice plans, Oracle chat, and game theater.
+              sessions view, library filters, character pages with radar stats, practice plans, Oracle chat, and game
+              theater.
             </p>
           </div>
           <div class="feature-grid">
@@ -637,6 +689,13 @@
               <p>
                 Dashboard cards and trend charts cover neutral, L-canceling, conversions, damage per opening, openings
                 per kill, and death percent.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>Character radar</h3>
+              <p>
+                Character pages summarize form across neutral, punish, execution, defense, edgeguarding, consistency,
+                mixups, and DI with comparison windows.
               </p>
             </article>
             <article class="feature">
@@ -657,7 +716,7 @@
               <h3>Provider control</h3>
               <p>
                 Pollinations no-key fallback, OpenAI, OpenRouter, Anthropic, Gemini, and local OpenAI-compatible
-                endpoints through Ollama or LM Studio.
+                endpoints through Ollama or LM Studio, plus custom model IDs where the provider supports them.
               </p>
             </article>
             <article class="feature">
@@ -779,7 +838,10 @@
             </figure>
             <figure class="shot">
               <img src="screenshots/app-characters.png" alt="MAGI character roster" />
-              <figcaption>Characters - played roster, character art, matchup records, and scoped analysis.</figcaption>
+              <figcaption>
+                Characters - played roster, character art, matchup records, scoped analysis, and per-character radar
+                stats.
+              </figcaption>
             </figure>
             <figure class="shot">
               <img src="screenshots/app-oracle.png" alt="MAGI Oracle chat" />
@@ -869,5 +931,123 @@
         <span>MIT License - local-first desktop app</span>
       </div>
     </footer>
+
+    <script>
+      (() => {
+        const bg = document.getElementById("wireframe-bg");
+        const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+        if (!bg || prefersReducedMotion) return;
+
+        const roster = [
+          "bowser",
+          "captain_falcon",
+          "donkey_kong",
+          "dr_mario",
+          "falco",
+          "fox",
+          "game_and_watch",
+          "ganondorf",
+          "ice_climbers",
+          "jigglypuff",
+          "kirby",
+          "link",
+          "luigi",
+          "mario",
+          "marth",
+          "marth_dair",
+          "mewtwo",
+          "ness",
+          "peach",
+          "pichu",
+          "pikachu",
+          "roy",
+          "samus",
+          "sheik",
+          "yoshi",
+          "young_link",
+          "zelda",
+        ];
+
+        const rand = (min, max) => min + Math.random() * (max - min);
+        const shuffled = (items) => {
+          const copy = items.slice();
+          for (let i = copy.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [copy[i], copy[j]] = [copy[j], copy[i]];
+          }
+          return copy;
+        };
+
+        let queue = shuffled(roster);
+        let lastShown = "";
+
+        const nextCharacter = () => {
+          if (queue.length === 0) {
+            queue = shuffled(roster);
+            if (queue[0] === lastShown && queue.length > 1) {
+              [queue[0], queue[1]] = [queue[1], queue[0]];
+            }
+          }
+          lastShown = queue.shift() || "marth";
+          return lastShown;
+        };
+
+        const spawn = () => {
+          const isMobile = window.innerWidth < 600;
+          const name = nextCharacter();
+          const img = document.createElement("img");
+          const sizeVh = isMobile ? rand(92, 118) : rand(78, 112);
+          const charHeight = (sizeVh / 100) * window.innerHeight;
+          const charWidth = charHeight * 0.65;
+
+          img.className = "wireframe-char";
+          img.alt = "";
+          img.decoding = "async";
+          img.loading = "lazy";
+          img.src = `${name}_wireframe.png`;
+          img.style.height = `${sizeVh}vh`;
+
+          if (isMobile) {
+            img.style.left = `${window.innerWidth - charWidth * 0.7 + rand(0, charWidth * 0.25)}px`;
+            img.style.top = `${window.innerHeight - charHeight * 0.8 + rand(0, charHeight * 0.15)}px`;
+          } else {
+            const leftMin = -(charWidth * 0.2);
+            const leftMax = window.innerWidth - charWidth * 0.8;
+            const topMin = -(charHeight * 0.1);
+            const topMax = window.innerHeight - charHeight * 0.8;
+            img.style.left = `${leftMin + Math.random() * (leftMax - leftMin)}px`;
+            img.style.top = `${topMin + Math.random() * Math.max(0, topMax - topMin)}px`;
+          }
+
+          const fadeIn = rand(3500, 5500);
+          const fadeOut = rand(3500, 5500);
+          const hold = rand(5000, 8000);
+          const peak = isMobile ? rand(0.32, 0.46) : rand(0.16, 0.28);
+
+          img.style.rotate = `${rand(-5, 5)}deg`;
+          img.style.animationDelay = `${-rand(0, 28)}s`;
+          img.style.animationDuration = `${rand(22, 34)}s`;
+          img.style.transition = `opacity ${fadeIn}ms ease-in-out`;
+          bg.appendChild(img);
+
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              img.style.opacity = peak.toFixed(3);
+            });
+          });
+
+          window.setTimeout(() => {
+            img.style.transition = `opacity ${fadeOut}ms ease-in-out`;
+            img.style.opacity = "0";
+            window.setTimeout(() => {
+              img.remove();
+              window.setTimeout(spawn, rand(600, 1800));
+            }, fadeOut + 200);
+          }, fadeIn + hold);
+        };
+
+        spawn();
+      })();
+    </script>
   </body>
 </html>
