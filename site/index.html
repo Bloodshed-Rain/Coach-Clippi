@@ -301,11 +301,35 @@
       }
 
       h1 {
-        max-width: 780px;
-        font-size: clamp(56px, 9vw, 112px);
+        max-width: 940px;
+        font-size: clamp(36px, 9.5vw, 104px);
         line-height: 0.92;
         letter-spacing: 0;
         text-transform: uppercase;
+      }
+
+      .hero-title {
+        display: grid;
+        gap: 0;
+      }
+
+      .hero-title-line {
+        display: grid;
+        grid-template-columns: 0.78em minmax(0, 1fr);
+        align-items: baseline;
+      }
+
+      .hero-title-word {
+        min-width: 0;
+      }
+
+      .hero-title-thru {
+        padding-left: 0.78em;
+        margin: 0.06em 0 0.08em;
+        color: rgba(245, 247, 251, 0.58);
+        font-size: 0.35em;
+        font-weight: 900;
+        line-height: 1;
       }
 
       .hero-initial {
@@ -842,10 +866,24 @@
       <header class="hero">
         <div class="hero-inner parallax-layer">
           <div class="eyebrow">Shatter Your Glass Ceiling</div>
-          <h1>
-            <span class="hero-initial melee">M</span>elee <span class="hero-initial analysis">A</span>nalysis Thru
-            <span class="hero-initial generative">G</span>enerative
-            <span class="hero-initial intelligence">I</span>ntelligence.
+          <h1 class="hero-title" aria-label="Melee Analysis Thru Generative Intelligence">
+            <span class="hero-title-line">
+              <span class="hero-initial melee">M</span>
+              <span class="hero-title-word">elee</span>
+            </span>
+            <span class="hero-title-line">
+              <span class="hero-initial analysis">A</span>
+              <span class="hero-title-word">nalysis</span>
+            </span>
+            <span class="hero-title-thru">Thru</span>
+            <span class="hero-title-line">
+              <span class="hero-initial generative">G</span>
+              <span class="hero-title-word">enerative</span>
+            </span>
+            <span class="hero-title-line">
+              <span class="hero-initial intelligence">I</span>
+              <span class="hero-title-word">ntelligence.</span>
+            </span>
           </h1>
           <p class="hero-copy">The next level of Melee is here.</p>
           <div class="hero-actions">
