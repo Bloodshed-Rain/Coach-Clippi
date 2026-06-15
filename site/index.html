@@ -318,9 +318,9 @@
       }
 
       .hero-title-line {
-        display: grid;
-        grid-template-columns: 0.78em minmax(0, 1fr);
+        display: flex;
         align-items: baseline;
+        white-space: nowrap;
       }
 
       .hero-title-word {
@@ -360,8 +360,8 @@
       }
 
       .hero-initial.melee {
-        --initial-glow: #a0a8ff;
-        --initial-gradient: linear-gradient(120deg, #ffffff 0%, #a0a8ff 34%, #7ee8c5 68%, #ffffff 100%);
+        --initial-glow: #7ee8c5;
+        --initial-gradient: linear-gradient(120deg, #7ee8c5 0%, #a0a8ff 35%, #c5b6ff 64%, #7ee8c5 100%);
       }
 
       .hero-initial.analysis {
