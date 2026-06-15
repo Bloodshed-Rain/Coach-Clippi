@@ -585,6 +585,91 @@
         font-weight: 800;
       }
 
+      .feature-section {
+        position: relative;
+        border-top: 1px solid rgba(232, 237, 246, 0.08);
+      }
+
+      .feature-section.alt {
+        background: rgba(245, 247, 251, 0.025);
+      }
+
+      .feature-layout {
+        display: grid;
+        grid-template-columns: minmax(300px, 0.72fr) minmax(360px, 1fr);
+        gap: 28px;
+        align-items: center;
+      }
+
+      .feature-layout.reverse {
+        grid-template-columns: minmax(360px, 1fr) minmax(300px, 0.72fr);
+      }
+
+      .feature-copy {
+        display: grid;
+        gap: 18px;
+      }
+
+      .feature-copy h2 {
+        font-size: clamp(34px, 5vw, 64px);
+        line-height: 0.96;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .feature-copy p {
+        color: var(--text-soft);
+        font-size: clamp(16px, 1.6vw, 20px);
+      }
+
+      .feature-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .feature-pills span {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 8px 10px;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-soft);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .feature-media {
+        display: grid;
+        gap: 14px;
+      }
+
+      .feature-media.dual {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .feature-shot {
+        margin: 0;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgba(7, 9, 16, 0.72);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+
+      .feature-shot img {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: contain;
+        background: #070910;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .feature-shot figcaption {
+        padding: 14px 16px;
+        color: var(--text-soft);
+        font-weight: 700;
+      }
+
       .shots {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -707,6 +792,9 @@
         .hero-stats,
         .update-strip,
         .feature-grid,
+        .feature-layout,
+        .feature-layout.reverse,
+        .feature-media.dual,
         .live-layout,
         .workflow,
         .section-head,
@@ -733,10 +821,12 @@
         <span>MAGI</span>
       </a>
       <div class="nav-links">
-        <a class="hide-sm" href="#surface">App</a>
+        <a class="hide-sm" href="#training-hub">Hub</a>
+        <a class="hide-sm" href="#deep-analysis">Analysis</a>
+        <a class="hide-sm" href="#stats-tracking">Stats</a>
         <a class="hide-sm" href="#cornerman">Cornerman</a>
-        <a class="hide-sm" href="#screens">Screens</a>
-        <a class="hide-sm" href="#workflow">Workflow</a>
+        <a class="hide-sm" href="#rival-dossier">Rivals</a>
+        <a class="hide-sm" href="#oracle">Oracle</a>
         <a href="https://github.com/Bloodshed-Rain/TheMAGI" target="_blank" rel="noreferrer">GitHub</a>
         <a
           class="button primary"
@@ -751,17 +841,13 @@
     <main id="top">
       <header class="hero">
         <div class="hero-inner parallax-layer">
-          <div class="eyebrow">MAGI v1.6.1 - local desktop replay analysis</div>
+          <div class="eyebrow">Shatter Your Glass Ceiling</div>
           <h1>
             <span class="hero-initial melee">M</span>elee <span class="hero-initial analysis">A</span>nalysis Thru
             <span class="hero-initial generative">G</span>enerative
             <span class="hero-initial intelligence">I</span>ntelligence.
           </h1>
-          <p class="hero-copy">
-            Import `.slp` files, track the habits that decide sets, get live Cornerman popups for major in-game moments,
-            ask an Oracle about your recent games, generate practice plans, and review replays through a redesigned
-            desktop UI.
-          </p>
+          <p class="hero-copy">The next level of Melee is here.</p>
           <div class="hero-actions">
             <a
               class="button primary"
@@ -774,119 +860,114 @@
               >View Source</a
             >
           </div>
-          <div class="hero-stats" aria-label="Current capabilities">
-            <div class="stat"><b>Local</b><span>SQLite data</span></div>
-            <div class="stat"><b>Live</b><span>Cornerman alerts</span></div>
-            <div class="stat"><b>35+</b><span>Event types</span></div>
-            <div class="stat"><b>8-axis</b><span>Character radar</span></div>
-          </div>
-          <div class="update-strip" aria-label="Latest updates">
-            <div class="update-card">
-              <b>Frame-aware popups</b>Ken combos, waveshines, power shields, stitch faces, and high-combo kills as they
-              happen.
-            </div>
-            <div class="update-card">
-              <b>Character radar</b>Each character page gets a form chart for neutral, punish, execution, defense, and
-              more.
-            </div>
-            <div class="update-card">
-              <b>Clean analysis history</b>Cornerman cards stay separate from full library game analysis.
-            </div>
-            <div class="update-card">
-              <b>Coaching first</b>Game Theater puts the AI breakdown above post-game stats.
-            </div>
-          </div>
         </div>
       </header>
 
-      <section id="surface">
+      <section id="training-hub" class="feature-section">
         <div class="wrap">
-          <div class="section-head">
-            <h2>Current app surface</h2>
-            <p>
-              MAGI is not a landing-page mockup. The desktop app currently ships a replay database, trend dashboard,
-              sessions view, library filters, character pages with radar stats, practice plans, Oracle chat, and game
-              theater.
-            </p>
-          </div>
-          <div class="feature-grid">
-            <article class="feature">
-              <h3>Replay database</h3>
+          <div class="feature-layout">
+            <div class="feature-copy">
+              <div class="eyebrow">Replay review</div>
+              <h2>Your New Training Hub</h2>
               <p>
-                Parallel import, SHA-256 dedupe, local SQLite storage, watcher support, and filters for opponent,
-                matchup, stage, and result.
+                In-app replay viewer (Windows Only) paired with clickable timestamps in MAGI analysis. Don't believe the
+                A.I. hype? Want to see that 0 to death combo in action? Here's your chance.
               </p>
-            </article>
-            <article class="feature">
-              <h3>Performance tracking</h3>
-              <p>
-                Dashboard cards and trend charts cover neutral, L-canceling, conversions, damage per opening, openings
-                per kill, and death percent.
-              </p>
-            </article>
-            <article class="feature">
-              <h3>Character radar</h3>
-              <p>
-                Character pages summarize form across neutral, punish, execution, defense, edgeguarding, consistency,
-                mixups, and DI with comparison windows.
-              </p>
-            </article>
-            <article class="feature">
-              <h3>AI coaching</h3>
-              <p>
-                Streaming game coaching, Cornerman between-game cards, session reports, character-scope analysis,
-                generated drills, and Oracle chat grounded in local game context.
-              </p>
-            </article>
-            <article class="feature">
-              <h3>Live Cornerman</h3>
-              <p>
-                Transparent overlay alerts for character-specific moments, rare item pulls, power shields, shield
-                breaks, SDs, and big punish swings.
-              </p>
-            </article>
-            <article class="feature">
-              <h3>Provider control</h3>
-              <p>
-                Pollinations no-key fallback, OpenAI, OpenRouter, Anthropic, Gemini, and local OpenAI-compatible
-                endpoints through Ollama or LM Studio, plus custom model IDs where the provider supports them.
-              </p>
-            </article>
-            <article class="feature">
-              <h3>Replay review</h3>
-              <p>
-                Slippi Dolphin launch, timestamp-to-frame seeking, stock timeline review, and Windows-only embedded
-                replay with external fallback on other platforms.
-              </p>
-            </article>
-            <article class="feature">
-              <h3>Scope-safe analysis</h3>
-              <p>
-                Cornerman tips are preserved as their own history entries, while full game analysis remains available
-                from the Library and Game Theater.
-              </p>
-            </article>
-            <article class="feature">
-              <h3>Local-first defaults</h3>
-              <p>
-                No account, no MAGI server, no bundled keys. Config and replay-derived data stay under the local
-                `~/.magi-melee` directory.
-              </p>
-            </article>
+              <div class="feature-pills" aria-label="Training hub highlights">
+                <span>Clickable timestamps</span>
+                <span>Windows replay viewer</span>
+                <span>Slippi review flow</span>
+              </div>
+            </div>
+            <figure class="feature-shot">
+              <img src="screenshots/app-game-theater.png" alt="MAGI in-app replay viewer with game review tools" />
+              <figcaption>Game Theater pairs replay playback with the moments MAGI calls out.</figcaption>
+            </figure>
           </div>
         </div>
       </section>
 
-      <section id="cornerman">
+      <section id="deep-analysis" class="feature-section alt">
         <div class="wrap">
-          <div class="section-head">
-            <h2>Cornerman now reacts live</h2>
-            <p>
-              Cornerman is no longer only a between-games note card. MAGI watches the active Slippi file and raises
-              concise overlay alerts for the moments you would want called out immediately.
-            </p>
+          <div class="feature-layout">
+            <div class="feature-copy">
+              <div class="eyebrow">Pattern recognition</div>
+              <h2>Deep Analysis</h2>
+              <p>
+                Leverages A.I.'s superhuman ability to recognize patterns across large sets of data to provide insights
+                even the best coach would miss.
+              </p>
+              <div class="feature-pills" aria-label="Deep analysis highlights">
+                <span>Large-set pattern reads</span>
+                <span>Replay-derived context</span>
+                <span>Actionable coaching</span>
+              </div>
+            </div>
+            <figure class="feature-shot">
+              <img src="screenshots/app-dashboard.png" alt="MAGI dashboard with replay analysis summary" />
+              <figcaption>Dashboard context turns local replay history into readable direction.</figcaption>
+            </figure>
           </div>
-          <div class="live-layout">
+        </div>
+      </section>
+
+      <section id="stats-tracking" class="feature-section">
+        <div class="wrap">
+          <div class="feature-layout">
+            <div class="feature-copy">
+              <div class="eyebrow">Stats that matter</div>
+              <h2>Per Character and All Character Stats Tracking</h2>
+              <p>
+                L-cancels, neutral win %, OOS Entropy numbers etc tracked as well as special character specific stats
+                such as Ken Combos, Waveshines, Stitch face pulls, and more.
+              </p>
+              <div class="feature-pills" aria-label="Stats tracking highlights">
+                <span>L-cancel %</span>
+                <span>Neutral win %</span>
+                <span>OOS entropy</span>
+                <span>Character-specific stats</span>
+              </div>
+            </div>
+            <div class="feature-media dual">
+              <figure class="feature-shot">
+                <img src="screenshots/app-characters.png" alt="MAGI character stats page" />
+                <figcaption>Per-character pages keep roster-specific performance readable.</figcaption>
+              </figure>
+              <figure class="feature-shot">
+                <img src="screenshots/app-trends.png" alt="MAGI trend tracking page" />
+                <figcaption>Trends show how your core numbers move over time.</figcaption>
+              </figure>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="cornerman" class="feature-section alt">
+        <div class="wrap">
+          <div class="feature-layout">
+            <div class="feature-copy">
+              <div class="eyebrow">Transparent live coaching</div>
+              <h2>LIVE In-game Event Popups and Between Set Analysis</h2>
+              <p>
+                Cornerman provides valuable insights inbetween sets on your as well as your opponents strengths,
+                weaknesses, and how to alter your gameplay to claim victory via transparent, nonintrusive popups that
+                can be moved anywhere.
+              </p>
+              <div class="event-tags" aria-label="Detected live event examples">
+                <span>Ken combos</span>
+                <span>Waveshines</span>
+                <span>Power shields</span>
+                <span>Stitch faces</span>
+                <span>Rare Peach items</span>
+                <span>Shield breaks</span>
+                <span>Zero-to-deaths</span>
+                <span>Rest kills</span>
+                <span>Falco pillars</span>
+                <span>Edgeguard kills</span>
+                <span>SDs</span>
+                <span>Character confirms</span>
+              </div>
+            </div>
             <div class="live-panel" aria-label="Example live Cornerman alerts">
               <div class="live-panel-head">
                 <h3>Live Alerts</h3>
@@ -911,120 +992,57 @@
                 </article>
               </div>
             </div>
-            <div class="live-copy">
-              <div>
-                <div class="eyebrow">Popup-first coaching</div>
-                <h3>Important events appear while the game is still fresh.</h3>
-              </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="rival-dossier" class="feature-section">
+        <div class="wrap">
+          <div class="feature-layout">
+            <div class="feature-copy">
+              <div class="eyebrow">Opponent scouting</div>
+              <h2>Rival Dossier</h2>
               <p>
-                The live monitor detects conversion endings, stock drops, item pulls, and frame-level defensive events
-                from Slippi's on-the-fly replay data. Combo alerts wait just long enough to know the punish ended or
-                killed; item and frame events can appear as soon as the replay writes them.
+                Rival Dossier turns your match history into a focused opponent scouting report: habits, matchup
+                patterns, punish openings, weaknesses to exploit, and a practical game plan for the next set or
+                encounter.
               </p>
-              <div class="event-tags" aria-label="Detected live event examples">
-                <span>Ken combos</span>
-                <span>Waveshines</span>
-                <span>Power shields</span>
-                <span>Stitch faces</span>
-                <span>Rare Peach items</span>
-                <span>Shield breaks</span>
-                <span>Zero-to-deaths</span>
-                <span>Rest kills</span>
-                <span>Falco pillars</span>
-                <span>Edgeguard kills</span>
-                <span>SDs</span>
-                <span>Character confirms</span>
+              <div class="feature-pills" aria-label="Rival Dossier highlights">
+                <span>Opponent habits</span>
+                <span>Matchup patterns</span>
+                <span>Punish openings</span>
+                <span>Next-set plan</span>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="screens">
-        <div class="wrap">
-          <div class="section-head">
-            <h2>New UI screenshots</h2>
-            <p>
-              These captures come from the current Electron app shell after the UI overhaul. The Game Theater replay
-              viewer is Windows-only; Settings is omitted to avoid exposing local paths or keys.
-            </p>
-          </div>
-          <div class="shots">
-            <figure class="shot">
-              <img src="screenshots/app-game-theater.png" alt="MAGI Game Theater running replay viewer" />
-              <figcaption>
-                Game Theater - Windows-only live Dolphin replay viewer, stock timeline, coaching above post-game stats,
-                and timestamp seeking.
-              </figcaption>
-            </figure>
-            <figure class="shot">
-              <img src="screenshots/app-library.png" alt="MAGI library filters and replay table" />
-              <figcaption>Library - opponent search, matchup filters, stage filters, and game rows.</figcaption>
-            </figure>
-            <figure class="shot">
-              <img src="screenshots/app-trends.png" alt="MAGI trend chart page" />
-              <figcaption>Trends - 5-game rolling averages with range and opponent-character filters.</figcaption>
-            </figure>
-            <figure class="shot">
-              <img src="screenshots/app-sessions.png" alt="MAGI session cards" />
-              <figcaption>Sessions - daily cards, win/loss dots, and generated session reports.</figcaption>
-            </figure>
-            <figure class="shot">
-              <img src="screenshots/app-characters.png" alt="MAGI character roster" />
-              <figcaption>
-                Characters - played roster, character art, matchup records, scoped analysis, and per-character radar
-                stats.
-              </figcaption>
-            </figure>
-            <figure class="shot">
-              <img src="screenshots/app-oracle.png" alt="MAGI Oracle chat" />
-              <figcaption>MAGI Oracle - persistent chat over recent game context.</figcaption>
-            </figure>
-            <figure class="shot">
-              <img src="screenshots/app-practice.png" alt="MAGI practice plan tracker" />
-              <figcaption>Practice - generated drill plans with completion tracking.</figcaption>
+            <figure class="feature-shot">
+              <img src="screenshots/app-library.png" alt="MAGI replay library used for opponent scouting" />
+              <figcaption>Your match history becomes the scouting base for the next encounter.</figcaption>
             </figure>
           </div>
         </div>
       </section>
 
-      <section id="workflow">
+      <section id="oracle" class="feature-section alt">
         <div class="wrap">
-          <div class="section-head">
-            <h2>Workflow</h2>
-            <p>
-              The app is built around repeated review: import, inspect, ask, drill, and return to the next session with
-              a narrower focus.
-            </p>
-          </div>
-          <div class="workflow">
-            <article class="step">
-              <h3>Import</h3>
-              <p>Point MAGI at a Slippi folder or import replay files manually.</p>
-            </article>
-            <article class="step">
-              <h3>Watch live</h3>
-              <p>Run Cornerman for overlay alerts during sets and concise between-games adjustments.</p>
-            </article>
-            <article class="step">
-              <h3>Measure</h3>
-              <p>Review stats, matchups, sessions, and recent-form trends.</p>
-            </article>
-            <article class="step">
-              <h3>Ask</h3>
-              <p>Use game coaching, Oracle chat, or session reports for specific feedback.</p>
-            </article>
-            <article class="step">
-              <h3>Review</h3>
+          <div class="feature-layout">
+            <div class="feature-copy">
+              <div class="eyebrow">Ask about any game, session, or pattern</div>
+              <h2>ORACLE</h2>
+              <p>Ask the Oracle anything.</p>
               <p>
-                Open timestamps in Dolphin, using the embedded replay surface on Windows or external Dolphin launch
-                elsewhere.
+                MAGI Oracle is a replay-aware coaching chat that answers questions about your games, explains patterns
+                in your stats, and turns recent match history into clear next steps for improvement.
               </p>
-            </article>
-            <article class="step">
-              <h3>Practice</h3>
-              <p>Generate drills from weakness patterns and track completion.</p>
-            </article>
+              <div class="feature-pills" aria-label="Oracle highlights">
+                <span>Replay-aware chat</span>
+                <span>Pattern explanations</span>
+                <span>Next steps</span>
+              </div>
+            </div>
+            <figure class="feature-shot">
+              <img src="screenshots/app-oracle.png" alt="MAGI Oracle analysis chat" />
+              <figcaption>Oracle lets you ask direct questions against your local replay context.</figcaption>
+            </figure>
           </div>
         </div>
       </section>
