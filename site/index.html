@@ -309,24 +309,33 @@
       }
 
       .hero-initial {
-        color: var(--initial-color);
-        text-shadow: 0 0 24px color-mix(in srgb, var(--initial-color) 46%, transparent);
+        display: inline-block;
+        background: var(--initial-gradient);
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 0 18px color-mix(in srgb, var(--initial-glow) 42%, transparent));
       }
 
       .hero-initial.melee {
-        --initial-color: #a0a8ff;
+        --initial-glow: #a0a8ff;
+        --initial-gradient: linear-gradient(135deg, #ffffff 0%, #a0a8ff 48%, #7ee8c5 100%);
       }
 
       .hero-initial.analysis {
-        --initial-color: var(--win);
+        --initial-glow: var(--win);
+        --initial-gradient: linear-gradient(135deg, #7ee8c5 0%, #f5f7fb 42%, #a0a8ff 100%);
       }
 
       .hero-initial.generative {
-        --initial-color: #e8a3d4;
+        --initial-glow: #e8a3d4;
+        --initial-gradient: linear-gradient(135deg, #e8a3d4 0%, #f5f7fb 38%, #ff8a9e 100%);
       }
 
       .hero-initial.intelligence {
-        --initial-color: var(--loss);
+        --initial-glow: var(--loss);
+        --initial-gradient: linear-gradient(135deg, #ff8a9e 0%, #e8a3d4 46%, #a0a8ff 100%);
       }
 
       .hero-copy {
