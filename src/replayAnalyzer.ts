@@ -266,7 +266,7 @@ export async function processReplay(
         `
       SELECT id, game_id, analysis_text, model_used, created_at
       FROM coaching_analyses
-      WHERE game_id = ? AND model_used = ?
+      WHERE game_id = ? AND model_used = ? AND scope = 'game'
       ORDER BY created_at DESC
       LIMIT 1
     `,
@@ -288,8 +288,8 @@ export async function processReplay(
 
     db.prepare(
       `
-      INSERT INTO coaching_analyses (game_id, session_id, model_used, analysis_text)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO coaching_analyses (game_id, session_id, model_used, analysis_text, scope)
+      VALUES (?, ?, ?, ?, 'game')
     `,
     ).run(existingGame.id, existingGame.session_id, getActiveModelId(loadConfig()), analysisText);
 
@@ -330,8 +330,8 @@ export async function processReplay(
     // Insert coaching analysis
     db.prepare(
       `
-      INSERT INTO coaching_analyses (game_id, session_id, model_used, analysis_text)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO coaching_analyses (game_id, session_id, model_used, analysis_text, scope)
+      VALUES (?, ?, ?, ?, 'game')
     `,
     ).run(gameId, sessionId, getActiveModelId(loadConfig()), text);
 

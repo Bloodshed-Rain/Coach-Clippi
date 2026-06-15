@@ -100,7 +100,7 @@ export const THEMES: Record<string, Theme> = {
     appBackgroundSize: "cover",
     appBackgroundRepeat: "no-repeat",
     appBackgroundBlendMode: "normal",
-    magiBackgroundOpacity: "0.1", // lowered so the watermark stops bleeding through data-dense cards/charts
+    magiBackgroundOpacity: "0.14", // visible without bleeding through data-dense cards/charts
     magiBackgroundFilter: "drop-shadow(0 28px 70px rgba(0,0,0,0.5)) saturate(1.05)",
     magiBackgroundPosition: "center",
     magiBackgroundSize: "min(1180px, 78vw) auto",
@@ -149,7 +149,7 @@ export const THEMES: Record<string, Theme> = {
     appBackgroundSize: "cover",
     appBackgroundRepeat: "no-repeat",
     appBackgroundBlendMode: "normal",
-    magiBackgroundOpacity: "0.1", // lowered to reduce watermark bleed behind charts/tables
+    magiBackgroundOpacity: "0.14", // visible without bleeding behind charts/tables
     magiBackgroundFilter: "drop-shadow(0 24px 60px rgba(0,0,0,0.45)) hue-rotate(150deg) saturate(0.85)",
     magiBackgroundPosition: "center",
     magiBackgroundSize: "min(1120px, 76vw) auto",
@@ -323,7 +323,7 @@ export const THEMES: Record<string, Theme> = {
     appBackgroundSize: "cover",
     appBackgroundRepeat: "no-repeat",
     appBackgroundBlendMode: "normal",
-    magiBackgroundOpacity: "0.1",
+    magiBackgroundOpacity: "0.14",
     magiBackgroundFilter: "drop-shadow(0 18px 46px rgba(15,23,42,0.12)) saturate(0.75) brightness(1.12)",
     magiBackgroundPosition: "center",
     magiBackgroundSize: "min(1120px, 76vw) auto",

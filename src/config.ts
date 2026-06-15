@@ -22,6 +22,9 @@ export interface Config {
   theme: string | null;
   colorMode: string | null;
   density: "comfortable" | "compact" | null;
+  cornermanOverlayTransparency: number | null;
+  cornermanOverlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right" | null;
+  cornermanOverlaySize: { width: number; height: number } | null;
 }
 
 const DEFAULTS: Config = {
@@ -38,6 +41,9 @@ const DEFAULTS: Config = {
   theme: null,
   colorMode: null,
   density: null,
+  cornermanOverlayTransparency: null,
+  cornermanOverlayCorner: null,
+  cornermanOverlaySize: null,
 };
 
 const LEGACY_KEY_FIELDS: Array<{ field: string; provider: ProviderId }> = [

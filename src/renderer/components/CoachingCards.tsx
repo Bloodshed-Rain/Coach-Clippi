@@ -23,6 +23,7 @@ import {
   type CoachingSection,
   type SectionType,
 } from "../utils/parseCoachingSections";
+import { expandCornermanShorthand } from "../../cornermanText";
 
 // ── Section Icon ──────────────────────────────────────────────────────
 
@@ -147,12 +148,14 @@ function CoachingCard({
 export interface CoachingCardsProps {
   text: string;
   isStreaming?: boolean;
+  expandShorthand?: boolean;
   /** Custom react-markdown components (e.g., for timestamp links) */
   markdownComponents?: Components;
 }
 
-export function CoachingCards({ text, isStreaming, markdownComponents }: CoachingCardsProps) {
-  const sections = useMemo(() => parseCoachingSections(text, isStreaming), [text, isStreaming]);
+export function CoachingCards({ text, isStreaming, expandShorthand = false, markdownComponents }: CoachingCardsProps) {
+  const displayText = useMemo(() => (expandShorthand ? expandCornermanShorthand(text) : text), [expandShorthand, text]);
+  const sections = useMemo(() => parseCoachingSections(displayText, isStreaming), [displayText, isStreaming]);
 
   if (sections.length === 0 && !isStreaming) return null;
 

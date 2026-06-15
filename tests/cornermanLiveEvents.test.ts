@@ -1,0 +1,528 @@
+import { describe, expect, it } from "vitest";
+import type { ConversionType, FramesType } from "@slippi/slippi-js/node";
+
+import {
+  detectLiveConversionEvents,
+  detectLiveFrameEvents,
+  detectLiveItemEvents,
+  type CornermanLivePlayer,
+} from "../src/cornermanLiveEvents";
+import {
+  MOVE_BAIR,
+  MOVE_DAIR,
+  MOVE_DSMASH,
+  MOVE_FAIR,
+  MOVE_NEUTRAL_B,
+  MOVE_PUMMEL,
+  MOVE_SHINE,
+  MOVE_USMASH,
+  MOVE_UTHROW,
+} from "../src/pipeline/signatureStats";
+import { GUARD, GUARD_ON, GUARD_REFLECT, GUARD_SET_OFF } from "../src/pipeline/helpers";
+
+const players: CornermanLivePlayer[] = [
+  {
+    playerIndex: 0,
+    tag: "TARGET",
+    connectCode: "TGT#1",
+    character: "Marth",
+    isTarget: true,
+  },
+  {
+    playerIndex: 1,
+    tag: "OPP",
+    connectCode: "OPP#2",
+    character: "Fox",
+    isTarget: false,
+  },
+];
+
+function conversion(overrides: Partial<ConversionType>): ConversionType {
+  return {
+    playerIndex: 1,
+    startFrame: 120,
+    endFrame: 180,
+    startPercent: 30,
+    currentPercent: 72,
+    endPercent: 72,
+    moves: [],
+    didKill: false,
+    openingType: "neutral-win",
+    lastHitBy: 0,
+    ...overrides,
+  } as ConversionType;
+}
+
+function framesWithPosts(
+  entries: Record<number, Record<number, { stocksRemaining?: number; actionStateId?: number; positionX?: number; positionY?: number }>>,
+): FramesType {
+  const frames: FramesType = {};
+  for (const [frameKey, playersForFrame] of Object.entries(entries)) {
+    const frame = Number(frameKey);
+    frames[frame] = {
+      frame,
+      start: undefined,
+      players: Object.fromEntries(
+        Object.entries(playersForFrame).map(([playerIndex, post]) => [
+          Number(playerIndex),
+          {
+            pre: {} as never,
+            post: {
+              frame,
+              playerIndex: Number(playerIndex),
+              ...post,
+            },
+          },
+        ]),
+      ),
+      followers: {},
+      items: undefined,
+      stageEvents: undefined,
+    };
+  }
+  return frames;
+}
+
+describe("detectLiveConversionEvents", () => {
+  it("alerts on Marth Ken combos", () => {
+    const events = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          moves: [
+            { playerIndex: 0, frame: 130, moveId: MOVE_FAIR, hitCount: 1, damage: 12 },
+            { playerIndex: 0, frame: 170, moveId: MOVE_DAIR, hitCount: 1, damage: 15 },
+          ],
+          didKill: true,
+        }),
+      ],
+      players,
+      seenKeys: new Set(),
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("ken-combo");
+    expect(events[0].title).toBe("Ken Combo Kill");
+    expect(events[0].body).toContain("You hit OPP");
+  });
+
+  it("alerts on Fox waveshine upsmashes", () => {
+    const seenKeys = new Set<string>();
+    const events = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          playerIndex: 0,
+          moves: [
+            { playerIndex: 1, frame: 130, moveId: MOVE_SHINE, hitCount: 1, damage: 3 },
+            { playerIndex: 1, frame: 150, moveId: MOVE_SHINE, hitCount: 1, damage: 3 },
+            { playerIndex: 1, frame: 170, moveId: MOVE_USMASH, hitCount: 1, damage: 18 },
+          ],
+          didKill: true,
+        }),
+      ],
+      players,
+      seenKeys,
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("waveshine");
+    expect(events[0].title).toBe("Waveshine Upsmash kill");
+
+    const duplicate = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          playerIndex: 0,
+          moves: [
+            { playerIndex: 1, frame: 130, moveId: MOVE_SHINE, hitCount: 1, damage: 3 },
+            { playerIndex: 1, frame: 150, moveId: MOVE_SHINE, hitCount: 1, damage: 3 },
+            { playerIndex: 1, frame: 170, moveId: MOVE_USMASH, hitCount: 1, damage: 18 },
+          ],
+          didKill: true,
+        }),
+      ],
+      players,
+      seenKeys,
+    });
+    expect(duplicate).toHaveLength(0);
+  });
+
+  it("alerts on high-damage combo kills", () => {
+    const events = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          moves: [
+            { playerIndex: 0, frame: 130, moveId: 13, hitCount: 1, damage: 12 },
+            { playerIndex: 0, frame: 150, moveId: 16, hitCount: 1, damage: 12 },
+            { playerIndex: 0, frame: 170, moveId: 10, hitCount: 1, damage: 32 },
+          ],
+          endPercent: 92,
+          currentPercent: 92,
+          didKill: true,
+        }),
+      ],
+      players: [{ ...players[0], character: "Falcon" }, players[1]],
+      seenKeys: new Set(),
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("high-combo-kill");
+    expect(events[0].body).toContain("62%");
+  });
+
+  it("alerts on universal huge non-kill conversions", () => {
+    const events = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          moves: [
+            { playerIndex: 0, frame: 130, moveId: 13, hitCount: 1, damage: 20 },
+            { playerIndex: 0, frame: 150, moveId: 16, hitCount: 1, damage: 24 },
+            { playerIndex: 0, frame: 170, moveId: 10, hitCount: 1, damage: 26 },
+          ],
+          startPercent: 10,
+          endPercent: 80,
+          currentPercent: 80,
+        }),
+      ],
+      players: [{ ...players[0], character: "Falcon" }, players[1]],
+      seenKeys: new Set(),
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("huge-conversion");
+    expect(events[0].title).toBe("Huge Conversion");
+  });
+
+  it("prioritizes Fox shine spikes over generic offstage kills", () => {
+    const events = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          playerIndex: 0,
+          startPercent: 18,
+          endFrame: 180,
+          moves: [{ playerIndex: 1, frame: 170, moveId: MOVE_SHINE, hitCount: 1, damage: 3 }],
+          didKill: true,
+        }),
+      ],
+      players,
+      frames: framesWithPosts({
+        180: {
+          0: { positionX: 95, positionY: -20, stocksRemaining: 2 },
+        },
+      }),
+      stageId: 31,
+      seenKeys: new Set(),
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("shine-spike");
+  });
+
+  it("alerts on Falco pillar combos", () => {
+    const events = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          playerIndex: 0,
+          moves: [
+            { playerIndex: 1, frame: 130, moveId: MOVE_DAIR, hitCount: 1, damage: 12 },
+            { playerIndex: 1, frame: 145, moveId: MOVE_SHINE, hitCount: 1, damage: 4 },
+            { playerIndex: 1, frame: 165, moveId: MOVE_DAIR, hitCount: 1, damage: 12 },
+          ],
+        }),
+      ],
+      players: [players[0], { ...players[1], character: "Falco" }],
+      seenKeys: new Set(),
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("pillar-combo");
+  });
+
+  it("alerts on Puff rest kills and bair strings", () => {
+    const rest = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          playerIndex: 0,
+          moves: [
+            { playerIndex: 1, frame: 130, moveId: MOVE_BAIR, hitCount: 1, damage: 12 },
+            { playerIndex: 1, frame: 145, moveId: MOVE_SHINE, hitCount: 1, damage: 34 },
+          ],
+          didKill: true,
+        }),
+      ],
+      players: [players[0], { ...players[1], character: "Puff" }],
+      seenKeys: new Set(),
+    });
+    expect(rest[0].type).toBe("rest-kill");
+
+    const bairString = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          playerIndex: 0,
+          moves: [
+            { playerIndex: 1, frame: 130, moveId: MOVE_BAIR, hitCount: 1, damage: 10 },
+            { playerIndex: 1, frame: 145, moveId: MOVE_BAIR, hitCount: 1, damage: 10 },
+            { playerIndex: 1, frame: 165, moveId: MOVE_BAIR, hitCount: 1, damage: 10 },
+          ],
+        }),
+      ],
+      players: [players[0], { ...players[1], character: "Puff" }],
+      seenKeys: new Set(),
+    });
+    expect(bairString[0].type).toBe("bair-string");
+  });
+
+  it("alerts on ICs wobbles and Peach downsmash kills", () => {
+    const wobble = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          moves: Array.from({ length: 8 }, (_, i) => ({
+            playerIndex: 0,
+            frame: 130 + i,
+            moveId: MOVE_PUMMEL,
+            hitCount: 1,
+            damage: 3,
+          })),
+        }),
+      ],
+      players: [{ ...players[0], character: "ICs" }, players[1]],
+      seenKeys: new Set(),
+    });
+    expect(wobble[0].type).toBe("wobble");
+
+    const dsmash = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          moves: [{ playerIndex: 0, frame: 130, moveId: MOVE_DSMASH, hitCount: 1, damage: 24 }],
+          didKill: true,
+        }),
+      ],
+      players: [{ ...players[0], character: "Peach" }, players[1]],
+      seenKeys: new Set(),
+    });
+    expect(dsmash[0].type).toBe("dsmash-kill");
+  });
+
+  it("alerts on Samus charge shot and Pikachu thunder kills", () => {
+    const chargeShot = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          moves: [{ playerIndex: 0, frame: 130, moveId: MOVE_NEUTRAL_B, hitCount: 1, damage: 30 }],
+          didKill: true,
+        }),
+      ],
+      players: [{ ...players[0], character: "Samus" }, players[1]],
+      seenKeys: new Set(),
+    });
+    expect(chargeShot[0].type).toBe("charge-shot");
+
+    const thunder = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          moves: [{ playerIndex: 0, frame: 130, moveId: MOVE_SHINE, hitCount: 1, damage: 28 }],
+          didKill: true,
+        }),
+      ],
+      players: [{ ...players[0], character: "Pikachu" }, players[1]],
+      seenKeys: new Set(),
+    });
+    expect(thunder[0].type).toBe("thunder-kill");
+  });
+
+  it("alerts on throw-based kill confirms like Fox upthrow upair", () => {
+    const events = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          playerIndex: 0,
+          startPercent: 92,
+          moves: [
+            { playerIndex: 1, frame: 130, moveId: MOVE_UTHROW, hitCount: 1, damage: 4 },
+            { playerIndex: 1, frame: 160, moveId: 16, hitCount: 1, damage: 14 },
+          ],
+          didKill: true,
+        }),
+      ],
+      players,
+      seenKeys: new Set(),
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("upthrow-upair");
+  });
+
+  it("does not replay events before the requested frame", () => {
+    const events = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          endFrame: 180,
+          moves: [
+            { playerIndex: 0, frame: 130, moveId: MOVE_FAIR, hitCount: 1, damage: 12 },
+            { playerIndex: 0, frame: 170, moveId: MOVE_DAIR, hitCount: 1, damage: 15 },
+          ],
+        }),
+      ],
+      players,
+      seenKeys: new Set(),
+      minEventFrame: 181,
+    });
+
+    expect(events).toHaveLength(0);
+  });
+});
+
+describe("detectLiveItemEvents", () => {
+  it("alerts on Peach stitch pulls", () => {
+    const frames = {
+      240: {
+        frame: 240,
+        start: undefined,
+        players: {},
+        followers: {},
+        items: [{ frame: 240, typeId: 99, turnipFace: 7, owner: 0, spawnId: 42 }],
+        stageEvents: undefined,
+      },
+    } as FramesType;
+
+    const events = detectLiveItemEvents({
+      frames,
+      players: [{ ...players[0], character: "Peach" }, players[1]],
+      seenKeys: new Set(),
+      fromFrame: 200,
+      toFrame: 260,
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("stitch-face");
+    expect(events[0].body).toContain("You pulled a stitch face");
+  });
+
+  it("alerts on Peach rare item pulls", () => {
+    const frames = {
+      240: {
+        frame: 240,
+        start: undefined,
+        players: {},
+        followers: {},
+        items: [{ frame: 240, typeId: 104, owner: 0, spawnId: 43 }],
+        stageEvents: undefined,
+      },
+    } as FramesType;
+
+    const events = detectLiveItemEvents({
+      frames,
+      players: [{ ...players[0], character: "Peach" }, players[1]],
+      seenKeys: new Set(),
+      fromFrame: 200,
+      toFrame: 260,
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("rare-item");
+    expect(events[0].title).toBe("Bob-omb");
+  });
+});
+
+describe("detectLiveFrameEvents", () => {
+  it("alerts on projectile power shields", () => {
+    const seenKeys = new Set<string>();
+    const events = detectLiveFrameEvents({
+      frames: framesWithPosts({
+        280: { 0: { actionStateId: GUARD, stocksRemaining: 3 } },
+        281: { 0: { actionStateId: GUARD_REFLECT, stocksRemaining: 3 } },
+        282: { 0: { actionStateId: GUARD_REFLECT, stocksRemaining: 3 } },
+      }),
+      conversions: [],
+      players,
+      seenKeys,
+      fromFrame: 280,
+      toFrame: 282,
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("power-shield");
+    expect(events[0].body).toContain("projectile");
+
+    const duplicate = detectLiveFrameEvents({
+      frames: framesWithPosts({
+        280: { 0: { actionStateId: GUARD, stocksRemaining: 3 } },
+        281: { 0: { actionStateId: GUARD_REFLECT, stocksRemaining: 3 } },
+      }),
+      conversions: [],
+      players,
+      seenKeys,
+      fromFrame: 281,
+      toFrame: 281,
+    });
+    expect(duplicate).toHaveLength(0);
+  });
+
+  it("alerts on physical power shields inside the early shield window", () => {
+    const events = detectLiveFrameEvents({
+      frames: framesWithPosts({
+        290: { 0: { actionStateId: GUARD_ON, stocksRemaining: 3 } },
+        291: { 0: { actionStateId: GUARD, stocksRemaining: 3 } },
+        292: { 0: { actionStateId: GUARD_SET_OFF, stocksRemaining: 3 } },
+      }),
+      conversions: [],
+      players,
+      seenKeys: new Set(),
+      fromFrame: 292,
+      toFrame: 292,
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("power-shield");
+    expect(events[0].body).toContain("hit");
+  });
+
+  it("does not treat late shield stun as a power shield", () => {
+    const events = detectLiveFrameEvents({
+      frames: framesWithPosts({
+        290: { 0: { actionStateId: GUARD_ON, stocksRemaining: 3 } },
+        291: { 0: { actionStateId: GUARD, stocksRemaining: 3 } },
+        292: { 0: { actionStateId: GUARD, stocksRemaining: 3 } },
+        293: { 0: { actionStateId: GUARD_SET_OFF, stocksRemaining: 3 } },
+      }),
+      conversions: [],
+      players,
+      seenKeys: new Set(),
+      fromFrame: 293,
+      toFrame: 293,
+    });
+
+    expect(events).toHaveLength(0);
+  });
+
+  it("alerts on shield breaks", () => {
+    const events = detectLiveFrameEvents({
+      frames: framesWithPosts({
+        300: { 0: { actionStateId: 179, stocksRemaining: 3 } },
+        301: { 0: { actionStateId: 205, stocksRemaining: 3 } },
+      }),
+      conversions: [],
+      players,
+      seenKeys: new Set(),
+      fromFrame: 300,
+      toFrame: 301,
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("shield-break");
+  });
+
+  it("alerts on stock drops without a killing conversion", () => {
+    const events = detectLiveFrameEvents({
+      frames: framesWithPosts({
+        400: { 0: { actionStateId: 236, stocksRemaining: 3 } },
+        401: { 0: { actionStateId: 0, stocksRemaining: 2 } },
+      }),
+      conversions: [],
+      players,
+      seenKeys: new Set(),
+      fromFrame: 400,
+      toFrame: 401,
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("self-destruct");
+    expect(events[0].title).toBe("Air-Dodge Death");
+  });
+});

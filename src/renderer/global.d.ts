@@ -25,6 +25,20 @@ declare global {
     losses: number;
   }
 
+  interface CornermanLiveEvent {
+    id: string;
+    type: string;
+    title: string;
+    body: string;
+    timestamp: string;
+    frame: number;
+    actorTag: string;
+    actorCharacter: string;
+    victimTag: string | null;
+    victimCharacter: string | null;
+    importance: "info" | "high";
+  }
+
   interface Window {
     clippi: {
       loadConfig: () => Promise<any>;
@@ -133,10 +147,14 @@ declare global {
       cornermanStart: (replayFolder: string, targetPlayer: string) => Promise<CornermanStatus>;
       cornermanStop: () => Promise<CornermanStatus>;
       cornermanStatus: () => Promise<CornermanStatus>;
+      cornermanOverlayShow: () => Promise<boolean>;
       cornermanOverlayDismiss: () => Promise<boolean>;
+      cornermanOverlayResize: (handle: string, deltaX: number, deltaY: number) => Promise<boolean>;
+      cornermanOverlayResizeEnd: () => Promise<boolean>;
       onCornermanStream: (callback: (chunk: string) => void) => () => void;
       onCornermanCard: (callback: (card: CornermanCard) => void) => () => void;
       onCornermanSetUpdate: (callback: (status: CornermanStatus) => void) => () => void;
+      onCornermanLiveEvent: (callback: (event: CornermanLiveEvent) => void) => () => void;
       onCornermanError: (callback: (message: string) => void) => () => void;
     };
   }

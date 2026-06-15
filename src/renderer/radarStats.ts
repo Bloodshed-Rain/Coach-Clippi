@@ -5,9 +5,9 @@
  * - Neutral: win rate in neutral interactions
  * - Punish: damage per opening + conversion rate
  * - Tech Skill: L-cancel rate (60%) + wavedash/dashDance movement (40%)
- * - Defense: avg death percent (50%) + recovery success rate (50%)
+ * - Defense: survivability + recovery success + power-shielding
  * - Edgeguard: edgeguard success rate
- * - Consistency: low variance in neutral win rate across games
+ * - Consistency: low variance across neutral, punish damage, and survivability
  * - Mixups: entropy of ledge, knockdown, and shield pressure options
  * - DI Quality: combo DI score (50%) + survival DI score (50%)
  */
@@ -28,6 +28,9 @@ export interface RadarGameStats {
   shieldPressureEntropy?: number;
   diSurvivalScore?: number;
   diComboScore?: number;
+  powerShieldCount?: number;
+  shieldPressureSequences?: number;
+  shieldPressureAvgDamage?: number;
   playedAt?: string | null;
 }
 
@@ -65,21 +68,34 @@ export function computeRadarStats(games: RadarGameStats[]): RadarStats {
   const movementScore = clamp((wavedashes / 30) * 50 + (dashDance / 2000) * 50);
   const techSkill = clamp(lcancel * 100 * 0.6 + movementScore * 0.4);
 
-  // Defense: avg death percent (50%) + recovery success rate (50%)
+  // Defense: survivability (45%) + recovery success (35%) + power-shielding (20%).
+  // Power shields are normalized per game so characters are not rewarded only for volume.
   const deathPct = avg((g) => g.avgDeathPercent);
   const recoveryRate = avg((g) => g.recoverySuccessRate ?? 0.5);
-  const defense = clamp((deathPct / 150) * 50 + recoveryRate * 100 * 0.5);
+  const powerShields = avg((g) => g.powerShieldCount ?? 0);
+  const powerShieldScore = clamp((powerShields / 4) * 100);
+  const defense = clamp((deathPct / 150) * 45 + recoveryRate * 100 * 0.35 + powerShieldScore * 0.2);
 
   // Edgeguard: success rate directly
   const egRate = avg((g) => g.edgeguardSuccessRate ?? 0);
   const edgeguard = clamp(egRate * 100);
 
-  // Consistency: inverse of neutral win rate standard deviation
-  const nwRates = games.map((g) => g.neutralWinRate);
-  const nwMean = nwRates.reduce((a, b) => a + b, 0) / nwRates.length;
-  const variance = nwRates.reduce((s, v) => s + (v - nwMean) ** 2, 0) / nwRates.length;
-  const stdDev = Math.sqrt(variance);
-  const consistency = clamp((1 - stdDev * 3) * 100);
+  // Consistency: inverse variance across three high-signal stats.
+  const consistency = clamp(
+    (consistencyScore(
+      games.map((g) => g.neutralWinRate),
+      0.34,
+    ) +
+      consistencyScore(
+        games.map((g) => g.avgDamagePerOpening),
+        22,
+      ) +
+      consistencyScore(
+        games.map((g) => g.avgDeathPercent),
+        42,
+      )) /
+      3,
+  );
 
   // Mixups: average of ledge, knockdown, and shield pressure entropy
   // Max entropy for ledge options (~5 options) is ~1.6, knockdown (~4) is ~1.4
@@ -116,4 +132,11 @@ export function computeRadarForPeriod(
 
 function clamp(v: number): number {
   return Math.min(100, Math.max(0, Number.isFinite(v) ? v : 0));
+}
+
+function consistencyScore(values: number[], scale: number): number {
+  if (values.length <= 1) return 100;
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length;
+  return clamp((1 - Math.sqrt(variance) / scale) * 100);
 }

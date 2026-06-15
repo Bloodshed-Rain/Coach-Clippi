@@ -1,578 +1,1095 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MAGI - Melee Analysis through Generative Intelligence</title>
-  <meta
-    name="description"
-    content="MAGI is a local-first desktop app for Slippi replay stats, AI coaching, practice plans, Oracle chat, and Dolphin replay review."
-  />
-  <link rel="icon" href="favicon.ico" />
-  <style>
-    :root {
-      --bg: #090b12;
-      --panel: rgba(18, 22, 34, 0.86);
-      --panel-strong: rgba(28, 33, 48, 0.92);
-      --line: rgba(232, 237, 246, 0.16);
-      --line-strong: rgba(232, 237, 246, 0.28);
-      --text: #f5f7fb;
-      --text-soft: #ccd3df;
-      --muted: #8d96a7;
-      --win: #7ee8c5;
-      --loss: #ff8a9e;
-      --focus: #dfe6f2;
-      --shadow: 0 28px 70px rgba(0, 0, 0, 0.48);
-      --radius: 8px;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: var(--text);
-      background: var(--bg);
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MAGI - Melee Analysis through Generative Intelligence</title>
+    <meta
+      name="description"
+      content="MAGI is a local-first desktop app for Slippi replay stats, live Cornerman alerts, AI coaching, practice plans, Oracle chat, and Dolphin replay review."
+    />
+    <link rel="icon" href="favicon.ico" />
+    <style>
+      :root {
+        --bg: #090b12;
+        --panel: rgba(18, 22, 34, 0.86);
+        --panel-strong: rgba(28, 33, 48, 0.92);
+        --line: rgba(232, 237, 246, 0.16);
+        --line-strong: rgba(232, 237, 246, 0.28);
+        --text: #f5f7fb;
+        --text-soft: #ccd3df;
+        --muted: #8d96a7;
+        --win: #7ee8c5;
+        --loss: #ff8a9e;
+        --focus: #dfe6f2;
+        --shadow: 0 28px 70px rgba(0, 0, 0, 0.48);
+        --radius: 8px;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
 
-    * {
-      box-sizing: border-box;
-    }
+      * {
+        box-sizing: border-box;
+      }
 
-    html {
-      scroll-behavior: smooth;
-    }
+      html {
+        scroll-behavior: smooth;
+      }
 
-    body {
-      margin: 0;
-      background:
-        linear-gradient(180deg, rgba(9, 11, 18, 0.72), rgba(9, 11, 18, 0.98)),
-        #090b12;
-      color: var(--text);
-      line-height: 1.5;
-    }
+      body {
+        margin: 0;
+        background: linear-gradient(180deg, rgba(9, 11, 18, 0.72), rgba(9, 11, 18, 0.98)), #090b12;
+        color: var(--text);
+        line-height: 1.5;
+      }
 
-    a {
-      color: inherit;
-    }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: -22%;
+        z-index: 0;
+        pointer-events: none;
+        background:
+          linear-gradient(
+            118deg,
+            rgba(160, 168, 255, 0.22) 0%,
+            rgba(160, 168, 255, 0.03) 24%,
+            rgba(126, 232, 197, 0.18) 43%,
+            rgba(232, 163, 212, 0.08) 61%,
+            rgba(255, 138, 158, 0.18) 100%
+          ),
+          conic-gradient(
+            from 220deg at 66% 38%,
+            rgba(126, 232, 197, 0.12),
+            rgba(160, 168, 255, 0.24),
+            rgba(255, 138, 158, 0.14),
+            rgba(232, 163, 212, 0.2),
+            rgba(126, 232, 197, 0.12)
+          );
+        filter: blur(42px) saturate(1.35);
+        opacity: 0.72;
+        animation: ambient-flow 26s ease-in-out infinite alternate;
+      }
 
-    img {
-      max-width: 100%;
-      display: block;
-    }
+      @keyframes ambient-flow {
+        from {
+          transform: translate3d(-2%, -1%, 0) scale(1);
+        }
 
-    .site-nav {
-      position: fixed;
-      inset: 0 0 auto;
-      z-index: 10;
-      height: 68px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 32px;
-      background: rgba(9, 11, 18, 0.78);
-      border-bottom: 1px solid var(--line);
-      backdrop-filter: blur(18px);
-    }
+        to {
+          transform: translate3d(2%, 1%, 0) scale(1.04);
+        }
+      }
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-      font-weight: 800;
-      letter-spacing: 0.1em;
-    }
+      .wireframe-bg {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
 
-    .brand img {
-      width: 62px;
-      height: auto;
-      filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.5));
-    }
+      .wireframe-char {
+        position: absolute;
+        display: block;
+        width: auto;
+        max-width: none;
+        opacity: 0;
+        animation: wf-drift 28s ease-in-out infinite alternate;
+        user-select: none;
+        -webkit-user-drag: none;
+        will-change: opacity, translate, scale, rotate;
+      }
 
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      font-weight: 700;
-    }
+      @keyframes wf-drift {
+        from {
+          translate: 0 0;
+          scale: 1;
+        }
 
-    .nav-links a {
-      padding: 8px 12px;
-      border-radius: var(--radius);
-      color: var(--text-soft);
-      text-decoration: none;
-    }
+        to {
+          translate: 0 -16px;
+          scale: 1.02;
+        }
+      }
 
-    .nav-links a:hover {
-      color: var(--text);
-      background: rgba(255, 255, 255, 0.06);
-    }
+      @media (prefers-reduced-motion: reduce) {
+        body::before {
+          animation: none;
+        }
 
-    .button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 42px;
-      padding: 10px 16px;
-      border: 1px solid var(--line-strong);
-      border-radius: var(--radius);
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text);
-      text-decoration: none;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
-    }
+        .wireframe-bg {
+          display: none;
+        }
+      }
 
-    .button.primary {
-      background: rgba(245, 247, 251, 0.94);
-      color: #0d111a;
-      border-color: rgba(255, 255, 255, 0.72);
-    }
+      a {
+        color: inherit;
+      }
 
-    .hero {
-      min-height: 86vh;
-      padding: 116px 32px 64px;
-      display: flex;
-      align-items: flex-end;
-      background:
-        linear-gradient(90deg, rgba(9, 11, 18, 0.95) 0%, rgba(9, 11, 18, 0.76) 42%, rgba(9, 11, 18, 0.42) 100%),
-        url("screenshots/app-dashboard.png") center / cover no-repeat;
-      border-bottom: 1px solid var(--line);
-      position: relative;
-    }
+      img {
+        max-width: 100%;
+        display: block;
+      }
 
-    .hero-inner {
-      width: min(1180px, 100%);
-      margin: 0 auto;
-    }
+      .site-nav {
+        position: fixed;
+        inset: 0 0 auto;
+        z-index: 10;
+        height: 68px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        background: rgba(9, 11, 18, 0.78);
+        border-bottom: 1px solid var(--line);
+        backdrop-filter: blur(18px);
+      }
 
-    .eyebrow {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      margin-bottom: 16px;
-    }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+      }
 
-    h1,
-    h2,
-    h3,
-    p {
-      margin: 0;
-    }
+      .brand img {
+        width: 62px;
+        height: auto;
+        filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.5));
+      }
 
-    h1 {
-      max-width: 780px;
-      font-size: clamp(56px, 9vw, 112px);
-      line-height: 0.92;
-      letter-spacing: 0;
-      text-transform: uppercase;
-    }
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        font-weight: 700;
+      }
 
-    .hero-copy {
-      max-width: 680px;
-      margin-top: 24px;
-      color: var(--text-soft);
-      font-size: clamp(18px, 2vw, 23px);
-    }
+      .nav-links a {
+        padding: 8px 12px;
+        border-radius: var(--radius);
+        color: var(--text-soft);
+        text-decoration: none;
+      }
 
-    .hero-actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-top: 32px;
-    }
+      .nav-links a:hover {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.06);
+      }
 
-    .hero-stats {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(120px, 1fr));
-      gap: 12px;
-      max-width: 860px;
-      margin-top: 44px;
-    }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 10px 16px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text);
+        text-decoration: none;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      }
 
-    .stat {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: rgba(12, 15, 24, 0.68);
-      padding: 16px;
-      backdrop-filter: blur(14px);
-    }
-
-    .stat b {
-      display: block;
-      font-size: 22px;
-      margin-bottom: 4px;
-    }
-
-    .stat span {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    section {
-      padding: 80px 32px;
-    }
-
-    .wrap {
-      width: min(1180px, 100%);
-      margin: 0 auto;
-    }
-
-    .section-head {
-      display: grid;
-      grid-template-columns: minmax(240px, 0.7fr) minmax(280px, 1fr);
-      gap: 40px;
-      align-items: end;
-      margin-bottom: 32px;
-    }
-
-    .section-head h2 {
-      font-size: clamp(32px, 5vw, 56px);
-      line-height: 1;
-      letter-spacing: 0;
-      text-transform: uppercase;
-    }
-
-    .section-head p {
-      color: var(--text-soft);
-      font-size: 17px;
-    }
-
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-    }
-
-    .feature {
-      min-height: 184px;
-      padding: 22px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel);
-      box-shadow: var(--shadow);
-    }
-
-    .feature h3 {
-      font-size: 18px;
-      margin-bottom: 10px;
-    }
-
-    .feature p,
-    .feature li {
-      color: var(--text-soft);
-    }
-
-    .feature ul {
-      margin: 12px 0 0;
-      padding-left: 18px;
-    }
-
-    .shots {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
-    }
-
-    .shot {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel);
-      overflow: hidden;
-      box-shadow: var(--shadow);
-    }
-
-    .shot img {
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      object-fit: cover;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .shot figcaption {
-      padding: 14px 16px;
-      color: var(--text-soft);
-      font-weight: 700;
-    }
-
-    .workflow {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 10px;
-      counter-reset: step;
-    }
-
-    .step {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 18px;
-      background: var(--panel-strong);
-      position: relative;
-      min-height: 150px;
-    }
-
-    .step::before {
-      counter-increment: step;
-      content: counter(step, decimal-leading-zero);
-      display: block;
-      color: var(--win);
-      font-weight: 900;
-      letter-spacing: 0.14em;
-      margin-bottom: 12px;
-    }
-
-    .step h3 {
-      font-size: 16px;
-      margin-bottom: 8px;
-    }
-
-    .step p {
-      color: var(--text-soft);
-      font-size: 14px;
-    }
-
-    .install {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel-strong);
-      padding: 28px;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 24px;
-      align-items: center;
-      box-shadow: var(--shadow);
-    }
-
-    .install code {
-      display: block;
-      width: 100%;
-      margin-top: 16px;
-      padding: 16px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: #070910;
-      color: var(--text-soft);
-      overflow-x: auto;
-      font-family: "JetBrains Mono", Consolas, monospace;
-      font-size: 14px;
-      white-space: pre;
-    }
-
-    footer {
-      padding: 32px;
-      border-top: 1px solid var(--line);
-      color: var(--muted);
-    }
-
-    .foot-inner {
-      width: min(1180px, 100%);
-      margin: 0 auto;
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    @media (max-width: 920px) {
-      .nav-links .hide-sm {
-        display: none;
+      .button.primary {
+        background: rgba(245, 247, 251, 0.94);
+        color: #0d111a;
+        border-color: rgba(255, 255, 255, 0.72);
       }
 
       .hero {
-        min-height: 88vh;
-        padding-inline: 20px;
+        min-height: 86vh;
+        padding: 116px 32px 64px;
+        display: flex;
+        align-items: flex-end;
+        background:
+          linear-gradient(90deg, rgba(9, 11, 18, 0.96) 0%, rgba(9, 11, 18, 0.78) 42%, rgba(9, 11, 18, 0.36) 100%),
+          linear-gradient(180deg, rgba(9, 11, 18, 0.12), rgba(9, 11, 18, 0.62));
+        border-bottom: 1px solid var(--line);
+        position: relative;
+        z-index: 1;
       }
 
-      .hero-stats,
-      .feature-grid,
-      .workflow,
-      .section-head,
-      .install {
-        grid-template-columns: 1fr;
+      main,
+      footer {
+        position: relative;
+        z-index: 1;
       }
 
-      .shots {
-        grid-template-columns: 1fr;
+      .hero-inner {
+        width: min(1180px, 100%);
+        margin: 0 auto;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        margin-bottom: 16px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        max-width: 780px;
+        font-size: clamp(56px, 9vw, 112px);
+        line-height: 0.92;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .hero-copy {
+        max-width: 680px;
+        margin-top: 24px;
+        color: var(--text-soft);
+        font-size: clamp(18px, 2vw, 23px);
+      }
+
+      .hero-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 32px;
+      }
+
+      .hero-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(120px, 1fr));
+        gap: 12px;
+        max-width: 860px;
+        margin-top: 44px;
+      }
+
+      .stat {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgba(12, 15, 24, 0.68);
+        padding: 16px;
+        backdrop-filter: blur(14px);
+      }
+
+      .stat b {
+        display: block;
+        font-size: 22px;
+        margin-bottom: 4px;
+      }
+
+      .stat span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .update-strip {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 28px;
+        max-width: 960px;
+      }
+
+      .update-card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgba(18, 22, 34, 0.72);
+        padding: 14px 16px;
+        color: var(--text-soft);
+        font-size: 14px;
+        font-weight: 700;
+        backdrop-filter: blur(14px);
+      }
+
+      .update-card b {
+        display: block;
+        color: var(--text);
+        font-size: 15px;
+        margin-bottom: 4px;
       }
 
       section {
-        padding: 56px 20px;
+        padding: 80px 32px;
       }
-    }
-  </style>
-</head>
-<body>
-  <nav class="site-nav" aria-label="Primary">
-    <a class="brand" href="#top">
-      <img src="magilogo2.png" alt="MAGI logo" />
-      <span>MAGI</span>
-    </a>
-    <div class="nav-links">
-      <a class="hide-sm" href="#surface">App</a>
-      <a class="hide-sm" href="#screens">Screens</a>
-      <a class="hide-sm" href="#workflow">Workflow</a>
-      <a href="https://github.com/Bloodshed-Rain/TheMAGI" target="_blank" rel="noreferrer">GitHub</a>
-      <a class="button primary" href="https://github.com/Bloodshed-Rain/TheMAGI/releases" target="_blank" rel="noreferrer">Download</a>
-    </div>
-  </nav>
 
-  <main id="top">
-    <header class="hero">
-      <div class="hero-inner">
-        <div class="eyebrow">MAGI v1.6.1 - local desktop replay analysis</div>
-        <h1>Melee coaching from your Slippi data.</h1>
-        <p class="hero-copy">
-          Import `.slp` files, track the habits that decide sets, ask an Oracle about your recent games,
-          generate practice plans, and review replays through a redesigned desktop UI.
-        </p>
-        <div class="hero-actions">
-          <a class="button primary" href="https://github.com/Bloodshed-Rain/TheMAGI/releases" target="_blank" rel="noreferrer">Get MAGI</a>
-          <a class="button" href="https://github.com/Bloodshed-Rain/TheMAGI" target="_blank" rel="noreferrer">View Source</a>
-        </div>
-        <div class="hero-stats" aria-label="Current capabilities">
-          <div class="stat"><b>Local</b><span>SQLite data</span></div>
-          <div class="stat"><b>6</b><span>UI themes</span></div>
-          <div class="stat"><b>26</b><span>Characters</span></div>
-          <div class="stat"><b>No-key</b><span>AI fallback</span></div>
-        </div>
+      .wrap {
+        width: min(1180px, 100%);
+        margin: 0 auto;
+      }
+
+      .section-head {
+        display: grid;
+        grid-template-columns: minmax(240px, 0.7fr) minmax(280px, 1fr);
+        gap: 40px;
+        align-items: end;
+        margin-bottom: 32px;
+      }
+
+      .section-head h2 {
+        font-size: clamp(32px, 5vw, 56px);
+        line-height: 1;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .section-head p {
+        color: var(--text-soft);
+        font-size: 17px;
+      }
+
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+
+      .feature {
+        min-height: 184px;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .feature h3 {
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+
+      .feature p,
+      .feature li {
+        color: var(--text-soft);
+      }
+
+      .feature ul {
+        margin: 12px 0 0;
+        padding-left: 18px;
+      }
+
+      .live-layout {
+        display: grid;
+        grid-template-columns: minmax(300px, 0.82fr) minmax(320px, 1fr);
+        gap: 18px;
+        align-items: stretch;
+      }
+
+      .live-panel,
+      .live-copy {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .live-panel {
+        overflow: hidden;
+      }
+
+      .live-panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(245, 247, 251, 0.06);
+      }
+
+      .live-panel-head h3 {
+        font-size: 18px;
+      }
+
+      .live-state {
+        color: var(--win);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .event-list {
+        display: grid;
+        gap: 10px;
+        padding: 16px;
+      }
+
+      .event {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgba(7, 9, 16, 0.64);
+        padding: 13px 14px;
+      }
+
+      .event strong {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 4px;
+        font-size: 14px;
+      }
+
+      .event span {
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .event p {
+        color: var(--text-soft);
+        font-size: 14px;
+      }
+
+      .event.high {
+        border-color: rgba(126, 232, 197, 0.46);
+        box-shadow: inset 3px 0 0 rgba(126, 232, 197, 0.8);
+      }
+
+      .live-copy {
+        padding: 24px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .live-copy h3 {
+        font-size: clamp(24px, 4vw, 38px);
+        line-height: 1.05;
+        text-transform: uppercase;
+      }
+
+      .live-copy p {
+        color: var(--text-soft);
+      }
+
+      .event-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .event-tags span {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 8px 10px;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-soft);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .shots {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+
+      .shot {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+
+      .shot img {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .shot figcaption {
+        padding: 14px 16px;
+        color: var(--text-soft);
+        font-weight: 700;
+      }
+
+      .workflow {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 10px;
+        counter-reset: step;
+      }
+
+      .step {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 18px;
+        background: var(--panel-strong);
+        position: relative;
+        min-height: 150px;
+      }
+
+      .step::before {
+        counter-increment: step;
+        content: counter(step, decimal-leading-zero);
+        display: block;
+        color: var(--win);
+        font-weight: 900;
+        letter-spacing: 0.14em;
+        margin-bottom: 12px;
+      }
+
+      .step h3 {
+        font-size: 16px;
+        margin-bottom: 8px;
+      }
+
+      .step p {
+        color: var(--text-soft);
+        font-size: 14px;
+      }
+
+      .install {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel-strong);
+        padding: 28px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 24px;
+        align-items: center;
+        box-shadow: var(--shadow);
+      }
+
+      .install > * {
+        min-width: 0;
+      }
+
+      .install code {
+        display: block;
+        width: 100%;
+        margin-top: 16px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #070910;
+        color: var(--text-soft);
+        overflow-x: auto;
+        font-family: "JetBrains Mono", Consolas, monospace;
+        font-size: 14px;
+        white-space: pre;
+      }
+
+      footer {
+        padding: 32px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+      }
+
+      .foot-inner {
+        width: min(1180px, 100%);
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      @media (max-width: 920px) {
+        .nav-links .hide-sm {
+          display: none;
+        }
+
+        .hero {
+          min-height: 88vh;
+          padding-inline: 20px;
+        }
+
+        .hero-stats,
+        .update-strip,
+        .feature-grid,
+        .live-layout,
+        .workflow,
+        .section-head,
+        .install {
+          grid-template-columns: 1fr;
+        }
+
+        .shots {
+          grid-template-columns: 1fr;
+        }
+
+        section {
+          padding: 56px 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wireframe-bg" id="wireframe-bg" aria-hidden="true"></div>
+
+    <nav class="site-nav" aria-label="Primary">
+      <a class="brand" href="#top">
+        <img src="magilogo2.png" alt="MAGI logo" />
+        <span>MAGI</span>
+      </a>
+      <div class="nav-links">
+        <a class="hide-sm" href="#surface">App</a>
+        <a class="hide-sm" href="#cornerman">Cornerman</a>
+        <a class="hide-sm" href="#screens">Screens</a>
+        <a class="hide-sm" href="#workflow">Workflow</a>
+        <a href="https://github.com/Bloodshed-Rain/TheMAGI" target="_blank" rel="noreferrer">GitHub</a>
+        <a
+          class="button primary"
+          href="https://github.com/Bloodshed-Rain/TheMAGI/releases"
+          target="_blank"
+          rel="noreferrer"
+          >Download</a
+        >
       </div>
-    </header>
+    </nav>
 
-    <section id="surface">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>Current app surface</h2>
-          <p>
-            MAGI is not a landing-page mockup. The desktop app currently ships a replay database, trend dashboard,
-            sessions view, library filters, character pages, practice plans, Oracle chat, and game theater.
+    <main id="top">
+      <header class="hero">
+        <div class="hero-inner">
+          <div class="eyebrow">MAGI v1.6.1 - local desktop replay analysis</div>
+          <h1>Melee coaching while the set is still alive.</h1>
+          <p class="hero-copy">
+            Import `.slp` files, track the habits that decide sets, get live Cornerman popups for major in-game moments,
+            ask an Oracle about your recent games, generate practice plans, and review replays through a redesigned
+            desktop UI.
           </p>
-        </div>
-        <div class="feature-grid">
-          <article class="feature">
-            <h3>Replay database</h3>
-            <p>Parallel import, SHA-256 dedupe, local SQLite storage, watcher support, and filters for opponent, matchup, stage, and result.</p>
-          </article>
-          <article class="feature">
-            <h3>Performance tracking</h3>
-            <p>Dashboard cards and trend charts cover neutral, L-canceling, conversions, damage per opening, openings per kill, and death percent.</p>
-          </article>
-          <article class="feature">
-            <h3>AI coaching</h3>
-            <p>Streaming game coaching, session reports, character-scope analysis, generated drills, and Oracle chat grounded in local game context.</p>
-          </article>
-          <article class="feature">
-            <h3>Provider control</h3>
-            <p>Pollinations no-key fallback, OpenAI, OpenRouter, Anthropic, Gemini, and local OpenAI-compatible endpoints through Ollama or LM Studio.</p>
-          </article>
-          <article class="feature">
-            <h3>Replay review</h3>
-            <p>Slippi Dolphin launch, timestamp-to-frame seeking, stock timeline review, and Windows-only embedded replay with external fallback on other platforms.</p>
-          </article>
-          <article class="feature">
-            <h3>Local-first defaults</h3>
-            <p>No account, no MAGI server, no bundled keys. Config and replay-derived data stay under the local `~/.magi-melee` directory.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section id="screens">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>New UI screenshots</h2>
-          <p>These captures come from the current Electron app shell after the UI overhaul. The Game Theater replay viewer is Windows-only; Settings is omitted to avoid exposing local paths or keys.</p>
-        </div>
-        <div class="shots">
-          <figure class="shot">
-            <img src="screenshots/app-game-theater.png" alt="MAGI Game Theater running replay viewer" />
-            <figcaption>Game Theater - Windows-only live Dolphin replay viewer, stock timeline, game stats, and inline coaching.</figcaption>
-          </figure>
-          <figure class="shot">
-            <img src="screenshots/app-library.png" alt="MAGI library filters and replay table" />
-            <figcaption>Library - opponent search, matchup filters, stage filters, and game rows.</figcaption>
-          </figure>
-          <figure class="shot">
-            <img src="screenshots/app-trends.png" alt="MAGI trend chart page" />
-            <figcaption>Trends - 5-game rolling averages with range and opponent-character filters.</figcaption>
-          </figure>
-          <figure class="shot">
-            <img src="screenshots/app-sessions.png" alt="MAGI session cards" />
-            <figcaption>Sessions - daily cards, win/loss dots, and generated session reports.</figcaption>
-          </figure>
-          <figure class="shot">
-            <img src="screenshots/app-characters.png" alt="MAGI character roster" />
-            <figcaption>Characters - played roster, character art, matchup records, and scoped analysis.</figcaption>
-          </figure>
-          <figure class="shot">
-            <img src="screenshots/app-oracle.png" alt="MAGI Oracle chat" />
-            <figcaption>MAGI Oracle - persistent chat over recent game context.</figcaption>
-          </figure>
-          <figure class="shot">
-            <img src="screenshots/app-practice.png" alt="MAGI practice plan tracker" />
-            <figcaption>Practice - generated drill plans with completion tracking.</figcaption>
-          </figure>
-        </div>
-      </div>
-    </section>
-
-    <section id="workflow">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>Workflow</h2>
-          <p>The app is built around repeated review: import, inspect, ask, drill, and return to the next session with a narrower focus.</p>
-        </div>
-        <div class="workflow">
-          <article class="step">
-            <h3>Import</h3>
-            <p>Point MAGI at a Slippi folder or import replay files manually.</p>
-          </article>
-          <article class="step">
-            <h3>Measure</h3>
-            <p>Review stats, matchups, sessions, and recent-form trends.</p>
-          </article>
-          <article class="step">
-            <h3>Ask</h3>
-            <p>Use game coaching, Oracle chat, or session reports for specific feedback.</p>
-          </article>
-          <article class="step">
-            <h3>Review</h3>
-            <p>Open timestamps in Dolphin, using the embedded replay surface on Windows or external Dolphin launch elsewhere.</p>
-          </article>
-          <article class="step">
-            <h3>Practice</h3>
-            <p>Generate drills from weakness patterns and track completion.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="wrap">
-        <div class="install">
-          <div>
-            <div class="eyebrow">Build from source</div>
-            <h2>Electron, Vite, React, SQLite, and Slippi parsing.</h2>
-            <code>git clone https://github.com/Bloodshed-Rain/TheMAGI.git
-cd TheMAGI
-npm install
-npm run dev</code>
+          <div class="hero-actions">
+            <a
+              class="button primary"
+              href="https://github.com/Bloodshed-Rain/TheMAGI/releases"
+              target="_blank"
+              rel="noreferrer"
+              >Get MAGI</a
+            >
+            <a class="button" href="https://github.com/Bloodshed-Rain/TheMAGI" target="_blank" rel="noreferrer"
+              >View Source</a
+            >
           </div>
-          <div class="hero-actions" style="margin: 0;">
-            <a class="button primary" href="https://github.com/Bloodshed-Rain/TheMAGI/releases" target="_blank" rel="noreferrer">Download Release</a>
-            <a class="button" href="https://github.com/Bloodshed-Rain/TheMAGI/blob/main/README.md" target="_blank" rel="noreferrer">Read README</a>
+          <div class="hero-stats" aria-label="Current capabilities">
+            <div class="stat"><b>Local</b><span>SQLite data</span></div>
+            <div class="stat"><b>Live</b><span>Cornerman alerts</span></div>
+            <div class="stat"><b>35+</b><span>Event types</span></div>
+            <div class="stat"><b>8-axis</b><span>Character radar</span></div>
+          </div>
+          <div class="update-strip" aria-label="Latest updates">
+            <div class="update-card">
+              <b>Frame-aware popups</b>Ken combos, waveshines, power shields, stitch faces, and high-combo kills as they
+              happen.
+            </div>
+            <div class="update-card">
+              <b>Character radar</b>Each character page gets a form chart for neutral, punish, execution, defense, and
+              more.
+            </div>
+            <div class="update-card">
+              <b>Clean analysis history</b>Cornerman cards stay separate from full library game analysis.
+            </div>
+            <div class="update-card">
+              <b>Coaching first</b>Game Theater puts the AI breakdown above post-game stats.
+            </div>
           </div>
         </div>
-      </div>
-    </section>
-  </main>
+      </header>
 
-  <footer>
-    <div class="foot-inner">
-      <span>MAGI - Melee Analysis through Generative Intelligence</span>
-      <span>MIT License - local-first desktop app</span>
-    </div>
-  </footer>
-</body>
+      <section id="surface">
+        <div class="wrap">
+          <div class="section-head">
+            <h2>Current app surface</h2>
+            <p>
+              MAGI is not a landing-page mockup. The desktop app currently ships a replay database, trend dashboard,
+              sessions view, library filters, character pages with radar stats, practice plans, Oracle chat, and game
+              theater.
+            </p>
+          </div>
+          <div class="feature-grid">
+            <article class="feature">
+              <h3>Replay database</h3>
+              <p>
+                Parallel import, SHA-256 dedupe, local SQLite storage, watcher support, and filters for opponent,
+                matchup, stage, and result.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>Performance tracking</h3>
+              <p>
+                Dashboard cards and trend charts cover neutral, L-canceling, conversions, damage per opening, openings
+                per kill, and death percent.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>Character radar</h3>
+              <p>
+                Character pages summarize form across neutral, punish, execution, defense, edgeguarding, consistency,
+                mixups, and DI with comparison windows.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>AI coaching</h3>
+              <p>
+                Streaming game coaching, Cornerman between-game cards, session reports, character-scope analysis,
+                generated drills, and Oracle chat grounded in local game context.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>Live Cornerman</h3>
+              <p>
+                Transparent overlay alerts for character-specific moments, rare item pulls, power shields, shield
+                breaks, SDs, and big punish swings.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>Provider control</h3>
+              <p>
+                Pollinations no-key fallback, OpenAI, OpenRouter, Anthropic, Gemini, and local OpenAI-compatible
+                endpoints through Ollama or LM Studio, plus custom model IDs where the provider supports them.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>Replay review</h3>
+              <p>
+                Slippi Dolphin launch, timestamp-to-frame seeking, stock timeline review, and Windows-only embedded
+                replay with external fallback on other platforms.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>Scope-safe analysis</h3>
+              <p>
+                Cornerman tips are preserved as their own history entries, while full game analysis remains available
+                from the Library and Game Theater.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>Local-first defaults</h3>
+              <p>
+                No account, no MAGI server, no bundled keys. Config and replay-derived data stay under the local
+                `~/.magi-melee` directory.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="cornerman">
+        <div class="wrap">
+          <div class="section-head">
+            <h2>Cornerman now reacts live</h2>
+            <p>
+              Cornerman is no longer only a between-games note card. MAGI watches the active Slippi file and raises
+              concise overlay alerts for the moments you would want called out immediately.
+            </p>
+          </div>
+          <div class="live-layout">
+            <div class="live-panel" aria-label="Example live Cornerman alerts">
+              <div class="live-panel-head">
+                <h3>Live Alerts</h3>
+                <div class="live-state">Watching</div>
+              </div>
+              <div class="event-list">
+                <article class="event high">
+                  <strong>Waveshine Upsmash <span>1:14</span></strong>
+                  <p>You converted two shines into the kill from 72%.</p>
+                </article>
+                <article class="event">
+                  <strong>Power Shield <span>1:39</span></strong>
+                  <p>You power shielded a projectile and reset neutral.</p>
+                </article>
+                <article class="event high">
+                  <strong>Stitch Face <span>2:08</span></strong>
+                  <p>Peach pulled a stitch face. The overlay calls it before the stock is over.</p>
+                </article>
+                <article class="event high">
+                  <strong>High Combo Kill <span>3:26</span></strong>
+                  <p>One opening became 64% and a stock. That swing gets surfaced immediately.</p>
+                </article>
+              </div>
+            </div>
+            <div class="live-copy">
+              <div>
+                <div class="eyebrow">Popup-first coaching</div>
+                <h3>Important events appear while the game is still fresh.</h3>
+              </div>
+              <p>
+                The live monitor detects conversion endings, stock drops, item pulls, and frame-level defensive events
+                from Slippi's on-the-fly replay data. Combo alerts wait just long enough to know the punish ended or
+                killed; item and frame events can appear as soon as the replay writes them.
+              </p>
+              <div class="event-tags" aria-label="Detected live event examples">
+                <span>Ken combos</span>
+                <span>Waveshines</span>
+                <span>Power shields</span>
+                <span>Stitch faces</span>
+                <span>Rare Peach items</span>
+                <span>Shield breaks</span>
+                <span>Zero-to-deaths</span>
+                <span>Rest kills</span>
+                <span>Falco pillars</span>
+                <span>Edgeguard kills</span>
+                <span>SDs</span>
+                <span>Character confirms</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="screens">
+        <div class="wrap">
+          <div class="section-head">
+            <h2>New UI screenshots</h2>
+            <p>
+              These captures come from the current Electron app shell after the UI overhaul. The Game Theater replay
+              viewer is Windows-only; Settings is omitted to avoid exposing local paths or keys.
+            </p>
+          </div>
+          <div class="shots">
+            <figure class="shot">
+              <img src="screenshots/app-game-theater.png" alt="MAGI Game Theater running replay viewer" />
+              <figcaption>
+                Game Theater - Windows-only live Dolphin replay viewer, stock timeline, coaching above post-game stats,
+                and timestamp seeking.
+              </figcaption>
+            </figure>
+            <figure class="shot">
+              <img src="screenshots/app-library.png" alt="MAGI library filters and replay table" />
+              <figcaption>Library - opponent search, matchup filters, stage filters, and game rows.</figcaption>
+            </figure>
+            <figure class="shot">
+              <img src="screenshots/app-trends.png" alt="MAGI trend chart page" />
+              <figcaption>Trends - 5-game rolling averages with range and opponent-character filters.</figcaption>
+            </figure>
+            <figure class="shot">
+              <img src="screenshots/app-sessions.png" alt="MAGI session cards" />
+              <figcaption>Sessions - daily cards, win/loss dots, and generated session reports.</figcaption>
+            </figure>
+            <figure class="shot">
+              <img src="screenshots/app-characters.png" alt="MAGI character roster" />
+              <figcaption>
+                Characters - played roster, character art, matchup records, scoped analysis, and per-character radar
+                stats.
+              </figcaption>
+            </figure>
+            <figure class="shot">
+              <img src="screenshots/app-oracle.png" alt="MAGI Oracle chat" />
+              <figcaption>MAGI Oracle - persistent chat over recent game context.</figcaption>
+            </figure>
+            <figure class="shot">
+              <img src="screenshots/app-practice.png" alt="MAGI practice plan tracker" />
+              <figcaption>Practice - generated drill plans with completion tracking.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="workflow">
+        <div class="wrap">
+          <div class="section-head">
+            <h2>Workflow</h2>
+            <p>
+              The app is built around repeated review: import, inspect, ask, drill, and return to the next session with
+              a narrower focus.
+            </p>
+          </div>
+          <div class="workflow">
+            <article class="step">
+              <h3>Import</h3>
+              <p>Point MAGI at a Slippi folder or import replay files manually.</p>
+            </article>
+            <article class="step">
+              <h3>Watch live</h3>
+              <p>Run Cornerman for overlay alerts during sets and concise between-games adjustments.</p>
+            </article>
+            <article class="step">
+              <h3>Measure</h3>
+              <p>Review stats, matchups, sessions, and recent-form trends.</p>
+            </article>
+            <article class="step">
+              <h3>Ask</h3>
+              <p>Use game coaching, Oracle chat, or session reports for specific feedback.</p>
+            </article>
+            <article class="step">
+              <h3>Review</h3>
+              <p>
+                Open timestamps in Dolphin, using the embedded replay surface on Windows or external Dolphin launch
+                elsewhere.
+              </p>
+            </article>
+            <article class="step">
+              <h3>Practice</h3>
+              <p>Generate drills from weakness patterns and track completion.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <div class="install">
+            <div>
+              <div class="eyebrow">Build from source</div>
+              <h2>Electron, Vite, React, SQLite, and Slippi parsing.</h2>
+              <code>git clone https://github.com/Bloodshed-Rain/TheMAGI.git cd TheMAGI npm install npm run dev</code>
+            </div>
+            <div class="hero-actions" style="margin: 0">
+              <a
+                class="button primary"
+                href="https://github.com/Bloodshed-Rain/TheMAGI/releases"
+                target="_blank"
+                rel="noreferrer"
+                >Download Release</a
+              >
+              <a
+                class="button"
+                href="https://github.com/Bloodshed-Rain/TheMAGI/blob/main/README.md"
+                target="_blank"
+                rel="noreferrer"
+                >Read README</a
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="foot-inner">
+        <span>MAGI - Melee Analysis through Generative Intelligence</span>
+        <span>MIT License - local-first desktop app</span>
+      </div>
+    </footer>
+
+    <script>
+      (() => {
+        const bg = document.getElementById("wireframe-bg");
+        const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+        if (!bg || prefersReducedMotion) return;
+
+        const roster = [
+          "bowser",
+          "captain_falcon",
+          "donkey_kong",
+          "dr_mario",
+          "falco",
+          "fox",
+          "game_and_watch",
+          "ganondorf",
+          "ice_climbers",
+          "jigglypuff",
+          "kirby",
+          "link",
+          "luigi",
+          "mario",
+          "marth",
+          "marth_dair",
+          "mewtwo",
+          "ness",
+          "peach",
+          "pichu",
+          "pikachu",
+          "roy",
+          "samus",
+          "sheik",
+          "yoshi",
+          "young_link",
+          "zelda",
+        ];
+
+        const rand = (min, max) => min + Math.random() * (max - min);
+        const shuffled = (items) => {
+          const copy = items.slice();
+          for (let i = copy.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [copy[i], copy[j]] = [copy[j], copy[i]];
+          }
+          return copy;
+        };
+
+        let queue = shuffled(roster);
+        let lastShown = "";
+
+        const nextCharacter = () => {
+          if (queue.length === 0) {
+            queue = shuffled(roster);
+            if (queue[0] === lastShown && queue.length > 1) {
+              [queue[0], queue[1]] = [queue[1], queue[0]];
+            }
+          }
+          lastShown = queue.shift() || "marth";
+          return lastShown;
+        };
+
+        const spawn = () => {
+          const isMobile = window.innerWidth < 600;
+          const name = nextCharacter();
+          const img = document.createElement("img");
+          const sizeVh = isMobile ? rand(92, 118) : rand(78, 112);
+          const charHeight = (sizeVh / 100) * window.innerHeight;
+          const charWidth = charHeight * 0.65;
+
+          img.className = "wireframe-char";
+          img.alt = "";
+          img.decoding = "async";
+          img.loading = "lazy";
+          img.src = `${name}_wireframe.png`;
+          img.style.height = `${sizeVh}vh`;
+
+          if (isMobile) {
+            img.style.left = `${window.innerWidth - charWidth * 0.7 + rand(0, charWidth * 0.25)}px`;
+            img.style.top = `${window.innerHeight - charHeight * 0.8 + rand(0, charHeight * 0.15)}px`;
+          } else {
+            const leftMin = -(charWidth * 0.2);
+            const leftMax = window.innerWidth - charWidth * 0.8;
+            const topMin = -(charHeight * 0.1);
+            const topMax = window.innerHeight - charHeight * 0.8;
+            img.style.left = `${leftMin + Math.random() * (leftMax - leftMin)}px`;
+            img.style.top = `${topMin + Math.random() * Math.max(0, topMax - topMin)}px`;
+          }
+
+          const fadeIn = rand(3500, 5500);
+          const fadeOut = rand(3500, 5500);
+          const hold = rand(5000, 8000);
+          const peak = isMobile ? rand(0.32, 0.46) : rand(0.16, 0.28);
+
+          img.style.rotate = `${rand(-5, 5)}deg`;
+          img.style.animationDelay = `${-rand(0, 28)}s`;
+          img.style.animationDuration = `${rand(22, 34)}s`;
+          img.style.transition = `opacity ${fadeIn}ms ease-in-out`;
+          bg.appendChild(img);
+
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              img.style.opacity = peak.toFixed(3);
+            });
+          });
+
+          window.setTimeout(() => {
+            img.style.transition = `opacity ${fadeOut}ms ease-in-out`;
+            img.style.opacity = "0";
+            window.setTimeout(() => {
+              img.remove();
+              window.setTimeout(spawn, rand(600, 1800));
+            }, fadeOut + 200);
+          }, fadeIn + hold);
+        };
+
+        spawn();
+      })();
+    </script>
+  </body>
 </html>
