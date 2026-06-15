@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MAGI - Melee Analysis through Generative Intelligence</title>
+    <title>MAGI - Melee Analysis Thru Generative Intelligence</title>
     <meta
       name="description"
       content="MAGI is a local-first desktop app for Slippi replay stats, live Cornerman alerts, AI coaching, practice plans, Oracle chat, and Dolphin replay review."
@@ -306,6 +306,27 @@
         line-height: 0.92;
         letter-spacing: 0;
         text-transform: uppercase;
+      }
+
+      .hero-initial {
+        color: var(--initial-color);
+        text-shadow: 0 0 24px color-mix(in srgb, var(--initial-color) 46%, transparent);
+      }
+
+      .hero-initial.melee {
+        --initial-color: #a0a8ff;
+      }
+
+      .hero-initial.analysis {
+        --initial-color: var(--win);
+      }
+
+      .hero-initial.generative {
+        --initial-color: #e8a3d4;
+      }
+
+      .hero-initial.intelligence {
+        --initial-color: var(--loss);
       }
 
       .hero-copy {
@@ -722,7 +743,11 @@
       <header class="hero">
         <div class="hero-inner parallax-layer">
           <div class="eyebrow">MAGI v1.6.1 - local desktop replay analysis</div>
-          <h1>Melee coaching while the set is still alive.</h1>
+          <h1>
+            <span class="hero-initial melee">M</span>elee <span class="hero-initial analysis">A</span>nalysis Thru
+            <span class="hero-initial generative">G</span>enerative
+            <span class="hero-initial intelligence">I</span>ntelligence.
+          </h1>
           <p class="hero-copy">
             Import `.slp` files, track the habits that decide sets, get live Cornerman popups for major in-game moments,
             ask an Oracle about your recent games, generate practice plans, and review replays through a redesigned
@@ -1026,7 +1051,7 @@
 
     <footer>
       <div class="foot-inner">
-        <span>MAGI - Melee Analysis through Generative Intelligence</span>
+        <span>MAGI - Melee Analysis Thru Generative Intelligence</span>
         <span>MIT License - local-first desktop app</span>
       </div>
     </footer>
