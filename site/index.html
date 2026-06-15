@@ -146,6 +146,10 @@
           transform: none !important;
           transition: none;
         }
+
+        .hero-initial {
+          animation: none;
+        }
       }
 
       a {
@@ -335,31 +339,47 @@
       .hero-initial {
         display: inline-block;
         background: var(--initial-gradient);
+        background-size: 260% 260%;
         background-clip: text;
         -webkit-background-clip: text;
+        background-position: 0% 50%;
         color: transparent;
         -webkit-text-fill-color: transparent;
+        animation: initial-gradient-flow var(--initial-speed, 6.5s) ease-in-out infinite alternate;
         filter: drop-shadow(0 0 18px color-mix(in srgb, var(--initial-glow) 42%, transparent));
+      }
+
+      @keyframes initial-gradient-flow {
+        from {
+          background-position: 0% 45%;
+        }
+
+        to {
+          background-position: 100% 55%;
+        }
       }
 
       .hero-initial.melee {
         --initial-glow: #a0a8ff;
-        --initial-gradient: linear-gradient(135deg, #ffffff 0%, #a0a8ff 48%, #7ee8c5 100%);
+        --initial-gradient: linear-gradient(120deg, #ffffff 0%, #a0a8ff 34%, #7ee8c5 68%, #ffffff 100%);
       }
 
       .hero-initial.analysis {
         --initial-glow: var(--win);
-        --initial-gradient: linear-gradient(135deg, #7ee8c5 0%, #f5f7fb 42%, #a0a8ff 100%);
+        --initial-gradient: linear-gradient(120deg, #7ee8c5 0%, #f5f7fb 35%, #a0a8ff 70%, #7ee8c5 100%);
+        animation-delay: -1.3s;
       }
 
       .hero-initial.generative {
-        --initial-glow: #e8a3d4;
-        --initial-gradient: linear-gradient(135deg, #e8a3d4 0%, #f5f7fb 38%, #ff8a9e 100%);
+        --initial-glow: #c5b6ff;
+        --initial-gradient: linear-gradient(120deg, #a0a8ff 0%, #c5b6ff 34%, #7ee8c5 70%, #f5f7fb 100%);
+        animation-delay: -2.6s;
       }
 
       .hero-initial.intelligence {
-        --initial-glow: var(--loss);
-        --initial-gradient: linear-gradient(135deg, #ff8a9e 0%, #e8a3d4 46%, #a0a8ff 100%);
+        --initial-glow: #7ee8c5;
+        --initial-gradient: linear-gradient(120deg, #7ee8c5 0%, #a0a8ff 38%, #c5b6ff 72%, #f5f7fb 100%);
+        animation-delay: -3.9s;
       }
 
       .hero-copy {
