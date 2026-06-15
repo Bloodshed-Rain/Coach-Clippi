@@ -81,11 +81,11 @@
 
       @keyframes ambient-flow {
         from {
-          transform: translate3d(-2%, -1%, 0) scale(1);
+          transform: translate3d(calc(-2% + var(--ambient-x, 0px)), calc(-1% + var(--ambient-y, 0px)), 0) scale(1);
         }
 
         to {
-          transform: translate3d(2%, 1%, 0) scale(1.04);
+          transform: translate3d(calc(2% + var(--ambient-x, 0px)), calc(1% + var(--ambient-y, 0px)), 0) scale(1.04);
         }
       }
 
@@ -95,6 +95,9 @@
         z-index: 0;
         overflow: hidden;
         pointer-events: none;
+        transform: translate3d(var(--wire-x, 0px), var(--wire-y, 0px), 0) scale(var(--wire-scale, 1));
+        transform-origin: 50% 50%;
+        will-change: transform;
       }
 
       .wireframe-char {
@@ -107,6 +110,13 @@
         user-select: none;
         -webkit-user-drag: none;
         will-change: opacity, translate, scale, rotate;
+      }
+
+      .parallax-layer {
+        transform: translate3d(var(--hero-x, 0px), var(--hero-y, 0px), 0);
+        transform-style: preserve-3d;
+        transition: transform 120ms ease-out;
+        will-change: transform;
       }
 
       @keyframes wf-drift {
@@ -128,6 +138,13 @@
 
         .wireframe-bg {
           display: none;
+        }
+
+        .parallax-layer,
+        .hero-stats,
+        .update-strip {
+          transform: none !important;
+          transition: none;
         }
       }
 
@@ -222,6 +239,36 @@
         border-bottom: 1px solid var(--line);
         position: relative;
         z-index: 1;
+        overflow: hidden;
+        perspective: 1200px;
+      }
+
+      .hero::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(
+            circle at var(--spot-x, 62%) var(--spot-y, 38%),
+            rgba(245, 247, 251, 0.18),
+            rgba(126, 232, 197, 0.08) 22%,
+            transparent 44%
+          ),
+          linear-gradient(
+            112deg,
+            transparent 0%,
+            transparent 36%,
+            rgba(255, 255, 255, 0.08) 48%,
+            transparent 62%,
+            transparent 100%
+          );
+        mix-blend-mode: screen;
+        opacity: 0.82;
+        transform: translate3d(var(--glint-x, 0px), var(--glint-y, 0px), 0);
+        transition: opacity 180ms ease-out;
+        will-change: transform;
       }
 
       main,
@@ -233,6 +280,8 @@
       .hero-inner {
         width: min(1180px, 100%);
         margin: 0 auto;
+        position: relative;
+        z-index: 1;
       }
 
       .eyebrow {
@@ -279,6 +328,10 @@
         gap: 12px;
         max-width: 860px;
         margin-top: 44px;
+        transform: translate3d(var(--panel-x, 0px), var(--panel-y, 0px), 34px);
+        transform-style: preserve-3d;
+        transition: transform 120ms ease-out;
+        will-change: transform;
       }
 
       .stat {
@@ -309,6 +362,10 @@
         gap: 12px;
         margin-top: 28px;
         max-width: 960px;
+        transform: translate3d(var(--panel-x, 0px), var(--panel-y, 0px), 46px);
+        transform-style: preserve-3d;
+        transition: transform 120ms ease-out;
+        will-change: transform;
       }
 
       .update-card {
@@ -663,7 +720,7 @@
 
     <main id="top">
       <header class="hero">
-        <div class="hero-inner">
+        <div class="hero-inner parallax-layer">
           <div class="eyebrow">MAGI v1.6.1 - local desktop replay analysis</div>
           <h1>Melee coaching while the set is still alive.</h1>
           <p class="hero-copy">
@@ -979,6 +1036,75 @@
         const bg = document.getElementById("wireframe-bg");
         const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
         if (!bg || prefersReducedMotion) return;
+        const root = document.documentElement;
+        const hasFinePointer = window.matchMedia?.("(pointer: fine)")?.matches ?? true;
+        const parallax = {
+          x: 0,
+          y: 0,
+          targetX: 0,
+          targetY: 0,
+          scroll: window.scrollY,
+          easedScroll: window.scrollY,
+        };
+        const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+        const setPointerTargets = (clientX, clientY) => {
+          if (!hasFinePointer) return;
+          const width = Math.max(window.innerWidth, 1);
+          const height = Math.max(window.innerHeight, 1);
+          const x = clamp(clientX / width, 0, 1);
+          const y = clamp(clientY / height, 0, 1);
+          parallax.targetX = (x - 0.5) * 2;
+          parallax.targetY = (y - 0.5) * 2;
+          root.style.setProperty("--spot-x", `${Math.round(x * 100)}%`);
+          root.style.setProperty("--spot-y", `${Math.round(y * 100)}%`);
+        };
+
+        if (hasFinePointer) {
+          setPointerTargets(window.innerWidth * 0.62, window.innerHeight * 0.38);
+          window.addEventListener("pointermove", (event) => setPointerTargets(event.clientX, event.clientY), {
+            passive: true,
+          });
+          window.addEventListener(
+            "pointerleave",
+            () => {
+              parallax.targetX = 0;
+              parallax.targetY = 0;
+              root.style.setProperty("--spot-x", "62%");
+              root.style.setProperty("--spot-y", "38%");
+            },
+            { passive: true },
+          );
+        }
+
+        window.addEventListener(
+          "scroll",
+          () => {
+            parallax.scroll = window.scrollY;
+          },
+          { passive: true },
+        );
+
+        const animateParallax = () => {
+          parallax.x += (parallax.targetX - parallax.x) * 0.08;
+          parallax.y += (parallax.targetY - parallax.y) * 0.08;
+          parallax.easedScroll += (parallax.scroll - parallax.easedScroll) * 0.1;
+
+          const scrollDepth = clamp(parallax.easedScroll / Math.max(window.innerHeight, 1), 0, 1.4);
+          root.style.setProperty("--ambient-x", `${(parallax.x * 34).toFixed(2)}px`);
+          root.style.setProperty("--ambient-y", `${(parallax.y * 24 - scrollDepth * 18).toFixed(2)}px`);
+          root.style.setProperty("--wire-x", `${(-parallax.x * 46).toFixed(2)}px`);
+          root.style.setProperty("--wire-y", `${(-parallax.y * 32 - scrollDepth * 58).toFixed(2)}px`);
+          root.style.setProperty("--wire-scale", `${(1 + scrollDepth * 0.035).toFixed(3)}`);
+          root.style.setProperty("--hero-x", `${(parallax.x * 12).toFixed(2)}px`);
+          root.style.setProperty("--hero-y", `${(parallax.y * 8 - scrollDepth * 22).toFixed(2)}px`);
+          root.style.setProperty("--panel-x", `${(-parallax.x * 18).toFixed(2)}px`);
+          root.style.setProperty("--panel-y", `${(-parallax.y * 12 - scrollDepth * 16).toFixed(2)}px`);
+          root.style.setProperty("--glint-x", `${(parallax.x * 28).toFixed(2)}px`);
+          root.style.setProperty("--glint-y", `${(parallax.y * 18 - scrollDepth * 24).toFixed(2)}px`);
+
+          requestAnimationFrame(animateParallax);
+        };
+        requestAnimationFrame(animateParallax);
 
         const roster = [
           "bowser",
