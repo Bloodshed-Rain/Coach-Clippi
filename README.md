@@ -2,9 +2,33 @@
 
 Melee Analysis through Generative Intelligence.
 
-MAGI is a local-first Electron app for turning Slippi `.slp` replays into a searchable Melee performance database, current-form dashboard, AI coaching surface, practice-plan tracker, and replay review workspace.
+[![Latest release](https://img.shields.io/github/v/release/Bloodshed-Rain/TheMAGI?label=release)](https://github.com/Bloodshed-Rain/TheMAGI/releases)
+[![Build & Release](https://github.com/Bloodshed-Rain/TheMAGI/actions/workflows/build.yml/badge.svg)](https://github.com/Bloodshed-Rain/TheMAGI/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-7ee8c5)](https://github.com/Bloodshed-Rain/TheMAGI/releases)
+[![Slippi](https://img.shields.io/badge/Slippi-.slp%20replays-8ea7ff)](https://slippi.gg/)
+
+MAGI is a local-first desktop AI coach for Super Smash Bros. Melee. It turns Slippi `.slp` replays into a searchable performance database, current-form dashboard, AI coaching surface, practice-plan tracker, and replay review workspace.
+
+- **Local-first:** replay data, config, and coaching cache stay on your machine.
+- **Replay-native:** built around Slippi files, matchup records, opponent history, session trends, and game-level review.
+- **AI-flexible:** use the free no-key fallback, hosted providers, or local OpenAI-compatible models.
+- **Made for practice:** convert vague losses into specific patterns, drills, and review targets.
+
+**Website:** [themagi.gg](https://themagi.gg)<br>
+**Download:** [GitHub Releases](https://github.com/Bloodshed-Rain/TheMAGI/releases)<br>
+**Source:** [github.com/Bloodshed-Rain/TheMAGI](https://github.com/Bloodshed-Rain/TheMAGI)
 
 ![MAGI dashboard](screenshots/app-dashboard.png)
+
+## Quick Start
+
+1. Download the latest build from [Releases](https://github.com/Bloodshed-Rain/TheMAGI/releases).
+2. Open MAGI and go to **Settings**.
+3. Enter your player tag / connect code and select your Slippi replay folder.
+4. Click **Import All** to build your local replay database.
+5. Open **Dashboard**, **Trends**, **Sessions**, **Characters**, **Game Theater**, **Practice**, or **MAGI Oracle** to start reviewing.
+6. Optional: add an AI provider key in Settings, use Pollinations as a no-key fallback, or connect a local OpenAI-compatible server from Ollama / LM Studio.
 
 ## Current State
 
@@ -19,6 +43,14 @@ MAGI is currently a Vite + React desktop app with an Electron main process, type
 - **Practice** - generated drill plans based on detected weakness patterns, with drill completion tracking.
 - **MAGI Oracle** - persistent chat that answers questions from recent local game context.
 - **Settings** - player profile, replay folder import, watcher controls, Slippi Dolphin paths, provider setup, themes, density, and data reset.
+
+## Use Cases
+
+- **Find your real problem matchups:** filter by character, stage, opponent, session, or result instead of guessing from memory.
+- **Turn replay review into drills:** let generated practice plans target repeated weakness patterns.
+- **Ask your recent games questions:** use MAGI Oracle to ask what changed, where you are bleeding stocks, or what to review next.
+- **Review games in context:** combine replay launch, stock timelines, stats, and coaching in Game Theater.
+- **Track current form:** compare rolling neutral, punish, survival, and conversion trends over recent games.
 
 ## Screenshots
 
@@ -63,6 +95,13 @@ MAGI supports both no-key and bring-your-own-key workflows:
 - Analysis calls are queued, streamed into the UI, retried on transient failures, and cached locally when possible.
 
 Coaching currently appears in the dashboard Oracle summary, game theater coaching panel, character-scope analysis modal, daily session reports, generated practice plans, and the Oracle chat.
+
+Example questions to ask MAGI Oracle:
+
+- “Why am I losing to Marth this week?”
+- “What changed in my last 20 games?”
+- “Which opponent habits am I failing to punish?”
+- “What should I drill today if I only have 30 minutes?”
 
 ## Replay Review
 
