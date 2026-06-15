@@ -671,6 +671,14 @@
         grid-template-columns: 1fr 1fr;
       }
 
+      .feature-media.stats-showcase {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .feature-shot-wide {
+        grid-column: 1 / -1;
+      }
+
       .feature-shot {
         margin: 0;
         border: 1px solid var(--line);
@@ -819,6 +827,7 @@
         .feature-layout,
         .feature-layout.reverse,
         .feature-media.dual,
+        .feature-media.stats-showcase,
         .live-layout,
         .workflow,
         .section-head,
@@ -969,14 +978,18 @@
                 <span>Character-specific stats</span>
               </div>
             </div>
-            <div class="feature-media dual">
-              <figure class="feature-shot">
+            <div class="feature-media stats-showcase">
+              <figure class="feature-shot feature-shot-wide">
                 <img src="screenshots/app-characters.png" alt="MAGI character stats page" />
-                <figcaption>Per-character pages keep roster-specific performance readable.</figcaption>
+                <figcaption>All-character tracking shows roster-wide performance at a glance.</figcaption>
               </figure>
               <figure class="feature-shot">
-                <img src="screenshots/app-trends.png" alt="MAGI trend tracking page" />
-                <figcaption>Trends show how your core numbers move over time.</figcaption>
+                <img src="screenshots/app-marth-character.png" alt="MAGI Marth character stats page" />
+                <figcaption>Marth pages surface character-specific confirms, kills, and matchup context.</figcaption>
+              </figure>
+              <figure class="feature-shot">
+                <img src="screenshots/app-marth-radar.png" alt="MAGI Marth radar stats display" />
+                <figcaption>Radar stats turn a character's form into strengths and lab targets.</figcaption>
               </figure>
             </div>
           </div>
@@ -1009,30 +1022,10 @@
                 <span>Character confirms</span>
               </div>
             </div>
-            <div class="live-panel" aria-label="Example live Cornerman alerts">
-              <div class="live-panel-head">
-                <h3>Live Alerts</h3>
-                <div class="live-state">Watching</div>
-              </div>
-              <div class="event-list">
-                <article class="event high">
-                  <strong>Waveshine Upsmash <span>1:14</span></strong>
-                  <p>You converted two shines into the kill from 72%.</p>
-                </article>
-                <article class="event">
-                  <strong>Power Shield <span>1:39</span></strong>
-                  <p>You power shielded a projectile and reset neutral.</p>
-                </article>
-                <article class="event high">
-                  <strong>Stitch Face <span>2:08</span></strong>
-                  <p>Peach pulled a stitch face. The overlay calls it before the stock is over.</p>
-                </article>
-                <article class="event high">
-                  <strong>High Combo Kill <span>3:26</span></strong>
-                  <p>One opening became 64% and a stock. That swing gets surfaced immediately.</p>
-                </article>
-              </div>
-            </div>
+            <figure class="feature-shot">
+              <img src="screenshots/app-cornerman-live-overlay.png" alt="MAGI Cornerman live overlay during a match" />
+              <figcaption>Transparent live popups surface major events the moment they happen.</figcaption>
+            </figure>
           </div>
         </div>
       </section>
