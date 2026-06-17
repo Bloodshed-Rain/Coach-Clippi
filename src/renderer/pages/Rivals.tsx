@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ArrowLeft, Search, SlidersHorizontal, Trophy, UserRound, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useOpponents, useOpponentDetail } from "../hooks/queries";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -9,16 +10,166 @@ import { ResultDot } from "../components/ui/ResultDot";
 import { DossierPanel } from "../components/DossierPanel";
 import "../styles/rivals.css";
 
+interface OpponentRecord {
+  opponentTag: string;
+  opponentConnectCode: string | null;
+  wins: number;
+  losses: number;
+  totalGames: number;
+  winRate: number;
+  characters: string;
+  lastPlayed: string | null;
+}
+
+interface OpponentDetailGame {
+  id: number;
+  playedAt: string | null;
+  playerCharacter: string;
+  opponentCharacter: string;
+  stage: string;
+  result: string;
+  playerFinalStocks: number;
+  opponentFinalStocks: number;
+  neutralWinRate: number;
+  lCancelRate: number;
+  openingsPerKill: number;
+  edgeguardSuccessRate: number;
+  replayPath: string;
+}
+
+interface OpponentBreakdown {
+  stage?: string;
+  opponentCharacter?: string;
+  wins: number;
+  losses: number;
+  totalGames: number;
+  winRate: number;
+}
+
+interface OpponentDetail {
+  opponentTag: string;
+  opponentConnectCode: string | null;
+  wins: number;
+  losses: number;
+  totalGames: number;
+  winRate: number;
+  games: OpponentDetailGame[];
+  stageBreakdown: OpponentBreakdown[];
+  characterBreakdown: OpponentBreakdown[];
+}
+
+type RivalSort = "volume" | "recent" | "hardest" | "winRate";
+type RivalFilter = "all" | "winning" | "losing" | "close";
+
+const FILTERS: Array<{ id: RivalFilter; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "winning", label: "Winning" },
+  { id: "losing", label: "Losing" },
+  { id: "close", label: "Close" },
+];
+
+const SORT_LABELS: Record<RivalSort, string> = {
+  volume: "Most played",
+  recent: "Most recent",
+  hardest: "Hardest",
+  winRate: "Best record",
+};
+
+function getOpponentKey(opponent: Pick<OpponentRecord, "opponentConnectCode" | "opponentTag">): string {
+  return opponent.opponentConnectCode ?? opponent.opponentTag;
+}
+
+function pct(value: number | null | undefined, digits = 0): string {
+  return `${((value ?? 0) * 100).toFixed(digits)}%`;
+}
+
+function dateLabel(value: string | null | undefined): string {
+  if (!value) return "No date";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No date";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function shortDate(value: string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function splitCharacters(value: string | null | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function recordLabel(wins: number, losses: number): string {
+  const diff = wins - losses;
+  if (diff > 0) return `+${diff}`;
+  return `${diff}`;
+}
+
+function rivalStatus(winRate: number): string {
+  if (winRate >= 0.6) return "Advantage";
+  if (winRate <= 0.4) return "Problem";
+  return "Even";
+}
+
+function avg(games: OpponentDetailGame[], pick: (game: OpponentDetailGame) => number): number {
+  if (games.length === 0) return 0;
+  return games.reduce((sum, game) => sum + (Number.isFinite(pick(game)) ? pick(game) : 0), 0) / games.length;
+}
+
 export function Rivals({ refreshKey: _ }: { refreshKey: number }) {
   const navigate = useNavigate();
-  const { data: opponents = [], isLoading, isError } = useOpponents();
+  const { data: rawOpponents = [], isLoading, isError } = useOpponents();
+  const opponents = rawOpponents as OpponentRecord[];
   const [selected, setSelected] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<RivalSort>("volume");
+  const [filter, setFilter] = useState<RivalFilter>("all");
 
-  // Surface the most-played opponents first — those are the real rivals.
-  const sorted = useMemo(
-    () => [...opponents].sort((a, b) => (b.totalGames ?? 0) - (a.totalGames ?? 0)),
-    [opponents],
-  );
+  const summary = useMemo(() => {
+    const totalGames = opponents.reduce((sum, opponent) => sum + (opponent.totalGames ?? 0), 0);
+    const winning = opponents.filter((opponent) => (opponent.winRate ?? 0) >= 0.5).length;
+    const mostPlayed = [...opponents].sort((a, b) => (b.totalGames ?? 0) - (a.totalGames ?? 0))[0] ?? null;
+    const hardest =
+      [...opponents].filter((opponent) => (opponent.totalGames ?? 0) >= 3).sort((a, b) => a.winRate - b.winRate)[0] ??
+      [...opponents].sort((a, b) => a.winRate - b.winRate)[0] ??
+      null;
+
+    return { totalGames, winning, mostPlayed, hardest };
+  }, [opponents]);
+
+  const visibleOpponents = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return opponents
+      .filter((opponent) => {
+        const characters = splitCharacters(opponent.characters).join(" ").toLowerCase();
+        const searchable = [opponent.opponentTag, opponent.opponentConnectCode ?? "", characters]
+          .join(" ")
+          .toLowerCase();
+        if (query && !searchable.includes(query)) return false;
+        if (filter === "winning") return (opponent.winRate ?? 0) >= 0.5;
+        if (filter === "losing") return (opponent.winRate ?? 0) < 0.5;
+        if (filter === "close") return Math.abs((opponent.winRate ?? 0) - 0.5) <= 0.1;
+        return true;
+      })
+      .sort((a, b) => {
+        if (sort === "recent") {
+          return new Date(b.lastPlayed ?? 0).getTime() - new Date(a.lastPlayed ?? 0).getTime();
+        }
+        if (sort === "hardest") {
+          return (a.winRate ?? 0) - (b.winRate ?? 0) || (b.totalGames ?? 0) - (a.totalGames ?? 0);
+        }
+        if (sort === "winRate") {
+          return (b.winRate ?? 0) - (a.winRate ?? 0) || (b.totalGames ?? 0) - (a.totalGames ?? 0);
+        }
+        return (b.totalGames ?? 0) - (a.totalGames ?? 0);
+      });
+  }, [filter, opponents, search, sort]);
 
   if (selected) return <RivalDetail opponentKey={selected} onBack={() => setSelected(null)} />;
 
@@ -26,14 +177,14 @@ export function Rivals({ refreshKey: _ }: { refreshKey: number }) {
     return (
       <div className="loading">
         <div className="spinner loading-spinner" />
-        Loading rivals…
+        Loading rivals...
       </div>
     );
   }
   if (isError) {
     return <div className="sessions-error">Failed to load rivals. Please try again.</div>;
   }
-  if (sorted.length === 0) {
+  if (opponents.length === 0) {
     return (
       <EmptyState
         title="No rivals yet"
@@ -44,110 +195,380 @@ export function Rivals({ refreshKey: _ }: { refreshKey: number }) {
   }
 
   return (
-    <div>
-      <div className="page-header">
-        <h1>Rivals</h1>
-        <p>Scout an opponent you keep running into.</p>
+    <div className="rivals-page">
+      <div className="page-header rivals-header">
+        <div>
+          <h1>Rivals</h1>
+          <p>
+            {visibleOpponents.length} of {opponents.length} opponents - {summary.totalGames} head-to-head games
+          </p>
+        </div>
       </div>
-      <div className="rivals-grid">
-        {sorted.map((o) => {
-          const key: string = o.opponentConnectCode ?? o.opponentTag;
-          return (
-            <button key={key} className="rival-card" onClick={() => setSelected(key)}>
-              <div className="rival-card-tag">{o.opponentTag}</div>
-              <div className="rival-card-record">
-                {o.wins}W-{o.losses}L · {Math.round((o.winRate ?? 0) * 100)}% · {o.totalGames} games
-              </div>
-              <WinrateBar value={o.winRate ?? 0} />
+
+      <div className="rivals-summary-grid">
+        <div className="rival-summary-panel">
+          <div className="rival-summary-icon">
+            <UserRound size={16} aria-hidden="true" />
+          </div>
+          <div>
+            <span className="rival-summary-label">Tracked Rivals</span>
+            <strong>{opponents.length}</strong>
+          </div>
+        </div>
+        <div className="rival-summary-panel">
+          <div className="rival-summary-icon">
+            <Trophy size={16} aria-hidden="true" />
+          </div>
+          <div>
+            <span className="rival-summary-label">Winning Records</span>
+            <strong>{summary.winning}</strong>
+          </div>
+        </div>
+        <div className="rival-summary-panel">
+          <div className="rival-summary-icon">
+            <Zap size={16} aria-hidden="true" />
+          </div>
+          <div>
+            <span className="rival-summary-label">Most Played</span>
+            <strong>{summary.mostPlayed?.opponentTag ?? "-"}</strong>
+            <small>{summary.mostPlayed ? `${summary.mostPlayed.totalGames} games` : ""}</small>
+          </div>
+        </div>
+        <div className="rival-summary-panel rival-summary-panel-danger">
+          <div className="rival-summary-icon">
+            <SlidersHorizontal size={16} aria-hidden="true" />
+          </div>
+          <div>
+            <span className="rival-summary-label">Problem Match</span>
+            <strong>{summary.hardest?.opponentTag ?? "-"}</strong>
+            <small>{summary.hardest ? pct(summary.hardest.winRate) : ""}</small>
+          </div>
+        </div>
+      </div>
+
+      <div className="rivals-controls">
+        <label className="rivals-search" htmlFor="rivals-search">
+          <Search size={15} aria-hidden="true" />
+          <input
+            id="rivals-search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search tag, code, or character"
+          />
+        </label>
+
+        <label className="rivals-sort" htmlFor="rivals-sort">
+          <span>Sort</span>
+          <select id="rivals-sort" value={sort} onChange={(event) => setSort(event.target.value as RivalSort)}>
+            {Object.entries(SORT_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="rivals-filter-row" role="group" aria-label="Filter rivals">
+          {FILTERS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`rivals-filter-button${filter === item.id ? " rivals-filter-button-active" : ""}`}
+              onClick={() => setFilter(item.id)}
+            >
+              {item.label}
             </button>
-          );
-        })}
+          ))}
+        </div>
       </div>
+
+      {visibleOpponents.length === 0 ? (
+        <div className="rivals-empty-panel">
+          No rivals match those filters.
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => {
+              setSearch("");
+              setFilter("all");
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      ) : (
+        <div className="rivals-grid">
+          {visibleOpponents.map((opponent, index) => {
+            const key = getOpponentKey(opponent);
+            const characters = splitCharacters(opponent.characters);
+            const status = rivalStatus(opponent.winRate ?? 0);
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`rival-card rival-card-${status.toLowerCase()}`}
+                onClick={() => setSelected(key)}
+              >
+                <div className="rival-card-topline">
+                  <span className="rival-rank">#{index + 1}</span>
+                  <span className="rival-status">{status}</span>
+                </div>
+                <div className="rival-card-head">
+                  <div>
+                    <div className="rival-card-tag">{opponent.opponentTag}</div>
+                    <div className="rival-card-code">{opponent.opponentConnectCode ?? "No connect code"}</div>
+                  </div>
+                  <div className="rival-card-score">
+                    <strong>{pct(opponent.winRate)}</strong>
+                    <span>{recordLabel(opponent.wins, opponent.losses)}</span>
+                  </div>
+                </div>
+                <div className="rival-card-record">
+                  {opponent.wins}W-{opponent.losses}L - {opponent.totalGames} games
+                </div>
+                <WinrateBar value={opponent.winRate ?? 0} />
+                <div className="rival-chip-row">
+                  {characters.slice(0, 3).map((character) => (
+                    <span key={character} className="rival-character-chip">
+                      {character}
+                    </span>
+                  ))}
+                  {characters.length > 3 && <span className="rival-character-chip">+{characters.length - 3}</span>}
+                </div>
+                <div className="rival-card-footer">
+                  <span>Last played</span>
+                  <strong>{dateLabel(opponent.lastPlayed)}</strong>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 function RivalDetail({ opponentKey, onBack }: { opponentKey: string; onBack: () => void }) {
   const navigate = useNavigate();
-  const { data: detail, isLoading, isError } = useOpponentDetail(opponentKey);
+  const { data: rawDetail, isLoading, isError } = useOpponentDetail(opponentKey);
+  const detail = rawDetail as OpponentDetail | null | undefined;
 
   if (isLoading) {
     return (
       <div className="loading">
         <div className="spinner loading-spinner" />
-        Loading dossier…
+        Loading dossier...
       </div>
     );
   }
   if (isError || !detail) {
     return (
       <div>
-        <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: 16 }}>
-          ← All Rivals
+        <button className="btn btn-ghost rival-back-button" onClick={onBack}>
+          <ArrowLeft size={14} aria-hidden="true" />
+          All Rivals
         </button>
         <div className="sessions-error">Failed to load this rival.</div>
       </div>
     );
   }
 
-  const games: any[] = detail.games ?? [];
+  const games = detail.games ?? [];
+  const recentGames = games.slice(0, 8);
+  const recentWins = recentGames.filter((game) => game.result === "win").length;
+  const avgNeutral = avg(games, (game) => game.neutralWinRate);
+  const avgLCancel = avg(games, (game) => game.lCancelRate);
+  const avgOpeningsPerKill = avg(games, (game) => game.openingsPerKill);
+  const avgEdgeguard = avg(games, (game) => game.edgeguardSuccessRate);
+  const bestStage = [...(detail.stageBreakdown ?? [])].sort((a, b) => b.winRate - a.winRate)[0];
+  const mainCharacter = detail.characterBreakdown?.[0];
+  const lastPlayed = games[0]?.playedAt ?? null;
 
   return (
-    <div>
-      <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: 16 }}>
-        ← All Rivals
+    <div className="rival-detail-page">
+      <button className="btn btn-ghost rival-back-button" onClick={onBack}>
+        <ArrowLeft size={14} aria-hidden="true" />
+        All Rivals
       </button>
-      <div className="page-header">
-        <h1>{detail.opponentTag}</h1>
-        <p>
-          {detail.wins}W-{detail.losses}L · {Math.round((detail.winRate ?? 0) * 100)}% over {detail.totalGames} games
-        </p>
+
+      <div className="rival-detail-hero">
+        <div>
+          <span className="rivals-eyebrow">Opponent dossier</span>
+          <h1>{detail.opponentTag}</h1>
+          <p>
+            {detail.opponentConnectCode ?? "No connect code"} - last played {dateLabel(lastPlayed)}
+          </p>
+        </div>
+        <div className="rival-detail-record">
+          <span>Head to head</span>
+          <strong>
+            {detail.wins}W-{detail.losses}L
+          </strong>
+          <small>{pct(detail.winRate)} win rate</small>
+        </div>
       </div>
+
+      <div className="rival-detail-kpi-grid">
+        <div className="rival-detail-kpi">
+          <span>Recent Form</span>
+          <strong>
+            {recentWins}W-{recentGames.length - recentWins}L
+          </strong>
+          <div className="rival-form-strip" aria-label="Recent game results">
+            {recentGames.map((game) => (
+              <button
+                key={game.id}
+                type="button"
+                className="result-dot-button"
+                onClick={() => navigate(`/game/${game.id}`)}
+                aria-label={`Open ${game.result} vs ${detail.opponentTag}`}
+                title={`${game.result} on ${game.stage}`}
+              >
+                <ResultDot result={game.result === "win" ? "win" : game.result === "loss" ? "loss" : "draw"} />
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="rival-detail-kpi">
+          <span>Neutral</span>
+          <strong>{pct(avgNeutral, 1)}</strong>
+          <small>average neutral wins</small>
+        </div>
+        <div className="rival-detail-kpi">
+          <span>L-Cancel</span>
+          <strong>{pct(avgLCancel, 1)}</strong>
+          <small>against this opponent</small>
+        </div>
+        <div className="rival-detail-kpi">
+          <span>Openings / Kill</span>
+          <strong>{avgOpeningsPerKill.toFixed(2)}</strong>
+          <small>{pct(avgEdgeguard)} edgeguards</small>
+        </div>
+      </div>
+
       <div className="rival-detail-grid">
-        <Card title="Recent games vs this rival">
-          <DataTable colWidths={["32px", undefined, undefined, "76px"]}>
-            <thead>
-              <tr>
-                <th>Res</th>
-                <th>Matchup</th>
-                <th>Stage</th>
-                <th>Neutral</th>
-              </tr>
-            </thead>
-            <tbody>
-              {games.slice(0, 20).map((g) => {
-                const result: "win" | "loss" | "draw" =
-                  g.result === "win" ? "win" : g.result === "loss" ? "loss" : "draw";
-                return (
-                  <tr
-                    key={g.id}
-                    tabIndex={0}
-                    role="button"
-                    onClick={() => navigate(`/game/${g.id}`)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        navigate(`/game/${g.id}`);
-                      }
-                    }}
-                    aria-label={`Open ${result} vs ${detail.opponentTag} on ${g.stage}`}
-                  >
-                    <td>
-                      <ResultDot result={result} aria-hidden />
-                    </td>
-                    <td>
-                      {g.playerCharacter} vs {g.opponentCharacter}
-                    </td>
-                    <td>{g.stage}</td>
-                    <td>{Math.round((g.neutralWinRate ?? 0) * 100)}%</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </DataTable>
-        </Card>
+        <div className="rival-detail-main">
+          <div className="rival-scout-grid">
+            <Card title="Stage Plan">
+              <BreakdownList
+                items={detail.stageBreakdown ?? []}
+                labelFor={(item) => item.stage ?? "Unknown"}
+                emptyLabel="No stage data yet."
+              />
+              {bestStage && (
+                <p className="rival-scout-note">
+                  Best current stage: <strong>{bestStage.stage}</strong> at {pct(bestStage.winRate)}.
+                </p>
+              )}
+            </Card>
+            <Card title="Character Spread">
+              <BreakdownList
+                items={detail.characterBreakdown ?? []}
+                labelFor={(item) => item.opponentCharacter ?? "Unknown"}
+                emptyLabel="No character data yet."
+              />
+              {mainCharacter && (
+                <p className="rival-scout-note">
+                  Main look: <strong>{mainCharacter.opponentCharacter}</strong>, {mainCharacter.totalGames} games.
+                </p>
+              )}
+            </Card>
+          </div>
+
+          <Card title="Recent games vs this rival">
+            <DataTable colWidths={["34px", undefined, undefined, "76px", "76px", "72px", "72px"]}>
+              <thead>
+                <tr>
+                  <th>Res</th>
+                  <th>Matchup</th>
+                  <th>Stage</th>
+                  <th>Stocks</th>
+                  <th>Neutral</th>
+                  <th>L-Cancel</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {games.slice(0, 20).map((game) => {
+                  const result: "win" | "loss" | "draw" =
+                    game.result === "win" ? "win" : game.result === "loss" ? "loss" : "draw";
+                  return (
+                    <tr
+                      key={game.id}
+                      tabIndex={0}
+                      role="button"
+                      onClick={() => navigate(`/game/${game.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          navigate(`/game/${game.id}`);
+                        }
+                      }}
+                      aria-label={`Open ${result} vs ${detail.opponentTag} on ${game.stage}`}
+                    >
+                      <td>
+                        <ResultDot result={result} aria-hidden />
+                      </td>
+                      <td>
+                        {game.playerCharacter} <span style={{ color: "var(--text-muted)" }}>vs</span>{" "}
+                        {game.opponentCharacter}
+                      </td>
+                      <td>{game.stage}</td>
+                      <td>
+                        {game.playerFinalStocks}-{game.opponentFinalStocks}
+                      </td>
+                      <td>{pct(game.neutralWinRate)}</td>
+                      <td>{pct(game.lCancelRate)}</td>
+                      <td>{shortDate(game.playedAt)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </DataTable>
+          </Card>
+        </div>
+
         <DossierPanel opponentKey={opponentKey} opponentTag={detail.opponentTag} />
       </div>
+    </div>
+  );
+}
+
+function BreakdownList({
+  items,
+  labelFor,
+  emptyLabel,
+}: {
+  items: OpponentBreakdown[];
+  labelFor: (item: OpponentBreakdown) => string;
+  emptyLabel: string;
+}) {
+  if (items.length === 0) {
+    return <p className="rival-scout-note">{emptyLabel}</p>;
+  }
+
+  return (
+    <div className="rival-breakdown-list">
+      {items.slice(0, 6).map((item) => {
+        const label = labelFor(item);
+        return (
+          <div key={label} className="rival-breakdown-row">
+            <div className="rival-breakdown-head">
+              <strong>{label}</strong>
+              <span>
+                {item.wins}W-{item.losses}L
+              </span>
+            </div>
+            <div className="rival-breakdown-track" aria-hidden="true">
+              <div className="rival-breakdown-fill" style={{ width: pct(item.winRate) }} />
+            </div>
+            <div className="rival-breakdown-foot">
+              <span>{item.totalGames} games</span>
+              <strong>{pct(item.winRate)}</strong>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
