@@ -63,7 +63,7 @@ function buildRecentSummary(games: RecentGame[]): string {
 
 export function Dashboard({ refreshKey }: { refreshKey: number }) {
   const navigate = useNavigate();
-  const { data: games = [], isLoading, refetch } = useRecentGames(100);
+  const { data: games = [], isLoading, refetch } = useRecentGames(20);
   const { data: record, refetch: refetchRecord } = useOverallRecord();
   const { data: highlights, refetch: refetchHighlights } = useDashboardHighlights();
   const [importing, setImporting] = useState(false);
@@ -94,7 +94,7 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
     }
   }, [navigate, refetch, refetchRecord, refetchHighlights]);
 
-  const recent = (games as unknown as RecentGame[]).slice(0, 20);
+  const recent = useMemo(() => (games as unknown as RecentGame[]).slice(0, 20), [games]);
   const last10 = recent.slice(0, 10);
   const avgNeutral = useMemo(
     () => (recent.length ? recent.reduce((s, g) => s + g.neutralWinRate, 0) / recent.length : 0),

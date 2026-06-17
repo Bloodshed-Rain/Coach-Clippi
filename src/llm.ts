@@ -1130,7 +1130,7 @@ async function callPollinations(
   systemPrompt: string,
   userPrompt: string,
   modelId: string,
-  config: LLMConfig,
+  _config: LLMConfig,
 ): Promise<string> {
   const url = "https://text.pollinations.ai/openai";
   const body = JSON.stringify({
@@ -1191,7 +1191,7 @@ async function callPollinationsStream(
   systemPrompt: string,
   userPrompt: string,
   modelId: string,
-  config: LLMConfig,
+  _config: LLMConfig,
   onChunk: StreamChunkCallback,
 ): Promise<string> {
   const url = "https://text.pollinations.ai/openai";

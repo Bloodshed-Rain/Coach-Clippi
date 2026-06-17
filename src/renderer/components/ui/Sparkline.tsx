@@ -1,33 +1,5 @@
-import { CSSProperties } from "react";
-
-export function buildSparklinePoints(
-  values: number[],
-  w: number,
-  h: number,
-  domain?: [number, number],
-): string {
-  if (values.length === 0) return "";
-  // When a fixed `domain` is given, map values onto it (so a 1pp wiggle reads as
-  // small, not as a full-height swing). Otherwise auto-scale to the data range.
-  const lo = domain ? domain[0] : Math.min(...values);
-  const hi = domain ? domain[1] : Math.max(...values);
-  const range = hi - lo || 1;
-  const yOf = (v: number) => {
-    const t = (v - lo) / range;
-    const clamped = t < 0 ? 0 : t > 1 ? 1 : t;
-    return h - clamped * h;
-  };
-  if (values.length === 1) {
-    const y = yOf(values[0]!);
-    return `0,${y} ${w},${y}`;
-  }
-  return values
-    .map((v, i) => {
-      const x = (i / (values.length - 1)) * w;
-      return `${x},${yOf(v)}`;
-    })
-    .join(" ");
-}
+import { useId, type CSSProperties } from "react";
+import { buildSparklinePoints } from "./sparklineMath";
 
 interface SparklineProps {
   values: number[];
@@ -55,6 +27,7 @@ export function Sparkline({
   const w = kind === "chart" ? 1000 : 120;
   const h = height ?? (kind === "chart" ? 200 : 32);
   const pts = buildSparklinePoints(values, w, h, domain);
+  const gradId = `sparkgrad-${useId().replace(/:/g, "")}`;
   if (!pts) return null;
 
   const showFill = fill ?? kind === "chart";
@@ -63,7 +36,6 @@ export function Sparkline({
   const lastX = w;
   const lastY = values.length > 1 ? Number(pts.split(" ").slice(-1)[0]!.split(",")[1]) : h;
   const areaPath = `0,${h} ${pts} ${w},${h}`;
-  const gradId = `sparkgrad-${Math.random().toString(36).slice(2, 9)}`;
 
   return (
     <svg

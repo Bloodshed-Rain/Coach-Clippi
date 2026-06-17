@@ -8,6 +8,7 @@ import {
   detectLiveConversionEvents,
   detectLiveFrameEvents,
   detectLiveItemEvents,
+  markObservedItemInstances,
   type CornermanLiveEvent,
   type CornermanLivePlayer,
 } from "./cornermanLiveEvents";
@@ -69,7 +70,7 @@ function matchScore(player: { tag: string; connectCode: string }, id: string): n
 function resolveTargetIndex(players: CornermanLivePlayer[], targetPlayer: string): number {
   const scores = players.map((player) => ({ player, score: matchScore(player, targetPlayer.trim()) }));
   scores.sort((a, b) => b.score - a.score);
-  return scores[0]?.score ? scores[0].player.playerIndex : players[0]?.playerIndex ?? 0;
+  return scores[0]?.score ? scores[0].player.playerIndex : (players[0]?.playerIndex ?? 0);
 }
 
 function buildPlayers(settings: GameStartType, targetPlayer: string): CornermanLivePlayer[] {
@@ -157,6 +158,12 @@ class LiveReplayTracker {
     const latestFrame = stats?.lastFrame ?? this.game.getLatestFrame()?.frame ?? Frames.FIRST_PLAYABLE - 1;
 
     if (this.baselineFrame === null && this.suppressExistingEvents) {
+      markObservedItemInstances({
+        frames,
+        seenKeys: this.seenItemKeys,
+        fromFrame: Frames.FIRST_PLAYABLE,
+        toFrame: latestFrame,
+      });
       this.baselineFrame = latestFrame;
       this.lastItemFrame = latestFrame;
       this.lastFrameEventFrame = latestFrame;

@@ -36,6 +36,10 @@ describe("database schema", () => {
     expect(schema).toContain("idx_games_player_character");
     expect(schema).toContain("idx_games_opponent_character");
     expect(schema).toContain("idx_games_stage");
+    expect(schema).toContain("idx_games_played_at_desc");
+    expect(schema).toContain("idx_games_player_character_played_at");
+    expect(schema).toContain("idx_games_opponent_connect_played_at");
+    expect(schema).toContain("idx_coaching_scope_identifier_created");
   });
 
   it("has unique constraint on replay_hash", () => {
@@ -105,6 +109,27 @@ describe("db.ts module structure", () => {
 
   it("exports closeDb function", () => {
     expect(DB_SOURCE).toContain("export function closeDb()");
+  });
+
+  it("exports paged library query support", () => {
+    expect(DB_SOURCE).toContain("export function getLibraryGames");
+    expect(DB_SOURCE).toContain("export interface LibraryGamesPage");
+    expect(DB_SOURCE).toContain("totalUnfiltered");
+    expect(DB_SOURCE).toContain("LIMIT ? OFFSET ?");
+  });
+
+  it("keeps rival queries lightweight", () => {
+    expect(DB_SOURCE).toContain("WITH opponent_records AS");
+    expect(DB_SOURCE).toContain("characters LIKE ?");
+    expect(DB_SOURCE).toContain("avgEdgeguardSuccessRate");
+    expect(DB_SOURCE).toContain("LIMIT 50");
+  });
+
+  it("exports bundled trend series support", () => {
+    expect(DB_SOURCE).toContain("export type TrendSeriesBundle");
+    expect(DB_SOURCE).toContain("export function getTrendSeriesBundle");
+    expect(DB_SOURCE).toContain("gs.neutral_win_rate as neutralWinRate");
+    expect(DB_SOURCE).toContain("gs.avg_death_percent as avgDeathPercent");
   });
 
   it("uses WAL journal mode", () => {

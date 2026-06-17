@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSparklinePoints } from "../src/renderer/components/ui/Sparkline";
+import { buildSparklinePoints } from "../src/renderer/components/ui/sparklineMath";
 
 describe("buildSparklinePoints", () => {
   it("maps a flat series to a horizontal line at mid-height", () => {

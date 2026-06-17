@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Search, SlidersHorizontal, Trophy, UserRound, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useOpponents, useOpponentDetail } from "../hooks/queries";
@@ -53,6 +53,10 @@ interface OpponentDetail {
   losses: number;
   totalGames: number;
   winRate: number;
+  avgNeutralWinRate: number;
+  avgLCancelRate: number;
+  avgOpeningsPerKill: number;
+  avgEdgeguardSuccessRate: number;
   games: OpponentDetailGame[];
   stageBreakdown: OpponentBreakdown[];
   characterBreakdown: OpponentBreakdown[];
@@ -74,6 +78,7 @@ const SORT_LABELS: Record<RivalSort, string> = {
   hardest: "Hardest",
   winRate: "Best record",
 };
+const PAGE_SIZE = 48;
 
 function getOpponentKey(opponent: Pick<OpponentRecord, "opponentConnectCode" | "opponentTag">): string {
   return opponent.opponentConnectCode ?? opponent.opponentTag;
@@ -116,19 +121,21 @@ function rivalStatus(winRate: number): string {
   return "Even";
 }
 
-function avg(games: OpponentDetailGame[], pick: (game: OpponentDetailGame) => number): number {
-  if (games.length === 0) return 0;
-  return games.reduce((sum, game) => sum + (Number.isFinite(pick(game)) ? pick(game) : 0), 0) / games.length;
-}
-
 export function Rivals({ refreshKey: _ }: { refreshKey: number }) {
   const navigate = useNavigate();
-  const { data: rawOpponents = [], isLoading, isError } = useOpponents();
+  const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
+  const opponentSearch = deferredSearch.trim() || undefined;
+  const { data: rawOpponents = [], isLoading, isFetching, isError } = useOpponents(opponentSearch);
   const opponents = rawOpponents as OpponentRecord[];
   const [selected, setSelected] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
   const [sort, setSort] = useState<RivalSort>("volume");
   const [filter, setFilter] = useState<RivalFilter>("all");
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    setPage(0);
+  }, [deferredSearch, sort, filter]);
 
   const summary = useMemo(() => {
     const totalGames = opponents.reduce((sum, opponent) => sum + (opponent.totalGames ?? 0), 0);
@@ -143,7 +150,7 @@ export function Rivals({ refreshKey: _ }: { refreshKey: number }) {
   }, [opponents]);
 
   const visibleOpponents = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = deferredSearch.trim().toLowerCase();
 
     return opponents
       .filter((opponent) => {
@@ -169,7 +176,18 @@ export function Rivals({ refreshKey: _ }: { refreshKey: number }) {
         }
         return (b.totalGames ?? 0) - (a.totalGames ?? 0);
       });
-  }, [filter, opponents, search, sort]);
+  }, [deferredSearch, filter, opponents, sort]);
+
+  const pageCount = Math.max(1, Math.ceil(visibleOpponents.length / PAGE_SIZE));
+  const pageStart = visibleOpponents.length === 0 ? 0 : page * PAGE_SIZE + 1;
+  const pageEnd = Math.min(visibleOpponents.length, page * PAGE_SIZE + PAGE_SIZE);
+  const pagedOpponents = visibleOpponents.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
+  useEffect(() => {
+    if (page > 0 && page >= pageCount) {
+      setPage(pageCount - 1);
+    }
+  }, [page, pageCount]);
 
   if (selected) return <RivalDetail opponentKey={selected} onBack={() => setSelected(null)} />;
 
@@ -184,7 +202,7 @@ export function Rivals({ refreshKey: _ }: { refreshKey: number }) {
   if (isError) {
     return <div className="sessions-error">Failed to load rivals. Please try again.</div>;
   }
-  if (opponents.length === 0) {
+  if (opponents.length === 0 && !opponentSearch) {
     return (
       <EmptyState
         title="No rivals yet"
@@ -200,7 +218,8 @@ export function Rivals({ refreshKey: _ }: { refreshKey: number }) {
         <div>
           <h1>Rivals</h1>
           <p>
-            {visibleOpponents.length} of {opponents.length} opponents - {summary.totalGames} head-to-head games
+            {visibleOpponents.length} of {opponents.length} {opponentSearch ? "matching opponents" : "opponents"} -{" "}
+            {summary.totalGames} head-to-head games
           </p>
         </div>
       </div>
@@ -291,58 +310,89 @@ export function Rivals({ refreshKey: _ }: { refreshKey: number }) {
             onClick={() => {
               setSearch("");
               setFilter("all");
+              setPage(0);
             }}
           >
             Clear
           </button>
         </div>
       ) : (
-        <div className="rivals-grid">
-          {visibleOpponents.map((opponent, index) => {
-            const key = getOpponentKey(opponent);
-            const characters = splitCharacters(opponent.characters);
-            const status = rivalStatus(opponent.winRate ?? 0);
-            return (
+        <>
+          <div className="rivals-result-bar">
+            <span>
+              Showing <strong>{pageStart}</strong>-<strong>{pageEnd}</strong> of{" "}
+              <strong>{visibleOpponents.length}</strong>
+              {isFetching ? " - updating" : ""}
+            </span>
+            <div className="rivals-page-controls">
               <button
-                key={key}
                 type="button"
-                className={`rival-card rival-card-${status.toLowerCase()}`}
-                onClick={() => setSelected(key)}
+                className="btn btn-ghost"
+                disabled={page === 0 || isFetching}
+                onClick={() => setPage((current) => Math.max(0, current - 1))}
               >
-                <div className="rival-card-topline">
-                  <span className="rival-rank">#{index + 1}</span>
-                  <span className="rival-status">{status}</span>
-                </div>
-                <div className="rival-card-head">
-                  <div>
-                    <div className="rival-card-tag">{opponent.opponentTag}</div>
-                    <div className="rival-card-code">{opponent.opponentConnectCode ?? "No connect code"}</div>
-                  </div>
-                  <div className="rival-card-score">
-                    <strong>{pct(opponent.winRate)}</strong>
-                    <span>{recordLabel(opponent.wins, opponent.losses)}</span>
-                  </div>
-                </div>
-                <div className="rival-card-record">
-                  {opponent.wins}W-{opponent.losses}L - {opponent.totalGames} games
-                </div>
-                <WinrateBar value={opponent.winRate ?? 0} />
-                <div className="rival-chip-row">
-                  {characters.slice(0, 3).map((character) => (
-                    <span key={character} className="rival-character-chip">
-                      {character}
-                    </span>
-                  ))}
-                  {characters.length > 3 && <span className="rival-character-chip">+{characters.length - 3}</span>}
-                </div>
-                <div className="rival-card-footer">
-                  <span>Last played</span>
-                  <strong>{dateLabel(opponent.lastPlayed)}</strong>
-                </div>
+                Previous
               </button>
-            );
-          })}
-        </div>
+              <span className="mono">
+                {page + 1} / {pageCount}
+              </span>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={page + 1 >= pageCount || isFetching}
+                onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+          <div className="rivals-grid">
+            {pagedOpponents.map((opponent, index) => {
+              const key = getOpponentKey(opponent);
+              const characters = splitCharacters(opponent.characters);
+              const status = rivalStatus(opponent.winRate ?? 0);
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={`rival-card rival-card-${status.toLowerCase()}`}
+                  onClick={() => setSelected(key)}
+                >
+                  <div className="rival-card-topline">
+                    <span className="rival-rank">#{page * PAGE_SIZE + index + 1}</span>
+                    <span className="rival-status">{status}</span>
+                  </div>
+                  <div className="rival-card-head">
+                    <div>
+                      <div className="rival-card-tag">{opponent.opponentTag}</div>
+                      <div className="rival-card-code">{opponent.opponentConnectCode ?? "No connect code"}</div>
+                    </div>
+                    <div className="rival-card-score">
+                      <strong>{pct(opponent.winRate)}</strong>
+                      <span>{recordLabel(opponent.wins, opponent.losses)}</span>
+                    </div>
+                  </div>
+                  <div className="rival-card-record">
+                    {opponent.wins}W-{opponent.losses}L - {opponent.totalGames} games
+                  </div>
+                  <WinrateBar value={opponent.winRate ?? 0} />
+                  <div className="rival-chip-row">
+                    {characters.slice(0, 3).map((character) => (
+                      <span key={character} className="rival-character-chip">
+                        {character}
+                      </span>
+                    ))}
+                    {characters.length > 3 && <span className="rival-character-chip">+{characters.length - 3}</span>}
+                  </div>
+                  <div className="rival-card-footer">
+                    <span>Last played</span>
+                    <strong>{dateLabel(opponent.lastPlayed)}</strong>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
@@ -376,10 +426,10 @@ function RivalDetail({ opponentKey, onBack }: { opponentKey: string; onBack: () 
   const games = detail.games ?? [];
   const recentGames = games.slice(0, 8);
   const recentWins = recentGames.filter((game) => game.result === "win").length;
-  const avgNeutral = avg(games, (game) => game.neutralWinRate);
-  const avgLCancel = avg(games, (game) => game.lCancelRate);
-  const avgOpeningsPerKill = avg(games, (game) => game.openingsPerKill);
-  const avgEdgeguard = avg(games, (game) => game.edgeguardSuccessRate);
+  const avgNeutral = detail.avgNeutralWinRate ?? 0;
+  const avgLCancel = detail.avgLCancelRate ?? 0;
+  const avgOpeningsPerKill = detail.avgOpeningsPerKill ?? 0;
+  const avgEdgeguard = detail.avgEdgeguardSuccessRate ?? 0;
   const bestStage = [...(detail.stageBreakdown ?? [])].sort((a, b) => b.winRate - a.winRate)[0];
   const mainCharacter = detail.characterBreakdown?.[0];
   const lastPlayed = games[0]?.playedAt ?? null;

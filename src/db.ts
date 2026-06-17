@@ -113,6 +113,10 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_games_opponent_character ON games(opponent_character);
   CREATE INDEX IF NOT EXISTS idx_games_opponent_tag ON games(opponent_tag);
   CREATE INDEX IF NOT EXISTS idx_games_stage ON games(stage);
+  CREATE INDEX IF NOT EXISTS idx_games_played_at_desc ON games(played_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_games_player_character_played_at ON games(player_character, played_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_games_opponent_connect_played_at ON games(opponent_connect_code, played_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_coaching_scope_identifier_created ON coaching_analyses(scope, scope_identifier, created_at DESC);
 
   CREATE TABLE IF NOT EXISTS character_signature_stats (
     game_id INTEGER PRIMARY KEY REFERENCES games(id),
@@ -1566,6 +1570,159 @@ export function getRecentGames(limit: number = 100): RecentGame[] {
     .all(limit) as RecentGame[];
 }
 
+export interface LibraryGameFilters {
+  search?: string;
+  char?: string;
+  stage?: string;
+  result?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface LibraryGamesPage {
+  games: RecentGame[];
+  total: number;
+  totalUnfiltered: number;
+  wins: number;
+  uniqueOpponents: number;
+  charactersPlayed: number;
+  characters: string[];
+  stages: string[];
+}
+
+function buildLibraryWhere(filters: LibraryGameFilters): { where: string; params: string[] } {
+  const conditions: string[] = [];
+  const params: string[] = [];
+  const search = filters.search?.trim();
+
+  if (search) {
+    conditions.push("(g.opponent_tag LIKE ? OR g.opponent_connect_code LIKE ?)");
+    params.push(`%${search}%`, `%${search}%`);
+  }
+  if (filters.char && filters.char !== "all") {
+    conditions.push("g.opponent_character = ?");
+    params.push(filters.char);
+  }
+  if (filters.stage && filters.stage !== "all") {
+    conditions.push("g.stage = ?");
+    params.push(filters.stage);
+  }
+  if (filters.result && filters.result !== "all") {
+    conditions.push("g.result = ?");
+    params.push(filters.result);
+  }
+
+  return {
+    where: conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "",
+    params,
+  };
+}
+
+export function getLibraryGames(filters: LibraryGameFilters = {}): LibraryGamesPage {
+  const db = getDb();
+  const { where, params } = buildLibraryWhere(filters);
+  const limit = Math.min(Math.max(Math.floor(filters.limit ?? 100), 1), 250);
+  const offset = Math.max(Math.floor(filters.offset ?? 0), 0);
+
+  const totalUnfiltered = (db.prepare("SELECT COUNT(*) as total FROM games").get() as { total: number }).total;
+
+  const summary = db
+    .prepare(
+      `
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) as wins,
+      COUNT(DISTINCT COALESCE(g.opponent_connect_code, g.opponent_tag)) as uniqueOpponents,
+      COUNT(DISTINCT g.player_character) as charactersPlayed
+    FROM games g
+    ${where}
+  `,
+    )
+    .get(...params) as {
+    total: number;
+    wins: number | null;
+    uniqueOpponents: number;
+    charactersPlayed: number;
+  };
+
+  const games = db
+    .prepare(
+      `
+    SELECT
+      g.id, g.replay_path as replayPath,
+      g.played_at as playedAt, g.stage,
+      g.player_character as playerCharacter,
+      g.opponent_character as opponentCharacter,
+      g.opponent_tag as opponentTag,
+      g.opponent_connect_code as opponentConnectCode,
+      g.result,
+      g.player_final_stocks as playerFinalStocks,
+      g.player_final_percent as playerFinalPercent,
+      g.opponent_final_stocks as opponentFinalStocks,
+      g.opponent_final_percent as opponentFinalPercent,
+      g.duration_seconds as durationSeconds,
+      gs.neutral_win_rate as neutralWinRate,
+      gs.l_cancel_rate as lCancelRate,
+      gs.openings_per_kill as openingsPerKill,
+      gs.avg_damage_per_opening as avgDamagePerOpening,
+      gs.conversion_rate as conversionRate,
+      gs.avg_death_percent as avgDeathPercent,
+      gs.power_shield_count as powerShieldCount,
+      gs.edgeguard_attempts as edgeguardAttempts,
+      gs.edgeguard_success_rate as edgeguardSuccessRate,
+      gs.recovery_success_rate as recoverySuccessRate,
+      gs.total_damage_dealt as totalDamageDealt,
+      gs.total_damage_taken as totalDamageTaken,
+      gs.wavedash_count as wavedashCount,
+      gs.dash_dance_frames as dashDanceFrames,
+      (SELECT h.label
+         FROM highlights h
+         WHERE h.game_id = g.id AND h.did_kill = 1
+         ORDER BY h.damage DESC
+         LIMIT 1) as killMove
+    FROM games g
+    JOIN game_stats gs ON gs.game_id = g.id
+    ${where}
+    ORDER BY g.played_at DESC
+    LIMIT ? OFFSET ?
+  `,
+    )
+    .all(...params, limit, offset) as RecentGame[];
+
+  const characters = db
+    .prepare(
+      `
+    SELECT DISTINCT opponent_character as value
+    FROM games
+    ORDER BY opponent_character ASC
+  `,
+    )
+    .all()
+    .map((row: any) => row.value as string);
+
+  const stages = db
+    .prepare(
+      `
+    SELECT DISTINCT stage as value
+    FROM games
+    ORDER BY stage ASC
+  `,
+    )
+    .all()
+    .map((row: any) => row.value as string);
+
+  return {
+    games,
+    total: summary?.total ?? 0,
+    totalUnfiltered,
+    wins: summary?.wins ?? 0,
+    uniqueOpponents: summary?.uniqueOpponents ?? 0,
+    charactersPlayed: summary?.charactersPlayed ?? 0,
+    characters,
+    stages,
+  };
+}
+
 // ── Opponent history ─────────────────────────────────────────────────
 
 export interface OpponentRecord {
@@ -1580,11 +1737,9 @@ export interface OpponentRecord {
 }
 
 export function getOpponentHistory(opponent?: string): OpponentRecord[] {
-  if (opponent) {
-    // Search by tag or connect code
-    return getDb()
-      .prepare(
-        `
+  const search = opponent?.trim();
+  const query = `
+    WITH opponent_records AS (
       SELECT
         opponent_tag as opponentTag,
         opponent_connect_code as opponentConnectCode,
@@ -1595,32 +1750,23 @@ export function getOpponentHistory(opponent?: string): OpponentRecord[] {
         GROUP_CONCAT(DISTINCT opponent_character) as characters,
         MAX(played_at) as lastPlayed
       FROM games
-      WHERE opponent_tag LIKE ? OR opponent_connect_code LIKE ?
       GROUP BY COALESCE(opponent_connect_code, opponent_tag)
-      ORDER BY totalGames DESC
-    `,
-      )
-      .all(`%${opponent}%`, `%${opponent}%`) as OpponentRecord[];
-  }
-
-  return getDb()
-    .prepare(
-      `
-    SELECT
-      opponent_tag as opponentTag,
-      opponent_connect_code as opponentConnectCode,
-      SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) as wins,
-      SUM(CASE WHEN result = 'loss' THEN 1 ELSE 0 END) as losses,
-      COUNT(*) as totalGames,
-      ROUND(CAST(SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate,
-      GROUP_CONCAT(DISTINCT opponent_character) as characters,
-      MAX(played_at) as lastPlayed
-    FROM games
-    GROUP BY COALESCE(opponent_connect_code, opponent_tag)
-    ORDER BY totalGames DESC
-  `,
     )
-    .all() as OpponentRecord[];
+    SELECT *
+    FROM opponent_records
+    ${
+      search
+        ? `
+    WHERE opponentTag LIKE ? OR opponentConnectCode LIKE ? OR characters LIKE ?`
+        : ""
+    }
+    ORDER BY totalGames DESC
+  `;
+
+  if (!search) return getDb().prepare(query).all() as OpponentRecord[];
+
+  const likeSearch = `%${search}%`;
+  return getDb().prepare(query).all(likeSearch, likeSearch, likeSearch) as OpponentRecord[];
 }
 
 // ── Coaching analysis retrieval ──────────────────────────────────────
@@ -1796,6 +1942,10 @@ export interface OpponentDetail {
   losses: number;
   totalGames: number;
   winRate: number;
+  avgNeutralWinRate: number;
+  avgLCancelRate: number;
+  avgOpeningsPerKill: number;
+  avgEdgeguardSuccessRate: number;
   games: OpponentDetailGame[];
   stageBreakdown: OpponentStageBreakdown[];
   characterBreakdown: OpponentCharacterBreakdown[];
@@ -1808,7 +1958,50 @@ export interface OpponentDetail {
 export function getOpponentDetail(opponentKey: string): OpponentDetail | null {
   const database = getDb();
 
-  // Match games by connect code or tag
+  const meta = database
+    .prepare(
+      `
+    SELECT opponent_tag, opponent_connect_code
+    FROM games
+    WHERE opponent_connect_code = ? OR opponent_tag = ?
+    ORDER BY played_at DESC
+    LIMIT 1
+  `,
+    )
+    .get(opponentKey, opponentKey) as { opponent_tag: string; opponent_connect_code: string | null } | undefined;
+
+  if (!meta) return null;
+
+  const summary = database
+    .prepare(
+      `
+    SELECT
+      SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) as wins,
+      SUM(CASE WHEN g.result = 'loss' THEN 1 ELSE 0 END) as losses,
+      COUNT(*) as totalGames,
+      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate,
+      ROUND(AVG(gs.neutral_win_rate), 4) as avgNeutralWinRate,
+      ROUND(AVG(gs.l_cancel_rate), 4) as avgLCancelRate,
+      ROUND(AVG(gs.openings_per_kill), 2) as avgOpeningsPerKill,
+      ROUND(AVG(gs.edgeguard_success_rate), 4) as avgEdgeguardSuccessRate
+    FROM games g
+    JOIN game_stats gs ON gs.game_id = g.id
+    WHERE g.opponent_connect_code = ? OR g.opponent_tag = ?
+  `,
+    )
+    .get(opponentKey, opponentKey) as {
+    wins: number | null;
+    losses: number | null;
+    totalGames: number;
+    winRate: number | null;
+    avgNeutralWinRate: number | null;
+    avgLCancelRate: number | null;
+    avgOpeningsPerKill: number | null;
+    avgEdgeguardSuccessRate: number | null;
+  };
+
+  if (!summary || summary.totalGames === 0) return null;
+
   const games = database
     .prepare(
       `
@@ -1828,29 +2021,10 @@ export function getOpponentDetail(opponentKey: string): OpponentDetail | null {
     JOIN game_stats gs ON gs.game_id = g.id
     WHERE g.opponent_connect_code = ? OR g.opponent_tag = ?
     ORDER BY g.played_at DESC
+    LIMIT 50
   `,
     )
     .all(opponentKey, opponentKey) as OpponentDetailGame[];
-
-  if (games.length === 0) return null;
-
-  // Get the tag and connect code from the first game row
-  const meta = database
-    .prepare(
-      `
-    SELECT opponent_tag, opponent_connect_code
-    FROM games
-    WHERE opponent_connect_code = ? OR opponent_tag = ?
-    ORDER BY played_at DESC
-    LIMIT 1
-  `,
-    )
-    .get(opponentKey, opponentKey) as { opponent_tag: string; opponent_connect_code: string | null } | undefined;
-
-  if (!meta) return null;
-
-  const wins = games.filter((g) => g.result === "win").length;
-  const losses = games.filter((g) => g.result === "loss").length;
 
   // Stage breakdown
   const stageBreakdown = database
@@ -1891,10 +2065,14 @@ export function getOpponentDetail(opponentKey: string): OpponentDetail | null {
   return {
     opponentTag: meta.opponent_tag,
     opponentConnectCode: meta.opponent_connect_code,
-    wins,
-    losses,
-    totalGames: games.length,
-    winRate: games.length > 0 ? wins / games.length : 0,
+    wins: summary.wins ?? 0,
+    losses: summary.losses ?? 0,
+    totalGames: summary.totalGames,
+    winRate: summary.winRate ?? 0,
+    avgNeutralWinRate: summary.avgNeutralWinRate ?? 0,
+    avgLCancelRate: summary.avgLCancelRate ?? 0,
+    avgOpeningsPerKill: summary.avgOpeningsPerKill ?? 0,
+    avgEdgeguardSuccessRate: summary.avgEdgeguardSuccessRate ?? 0,
     games,
     stageBreakdown,
     characterBreakdown,
@@ -2473,21 +2651,35 @@ const METRIC_COLUMN: Record<TrendMetric, string> = {
   avgDeathPercent: "gs.avg_death_percent",
 };
 
-export function getTrendSeries(
-  metric: TrendMetric,
+const TREND_METRICS = Object.keys(METRIC_COLUMN) as TrendMetric[];
+
+export type TrendSeriesBundle = Record<TrendMetric, TrendPoint[]>;
+
+function buildTrendWhere(
   range: "7d" | "30d" | "all",
   filterChar: string | null,
-): TrendPoint[] {
-  const column = METRIC_COLUMN[metric];
+): { whereClause: string; params: string[] } {
   const where: string[] = [];
-  const params: (string | number)[] = [];
+  const params: string[] = [];
   if (range === "7d") where.push("g.played_at >= date('now', '-7 days')");
   else if (range === "30d") where.push("g.played_at >= date('now', '-30 days')");
   if (filterChar && filterChar !== "all") {
     where.push("g.opponent_character = ?");
     params.push(filterChar);
   }
-  const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  return {
+    whereClause: where.length ? `WHERE ${where.join(" AND ")}` : "",
+    params,
+  };
+}
+
+export function getTrendSeries(
+  metric: TrendMetric,
+  range: "7d" | "30d" | "all",
+  filterChar: string | null,
+): TrendPoint[] {
+  const column = METRIC_COLUMN[metric];
+  const { whereClause, params } = buildTrendWhere(range, filterChar);
   const sql = `
     SELECT ${column} as value, g.played_at as playedAt
     FROM games g
@@ -2498,6 +2690,43 @@ export function getTrendSeries(
   return getDb()
     .prepare(sql)
     .all(...params) as TrendPoint[];
+}
+
+export function getTrendSeriesBundle(range: "7d" | "30d" | "all", filterChar: string | null): TrendSeriesBundle {
+  const { whereClause, params } = buildTrendWhere(range, filterChar);
+  const rows = getDb()
+    .prepare(
+      `
+    SELECT
+      gs.neutral_win_rate as neutralWinRate,
+      gs.l_cancel_rate as lCancelRate,
+      gs.conversion_rate as conversionRate,
+      gs.avg_damage_per_opening as avgDamagePerOpening,
+      gs.openings_per_kill as openingsPerKill,
+      gs.avg_death_percent as avgDeathPercent,
+      g.played_at as playedAt
+    FROM games g
+    JOIN game_stats gs ON gs.game_id = g.id
+    ${whereClause}
+    ORDER BY g.played_at ASC
+  `,
+    )
+    .all(...params) as Array<{ playedAt: string } & Record<TrendMetric, number>>;
+
+  const bundle: TrendSeriesBundle = {
+    neutralWinRate: [],
+    lCancelRate: [],
+    conversionRate: [],
+    avgDamagePerOpening: [],
+    openingsPerKill: [],
+    avgDeathPercent: [],
+  };
+  for (const row of rows) {
+    for (const metric of TREND_METRICS) {
+      bundle[metric].push({ playedAt: row.playedAt, value: row[metric] });
+    }
+  }
+  return bundle;
 }
 
 // ── Practice plans ──────────────────────────────────────────────────

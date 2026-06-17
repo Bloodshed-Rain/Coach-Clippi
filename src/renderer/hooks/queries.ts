@@ -18,6 +18,22 @@ export const useRecentGames = (limit: number) => {
   });
 };
 
+export const useLibraryGames = (filters: {
+  search: string;
+  char: string;
+  stage: string;
+  result: string;
+  limit: number;
+  offset: number;
+}) => {
+  return useQuery({
+    queryKey: ["libraryGames", filters],
+    queryFn: () => window.clippi.getLibraryGames(filters),
+    placeholderData: (previousData) => previousData,
+    gcTime: GC_10MIN,
+  });
+};
+
 export const useOverallRecord = () => {
   return useQuery({
     queryKey: ["overallRecord"],
@@ -46,6 +62,7 @@ export const useOpponents = (search?: string) => {
   return useQuery({
     queryKey: ["opponents", search],
     queryFn: () => window.clippi.getOpponents(search),
+    placeholderData: (previousData) => previousData,
     gcTime: GC_10MIN,
   });
 };
@@ -169,20 +186,26 @@ export const useSessionsByDay = (daysBack: number = 90) => {
   });
 };
 
-export const useTrendSeries = (
-  metric:
-    | "neutralWinRate"
-    | "lCancelRate"
-    | "conversionRate"
-    | "avgDamagePerOpening"
-    | "openingsPerKill"
-    | "avgDeathPercent",
-  range: "7d" | "30d" | "all",
-  filterChar: string | null,
-) => {
+export type TrendMetric =
+  | "neutralWinRate"
+  | "lCancelRate"
+  | "conversionRate"
+  | "avgDamagePerOpening"
+  | "openingsPerKill"
+  | "avgDeathPercent";
+
+export const useTrendSeries = (metric: TrendMetric, range: "7d" | "30d" | "all", filterChar: string | null) => {
   return useQuery({
     queryKey: ["trendSeries", metric, range, filterChar],
     queryFn: () => window.clippi.getTrendSeries(metric, range, filterChar),
+    gcTime: GC_10MIN,
+  });
+};
+
+export const useTrendSeriesBundle = (range: "7d" | "30d" | "all", filterChar: string | null) => {
+  return useQuery({
+    queryKey: ["trendSeriesBundle", range, filterChar],
+    queryFn: () => window.clippi.getTrendSeriesBundle(range, filterChar),
     gcTime: GC_10MIN,
   });
 };

@@ -178,6 +178,29 @@
   gap: 14px;
 }
 
+.rivals-result-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.3);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.rivals-result-bar strong {
+  color: var(--text);
+}
+
+.rivals-page-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .rivals-empty-panel {
   display: flex;
   align-items: center;
@@ -587,6 +610,15 @@
     display: grid;
     width: 100%;
     justify-self: stretch;
+  }
+
+  .rivals-result-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .rivals-page-controls {
+    justify-content: space-between;
   }
 
   .rival-detail-hero {

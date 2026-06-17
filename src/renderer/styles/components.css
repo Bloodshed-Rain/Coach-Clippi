@@ -824,6 +824,13 @@ input[type="checkbox"] {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.08);
 }
+.settings-field input[type="range"] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--accent);
+  box-shadow: none;
+}
 .settings-row {
   display: flex;
   gap: 10px;
@@ -846,6 +853,22 @@ input[type="checkbox"] {
   margin: 6px 0 0;
   color: var(--text-muted);
   font-size: 11px;
+}
+.settings-divider {
+  height: 1px;
+  margin: 16px 0;
+  background: var(--border);
+}
+.liquid-appearance-controls {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+.liquid-appearance-field {
+  margin-bottom: 0;
+}
+.liquid-appearance-field input[type="range"] {
+  min-width: 0;
 }
 .settings-progress-caption {
   display: flex;
@@ -3099,6 +3122,35 @@ body[data-theme="liquid"] .tweaks-panel {
   gap: 6px;
   flex-wrap: wrap;
 }
+.tweaks-slider-list {
+  display: grid;
+  gap: 10px;
+}
+.tweaks-slider {
+  display: grid;
+  gap: 5px;
+}
+.tweaks-slider-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tweaks-slider-head span {
+  color: var(--text);
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.tweaks-range {
+  width: 100%;
+  accent-color: var(--accent);
+}
 .tweaks-chip {
   padding: 6px 10px;
   border-radius: 999px;
@@ -3152,6 +3204,24 @@ body[data-theme="liquid"] .tweaks-chip.active {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
+}
+.library-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.library-table-toolbar strong {
+  color: var(--text);
+}
+.library-page-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -3614,6 +3684,12 @@ body[data-theme="liquid"] .tweaks-chip.active {
   background:
     radial-gradient(circle at 50% 48%, var(--radar-glow), transparent 54%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent);
+}
+
+.character-radar-loading {
+  display: grid;
+  place-items: center;
+  min-height: 300px;
 }
 
 .character-radar-readout {

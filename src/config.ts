@@ -22,6 +22,9 @@ export interface Config {
   theme: string | null;
   colorMode: string | null;
   density: "comfortable" | "compact" | null;
+  liquidCharacterVisibility: number | null;
+  liquidCardOpacity: number | null;
+  liquidCardBlur: number | null;
   cornermanOverlayTransparency: number | null;
   cornermanOverlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right" | null;
   cornermanOverlaySize: { width: number; height: number } | null;
@@ -46,6 +49,9 @@ const DEFAULTS: Config = {
   theme: null,
   colorMode: null,
   density: null,
+  liquidCharacterVisibility: null,
+  liquidCardOpacity: null,
+  liquidCardBlur: null,
   cornermanOverlayTransparency: null,
   cornermanOverlayCorner: null,
   cornermanOverlaySize: null,

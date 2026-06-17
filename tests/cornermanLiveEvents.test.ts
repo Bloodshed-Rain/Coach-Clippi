@@ -5,6 +5,7 @@ import {
   detectLiveConversionEvents,
   detectLiveFrameEvents,
   detectLiveItemEvents,
+  markObservedItemInstances,
   type CornermanLivePlayer,
 } from "../src/cornermanLiveEvents";
 import {
@@ -54,7 +55,10 @@ function conversion(overrides: Partial<ConversionType>): ConversionType {
 }
 
 function framesWithPosts(
-  entries: Record<number, Record<number, { stocksRemaining?: number; actionStateId?: number; positionX?: number; positionY?: number }>>,
+  entries: Record<
+    number,
+    Record<number, { stocksRemaining?: number; actionStateId?: number; positionX?: number; positionY?: number }>
+  >,
 ): FramesType {
   const frames: FramesType = {};
   for (const [frameKey, playersForFrame] of Object.entries(entries)) {
@@ -417,6 +421,70 @@ describe("detectLiveItemEvents", () => {
     expect(events).toHaveLength(1);
     expect(events[0].type).toBe("rare-item");
     expect(events[0].title).toBe("Bob-omb");
+  });
+
+  it("does not call later Peach ownership a rare item pull", () => {
+    const frames = {
+      220: {
+        frame: 220,
+        start: undefined,
+        players: {},
+        followers: {},
+        items: [{ frame: 220, typeId: 104, owner: -1, spawnId: 43 }],
+        stageEvents: undefined,
+      },
+      240: {
+        frame: 240,
+        start: undefined,
+        players: {},
+        followers: {},
+        items: [{ frame: 240, typeId: 104, owner: 0, spawnId: 43 }],
+        stageEvents: undefined,
+      },
+    } as FramesType;
+
+    const events = detectLiveItemEvents({
+      frames,
+      players: [{ ...players[0], character: "Peach" }, players[1]],
+      seenKeys: new Set(),
+      fromFrame: 200,
+      toFrame: 260,
+    });
+
+    expect(events).toHaveLength(0);
+  });
+
+  it("does not alert on rare items observed before live monitoring starts", () => {
+    const frames = {
+      220: {
+        frame: 220,
+        start: undefined,
+        players: {},
+        followers: {},
+        items: [{ frame: 220, typeId: 103, owner: 0, spawnId: 44 }],
+        stageEvents: undefined,
+      },
+      240: {
+        frame: 240,
+        start: undefined,
+        players: {},
+        followers: {},
+        items: [{ frame: 240, typeId: 103, owner: 0, spawnId: 44 }],
+        stageEvents: undefined,
+      },
+    } as FramesType;
+    const seenKeys = new Set<string>();
+    markObservedItemInstances({ frames, seenKeys, fromFrame: 200, toFrame: 220 });
+
+    const events = detectLiveItemEvents({
+      frames,
+      players: [{ ...players[0], character: "Peach" }, players[1]],
+      seenKeys,
+      fromFrame: 221,
+      toFrame: 260,
+    });
+
+    expect(events).toHaveLength(0);
   });
 });
 

@@ -35,6 +35,13 @@ import {
   MOVE_UTHROW,
   MOVE_USMASH,
 } from "./pipeline/signatureStats";
+import {
+  PEACH_RARE_ITEMS,
+  STITCH_FACE_ID,
+  TURNIP_TYPE_ID,
+  markObservedItemInstances,
+  observeItemInstance,
+} from "./peachItems";
 
 export type CornermanLiveEventType =
   | "ken-combo"
@@ -100,13 +107,7 @@ export interface CornermanLiveEvent {
 export const HIGH_COMBO_KILL_DAMAGE = 50;
 export const HIGH_COMBO_KILL_HITS = 5;
 export const HUGE_CONVERSION_DAMAGE = 60;
-const TURNIP_TYPE_ID = 99;
-const STITCH_FACE_ID = 7;
-const PEACH_RARE_ITEMS: Record<number, string> = {
-  55: "Beam Sword",
-  103: "Mr. Saturn",
-  104: "Bob-omb",
-};
+export { markObservedItemInstances };
 
 interface CandidateEvent extends CornermanLiveEvent {
   priority: number;
@@ -148,11 +149,7 @@ function findActorAndVictim(
   return { actor, victim };
 }
 
-function pushOnce(
-  events: CornermanLiveEvent[],
-  seenKeys: Set<string>,
-  event: CornermanLiveEvent,
-): void {
+function pushOnce(events: CornermanLiveEvent[], seenKeys: Set<string>, event: CornermanLiveEvent): void {
   if (seenKeys.has(event.id)) return;
   seenKeys.add(event.id);
   events.push(event);
@@ -167,7 +164,11 @@ function throwCount(conversion: ConversionType): number {
   return conversion.moves.filter((m) => throwIds.includes(m.moveId)).length;
 }
 
-function victimOffstageAtEnd(conversion: ConversionType, frames: FramesType | undefined, stageId: number | undefined): boolean {
+function victimOffstageAtEnd(
+  conversion: ConversionType,
+  frames: FramesType | undefined,
+  stageId: number | undefined,
+): boolean {
   if (!frames || stageId == null || conversion.endFrame == null) return false;
   const victimPost = frames[conversion.endFrame]?.players[conversion.playerIndex]?.post;
   if (!victimPost) return false;
@@ -256,17 +257,15 @@ export function detectLiveConversionEvents({
     const killed = conversion.didKill ? " kill" : "";
     const offstageKill = conversion.didKill && victimOffstageAtEnd(conversion, frames, stageId);
     const last = lastMoveId(conversion);
-    const addCandidate = (candidate: Omit<Parameters<typeof makeConversionEvent>[0], "actor" | "victim" | "conversion">) => {
+    const addCandidate = (
+      candidate: Omit<Parameters<typeof makeConversionEvent>[0], "actor" | "victim" | "conversion">,
+    ) => {
       candidates.push(makeConversionEvent({ ...candidate, actor, victim, conversion }));
     };
 
     const candidates: CandidateEvent[] = [];
 
-    if (
-      actor.character === "Marth" &&
-      last === MOVE_DAIR &&
-      conversion.moves.some((m) => m.moveId === MOVE_FAIR)
-    ) {
+    if (actor.character === "Marth" && last === MOVE_DAIR && conversion.moves.some((m) => m.moveId === MOVE_FAIR)) {
       addCandidate({
         type: "ken-combo",
         title: conversion.didKill ? "Ken Combo Kill" : "Ken Combo",
@@ -776,6 +775,8 @@ export function detectLiveItemEvents({
     if (!items) continue;
 
     for (const item of items as ItemUpdateType[]) {
+      const instanceKey = observeItemInstance(seenKeys, item);
+      if (!instanceKey) continue;
       if (item.owner == null) continue;
 
       const actor = players.find((p) => p.playerIndex === item.owner);
@@ -783,7 +784,7 @@ export function detectLiveItemEvents({
 
       const rareItem = item.typeId == null ? null : (PEACH_RARE_ITEMS[item.typeId] ?? null);
       if (rareItem) {
-        const id = `rare-item:${actor.playerIndex}:${item.spawnId ?? item.instanceId ?? frame}:${item.typeId}`;
+        const id = `rare-item:${actor.playerIndex}:${instanceKey}:${item.typeId}`;
         pushOnce(events, seenKeys, {
           id,
           type: "rare-item",
@@ -802,7 +803,7 @@ export function detectLiveItemEvents({
 
       if (item.typeId !== TURNIP_TYPE_ID || item.turnipFace !== STITCH_FACE_ID) continue;
 
-      const id = `stitch-face:${actor.playerIndex}:${item.spawnId ?? item.instanceId ?? frame}`;
+      const id = `stitch-face:${actor.playerIndex}:${instanceKey}`;
       pushOnce(events, seenKeys, {
         id,
         type: "stitch-face",
