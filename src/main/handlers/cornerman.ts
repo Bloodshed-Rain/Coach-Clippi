@@ -1,7 +1,9 @@
 import { Notification } from "electron";
+import { loadConfig } from "../../config.js";
 import { getDb, insertCoachingAnalysis } from "../../db.js";
 import { advanceLiveSet, type LiveSetState } from "../../cornerman.js";
 import { startCornermanLiveMonitor, type CornermanLiveMonitor } from "../../cornermanLiveMonitor.js";
+import { resolveCornermanPopupSettings, shouldShowCornermanLiveAlert } from "../../cornermanPopupSettings.js";
 import { SYSTEM_PROMPT_CORNERMAN, assembleCornermanPrompt } from "../../pipeline/index.js";
 import { callLLMStream } from "../../llm.js";
 import { llmQueue } from "../../llmQueue.js";
@@ -102,6 +104,7 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
     totalGames,
   );
   const llmConfig = resolveLLMConfig();
+  const popupSettings = resolveCornermanPopupSettings(loadConfig());
 
   let card: string;
   try {
@@ -109,7 +112,7 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
     card = await llmQueue.enqueue(() =>
       callLLMStream({ systemPrompt: SYSTEM_PROMPT_CORNERMAN, userPrompt, config: llmConfig }, (chunk) => {
         if (session !== mySession) return; // stale session — drop chunks, don't pop the toast
-        if (!shownThisCard) {
+        if (!shownThisCard && popupSettings.coachingCards) {
           shownThisCard = true;
           showOverlayWindow();
         }
@@ -118,6 +121,7 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
     );
   } catch (err) {
     if (session === mySession) {
+      if (popupSettings.errors) showOverlayWindow();
       broadcast("cornerman:error", err instanceof Error ? err.message : String(err));
     }
     return;
@@ -150,7 +154,7 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
     console.error("[cornerman] failed to persist card:", err);
   }
 
-  if (session === mySession) {
+  if (session === mySession && popupSettings.desktopNotifications) {
     try {
       new Notification({
         title: `MAGI Cornerman — ${wins}-${losses} vs ${opponentTag}`,
@@ -173,7 +177,11 @@ export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
       targetPlayer,
       onEvents: (events) => {
         ensureOverlayWindow();
-        showOverlayWindow();
+        const popupSettings = resolveCornermanPopupSettings(loadConfig());
+        const hasVisiblePopupEvent = events.some((event) =>
+          shouldShowCornermanLiveAlert(popupSettings.liveAlerts, event.importance),
+        );
+        if (hasVisiblePopupEvent) showOverlayWindow();
         for (const liveEvent of events) {
           broadcast("cornerman:live-event", liveEvent);
         }

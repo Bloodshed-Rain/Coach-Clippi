@@ -3,6 +3,15 @@ import { Card } from "../components/ui/Card";
 import { PROVIDERS, PROVIDER_BY_ID, type ProviderId } from "../../llmProviders";
 import { useGlobalStore, type Density } from "../stores/useGlobalStore";
 import { THEMES, THEME_ORDER, applyTheme, getResolvedTheme, type ColorMode } from "../themes";
+import {
+  clampCornermanOverlayTransparency,
+  DEFAULT_CORNERMAN_OVERLAY_TRANSPARENCY,
+} from "../../cornermanOverlayTransparency";
+import {
+  normalizeCornermanPopupAutoHideSeconds,
+  resolveCornermanPopupSettings,
+  type CornermanPopupLiveAlertMode,
+} from "../../cornermanPopupSettings";
 
 /** Config as returned by the main process — apiKeys are redacted to booleans */
 interface Config {
@@ -17,6 +26,14 @@ interface Config {
   localEndpoint: string | null;
   theme: string | null;
   colorMode: string | null;
+  cornermanOverlayTransparency: number | null;
+  cornermanOverlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right" | null;
+  cornermanOverlaySize: { width: number; height: number } | null;
+  cornermanPopupCoachingCards: boolean | null;
+  cornermanPopupLiveAlerts: CornermanPopupLiveAlertMode | null;
+  cornermanPopupErrors: boolean | null;
+  cornermanDesktopNotifications: boolean | null;
+  cornermanPopupAutoHideSeconds: number | null;
 }
 
 interface FetchedModel {
@@ -63,6 +80,14 @@ export function Settings({ onImport }: SettingsProps) {
     localEndpoint: null,
     theme: null,
     colorMode: null,
+    cornermanOverlayTransparency: null,
+    cornermanOverlayCorner: null,
+    cornermanOverlaySize: null,
+    cornermanPopupCoachingCards: null,
+    cornermanPopupLiveAlerts: null,
+    cornermanPopupErrors: null,
+    cornermanDesktopNotifications: null,
+    cornermanPopupAutoHideSeconds: null,
   });
   // Write-only key inputs — never populated from main process
   const [keyEdits, setKeyEdits] = useState<Partial<Record<ProviderId, string>>>({});
@@ -90,6 +115,8 @@ export function Settings({ onImport }: SettingsProps) {
   const setColorMode = useGlobalStore((state) => state.setColorMode);
   const density = useGlobalStore((state) => state.density);
   const setDensity = useGlobalStore((state) => state.setDensity);
+  const popupSettings = resolveCornermanPopupSettings(config);
+  const popupTransparency = clampCornermanOverlayTransparency(config.cornermanOverlayTransparency);
 
   // Load user config
   useEffect(() => {
@@ -334,7 +361,12 @@ export function Settings({ onImport }: SettingsProps) {
       <Card title="Appearance">
         <div className="settings-field">
           <label id="appearance-theme-label">Theme</label>
-          <div className="settings-row" role="group" aria-labelledby="appearance-theme-label" style={{ flexWrap: "wrap", gap: 8 }}>
+          <div
+            className="settings-row"
+            role="group"
+            aria-labelledby="appearance-theme-label"
+            style={{ flexWrap: "wrap", gap: 8 }}
+          >
             {THEME_ORDER.map((id) => (
               <button
                 key={id}
@@ -364,6 +396,106 @@ export function Settings({ onImport }: SettingsProps) {
             ))}
           </div>
         </div>
+      </Card>
+
+      <Card title="Cornerman Popup">
+        <p style={{ color: "var(--text-dim)", fontSize: 11, margin: "0 0 12px" }}>
+          Choose which Cornerman moments are allowed to interrupt play.
+        </p>
+        <div className="settings-field">
+          <label htmlFor="setting-cornerman-transparency">Transparency</label>
+          <div className="settings-row settings-row-center">
+            <input
+              id="setting-cornerman-transparency"
+              type="range"
+              min="15"
+              max="85"
+              value={popupTransparency}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  cornermanOverlayTransparency: clampCornermanOverlayTransparency(Number(e.target.value)),
+                })
+              }
+            />
+            <span className="settings-mono-value">{popupTransparency}%</span>
+          </div>
+        </div>
+        <div className="settings-field">
+          <label htmlFor="setting-cornerman-live-alerts">Live Alerts</label>
+          <select
+            id="setting-cornerman-live-alerts"
+            className="model-select"
+            value={popupSettings.liveAlerts}
+            onChange={(e) =>
+              setConfig({ ...config, cornermanPopupLiveAlerts: e.target.value as CornermanPopupLiveAlertMode })
+            }
+          >
+            <option value="all">Show all live alerts</option>
+            <option value="high">Only high-impact alerts</option>
+            <option value="off">Do not show live alerts</option>
+          </select>
+        </div>
+        <div className="settings-field">
+          <label htmlFor="setting-cornerman-autohide">Auto-hide after notification</label>
+          <div className="settings-row settings-row-center">
+            <input
+              id="setting-cornerman-autohide"
+              type="number"
+              min="0"
+              max="120"
+              value={popupSettings.autoHideSeconds}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  cornermanPopupAutoHideSeconds: normalizeCornermanPopupAutoHideSeconds(Number(e.target.value)),
+                })
+              }
+            />
+            <span className="settings-mono-value">seconds</span>
+          </div>
+          <p className="settings-help">Use 0 to keep the popup open until dismissed.</p>
+        </div>
+        <div className="settings-toggle-list">
+          <label className="settings-toggle">
+            <input
+              type="checkbox"
+              checked={popupSettings.coachingCards}
+              onChange={(e) => setConfig({ ...config, cornermanPopupCoachingCards: e.target.checked })}
+            />
+            <span>
+              <strong>Between-game coaching cards</strong>
+              <small>Show the generated adjustment in the popup.</small>
+            </span>
+          </label>
+          <label className="settings-toggle">
+            <input
+              type="checkbox"
+              checked={popupSettings.errors}
+              onChange={(e) => setConfig({ ...config, cornermanPopupErrors: e.target.checked })}
+            />
+            <span>
+              <strong>Popup errors</strong>
+              <small>Show provider or analysis failures in the popup.</small>
+            </span>
+          </label>
+          <label className="settings-toggle">
+            <input
+              type="checkbox"
+              checked={popupSettings.desktopNotifications}
+              onChange={(e) => setConfig({ ...config, cornermanDesktopNotifications: e.target.checked })}
+            />
+            <span>
+              <strong>Desktop notification</strong>
+              <small>Send an OS notification when a coaching card is ready.</small>
+            </span>
+          </label>
+        </div>
+        {config.cornermanOverlayTransparency === null && (
+          <p className="settings-help" style={{ marginTop: 10 }}>
+            Default transparency is {DEFAULT_CORNERMAN_OVERLAY_TRANSPARENCY}%.
+          </p>
+        )}
       </Card>
 
       <Card title="Replay Folder">
@@ -459,7 +591,9 @@ export function Settings({ onImport }: SettingsProps) {
       {/* Dolphin Path */}
       <Card title="Slippi Dolphin">
         <div className="settings-field">
-          <label htmlFor="setting-dolphin-path">Dolphin Executable Path (optional \u2014 auto-detected if left blank)</label>
+          <label htmlFor="setting-dolphin-path">
+            Dolphin Executable Path (optional \u2014 auto-detected if left blank)
+          </label>
           <div className="settings-row">
             <input
               id="setting-dolphin-path"
@@ -481,7 +615,9 @@ export function Settings({ onImport }: SettingsProps) {
           </div>
         </div>
         <div className="settings-field">
-          <label htmlFor="setting-melee-iso">Melee ISO Path (vanilla NTSC 1.02 \u2014 needed for replay playback)</label>
+          <label htmlFor="setting-melee-iso">
+            Melee ISO Path (vanilla NTSC 1.02 \u2014 needed for replay playback)
+          </label>
           <div className="settings-row">
             <input
               id="setting-melee-iso"
@@ -571,8 +707,7 @@ export function Settings({ onImport }: SettingsProps) {
               {p.needsKey && (
                 <div className="settings-field" style={{ marginBottom: 8 }}>
                   <label htmlFor={`apikey-${p.id}`} style={{ fontSize: 11 }}>
-                    API Key{" "}
-                    {isSet && <span style={{ color: "var(--green)", fontSize: 10 }}>✓ (configured)</span>}
+                    API Key {isSet && <span style={{ color: "var(--green)", fontSize: 10 }}>✓ (configured)</span>}
                   </label>
                   <input
                     id={`apikey-${p.id}`}

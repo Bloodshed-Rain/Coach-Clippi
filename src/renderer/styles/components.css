@@ -649,8 +649,56 @@ input[type="checkbox"] {
   gap: 10px;
   align-items: flex-end;
 }
+.settings-row-center {
+  align-items: center;
+}
 .settings-row input {
   flex: 1;
+}
+.settings-mono-value {
+  min-width: 58px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: right;
+}
+.settings-help {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.settings-toggle-list {
+  display: grid;
+  gap: 8px;
+}
+.settings-toggle {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--surface-1) 72%, transparent);
+  cursor: pointer;
+}
+.settings-toggle input {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  accent-color: var(--accent);
+  flex: 0 0 auto;
+}
+.settings-toggle span {
+  display: grid;
+  gap: 2px;
+}
+.settings-toggle strong {
+  color: var(--text);
+  font-size: 12px;
+}
+.settings-toggle small {
+  color: var(--text-muted);
+  font-size: 11px;
 }
 .import-status {
   margin-top: 10px;

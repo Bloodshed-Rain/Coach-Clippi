@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { CoachingCards } from "../components/CoachingCards";
 import { CornermanLiveAlerts } from "../components/CornermanLiveAlerts";
 import {
@@ -6,6 +6,11 @@ import {
   DEFAULT_CORNERMAN_OVERLAY_TRANSPARENCY,
   getCornermanOverlayAlphas,
 } from "../../cornermanOverlayTransparency";
+import {
+  DEFAULT_CORNERMAN_POPUP_SETTINGS,
+  resolveCornermanPopupSettings,
+  shouldShowCornermanLiveAlert,
+} from "../../cornermanPopupSettings";
 import "../styles/overlay.css";
 
 type OverlayResizeHandle = "top-left" | "top-right" | "bottom-left" | "bottom-right";
@@ -25,8 +30,27 @@ export function CornermanOverlay() {
   const [hasLoadedTransparency, setHasLoadedTransparency] = useState(false);
   const resizeDrag = useRef<{ handle: OverlayResizeHandle; x: number; y: number } | null>(null);
   const liveEventTimers = useRef<number[]>([]);
+  const autoHideTimer = useRef<number | null>(null);
+  const popupSettings = useRef(DEFAULT_CORNERMAN_POPUP_SETTINGS);
+
+  const clearAutoHideTimer = useCallback(() => {
+    if (autoHideTimer.current === null) return;
+    window.clearTimeout(autoHideTimer.current);
+    autoHideTimer.current = null;
+  }, []);
+
+  const scheduleAutoHide = useCallback(() => {
+    clearAutoHideTimer();
+    const seconds = popupSettings.current.autoHideSeconds;
+    if (seconds <= 0) return;
+    autoHideTimer.current = window.setTimeout(() => {
+      autoHideTimer.current = null;
+      window.clippi.cornermanOverlayDismiss().catch(() => {});
+    }, seconds * 1000);
+  }, [clearAutoHideTimer]);
 
   useEffect(() => {
+    document.documentElement.classList.add("overlay-mode");
     document.body.classList.add("overlay-mode");
     window.clippi
       .cornermanStatus()
@@ -36,46 +60,58 @@ export function CornermanOverlay() {
       .loadConfig()
       .then((config) => {
         setTransparency(clampCornermanOverlayTransparency(config?.cornermanOverlayTransparency));
+        popupSettings.current = resolveCornermanPopupSettings(config ?? {});
       })
       .catch(() => {})
       .finally(() => setHasLoadedTransparency(true));
     const offStream = window.clippi.onCornermanStream((chunk) => {
+      if (!popupSettings.current.coachingCards) return;
+      clearAutoHideTimer();
       setError(null);
       setIsStreaming(true);
       setText((prev) => prev + chunk);
     });
     const offCard = window.clippi.onCornermanCard((card) => {
+      if (!popupSettings.current.coachingCards) return;
       setIsStreaming(false);
       setText(card.text);
+      scheduleAutoHide();
     });
     const offUpdate = window.clippi.onCornermanSetUpdate((s) => {
       setStatus(s);
       // New game registered — clear the previous card so the next stream starts clean.
+      clearAutoHideTimer();
       setText("");
     });
     const offLiveEvent = window.clippi.onCornermanLiveEvent((event) => {
+      if (!shouldShowCornermanLiveAlert(popupSettings.current.liveAlerts, event.importance)) return;
       setLiveEvents((prev) => [event, ...prev.filter((e) => e.id !== event.id)].slice(0, 4));
       const timer = window.setTimeout(() => {
         setLiveEvents((prev) => prev.filter((e) => e.id !== event.id));
       }, 20_000);
       liveEventTimers.current.push(timer);
+      scheduleAutoHide();
     });
     const offError = window.clippi.onCornermanError((message) => {
+      if (!popupSettings.current.errors) return;
       setIsStreaming(false);
       setText("");
       setError(message);
+      scheduleAutoHide();
     });
     return () => {
+      document.documentElement.classList.remove("overlay-mode");
       document.body.classList.remove("overlay-mode");
       offStream();
       offCard();
       offUpdate();
       offLiveEvent();
       offError();
+      clearAutoHideTimer();
       for (const timer of liveEventTimers.current) window.clearTimeout(timer);
       liveEventTimers.current = [];
     };
-  }, []);
+  }, [clearAutoHideTimer, scheduleAutoHide]);
 
   useEffect(() => {
     if (!hasLoadedTransparency) return;

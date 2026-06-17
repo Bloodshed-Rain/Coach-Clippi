@@ -25,6 +25,11 @@ export interface Config {
   cornermanOverlayTransparency: number | null;
   cornermanOverlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right" | null;
   cornermanOverlaySize: { width: number; height: number } | null;
+  cornermanPopupCoachingCards: boolean | null;
+  cornermanPopupLiveAlerts: "all" | "high" | "off" | null;
+  cornermanPopupErrors: boolean | null;
+  cornermanDesktopNotifications: boolean | null;
+  cornermanPopupAutoHideSeconds: number | null;
 }
 
 const DEFAULTS: Config = {
@@ -44,6 +49,11 @@ const DEFAULTS: Config = {
   cornermanOverlayTransparency: null,
   cornermanOverlayCorner: null,
   cornermanOverlaySize: null,
+  cornermanPopupCoachingCards: null,
+  cornermanPopupLiveAlerts: null,
+  cornermanPopupErrors: null,
+  cornermanDesktopNotifications: null,
+  cornermanPopupAutoHideSeconds: null,
 };
 
 const LEGACY_KEY_FIELDS: Array<{ field: string; provider: ProviderId }> = [

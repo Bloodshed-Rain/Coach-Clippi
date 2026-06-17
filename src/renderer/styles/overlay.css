@@ -1,7 +1,28 @@
 /* Cornerman overlay toast — rendered in a transparent frameless window. */
 
+html.overlay-mode,
+html.overlay-mode body,
 body.overlay-mode {
   background: transparent !important;
+  background-image: none !important;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+}
+
+html.overlay-mode body::before,
+html.overlay-mode body::after,
+body.overlay-mode::before,
+body.overlay-mode::after {
+  content: none !important;
+  display: none !important;
+}
+
+html.overlay-mode #root,
+body.overlay-mode #root {
+  display: block;
+  width: 100vw;
+  height: 100vh;
   overflow: hidden;
 }
 
@@ -9,6 +30,7 @@ body.overlay-mode {
   display: flex;
   flex-direction: column;
   position: relative;
+  width: 100vw;
   height: 100vh;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(10, 13, 20, var(--cornerman-toast-alpha, 0.42));
