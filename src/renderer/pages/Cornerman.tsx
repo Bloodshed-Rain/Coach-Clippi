@@ -77,15 +77,6 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
     }
   }, []);
 
-  const showPopup = useCallback(async () => {
-    setError(null);
-    try {
-      await window.clippi.cornermanOverlayShow();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, []);
-
   const active = status?.active ?? false;
   const inSet = active && (status?.gamesCount ?? 0) > 0;
 
@@ -106,9 +97,6 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
             Start Corner Session
           </button>
         )}
-        <button className="btn" onClick={showPopup} disabled={busy}>
-          Show Popup
-        </button>
         {inSet ? (
           <span>
             <strong>

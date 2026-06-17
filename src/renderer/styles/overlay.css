@@ -10,11 +10,8 @@ body.overlay-mode {
   flex-direction: column;
   position: relative;
   height: 100vh;
-  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(10, 13, 20, var(--cornerman-toast-alpha, 0.42));
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(10px) saturate(1.15);
   overflow: hidden;
 }
 

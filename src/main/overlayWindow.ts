@@ -15,8 +15,67 @@ import { loadConfig, saveConfig } from "../config.js";
 
 let overlayWindow: BrowserWindow | null = null;
 let snapTimer: NodeJS.Timeout | null = null;
+let topmostTimer: NodeJS.Timeout | null = null;
+let listeningForDisplayChanges = false;
 let snapping = false;
 let manualResizing = false;
+
+const TOPMOST_REFRESH_MS = 1500;
+
+function reinforceOverlayTopmost(win: BrowserWindow): void {
+  if (win.isDestroyed()) return;
+  try {
+    win.setAlwaysOnTop(true, "screen-saver", 1);
+  } catch {
+    try {
+      win.setAlwaysOnTop(true, "screen-saver");
+    } catch {
+      // Best-effort; some platforms/window managers reject specific levels.
+    }
+  }
+
+  try {
+    win.moveTop();
+  } catch {
+    // Best-effort; the window may be hidden or the platform may ignore it.
+  }
+}
+
+function startTopmostRefresh(win: BrowserWindow): void {
+  stopTopmostRefresh();
+  reinforceOverlayTopmost(win);
+  topmostTimer = setInterval(() => reinforceOverlayTopmost(win), TOPMOST_REFRESH_MS);
+  topmostTimer.unref?.();
+}
+
+function stopTopmostRefresh(): void {
+  if (!topmostTimer) return;
+  clearInterval(topmostTimer);
+  topmostTimer = null;
+}
+
+function handleDisplayChanged(): void {
+  const win = getOverlayWindow();
+  if (!win || snapping || manualResizing) return;
+  snapAndSave(win);
+  if (win.isVisible()) reinforceOverlayTopmost(win);
+}
+
+function addDisplayChangeListeners(): void {
+  if (listeningForDisplayChanges) return;
+  screen.on("display-added", handleDisplayChanged);
+  screen.on("display-removed", handleDisplayChanged);
+  screen.on("display-metrics-changed", handleDisplayChanged);
+  listeningForDisplayChanges = true;
+}
+
+function removeDisplayChangeListeners(): void {
+  if (!listeningForDisplayChanges) return;
+  screen.off("display-added", handleDisplayChanged);
+  screen.off("display-removed", handleDisplayChanged);
+  screen.off("display-metrics-changed", handleDisplayChanged);
+  listeningForDisplayChanges = false;
+}
 
 function snapAndSave(win: BrowserWindow): void {
   if (win.isDestroyed()) return;
@@ -64,11 +123,17 @@ export function ensureOverlayWindow(): void {
     show: false,
     frame: false,
     transparent: true,
+    backgroundColor: "#00000000",
+    hasShadow: false,
+    roundedCorners: false,
     resizable: true,
+    fullscreenable: false,
+    maximizable: false,
+    minimizable: false,
     minWidth: OVERLAY_MIN_WIDTH,
     minHeight: OVERLAY_MIN_HEIGHT,
     skipTaskbar: true,
-    focusable: true,
+    focusable: false,
     title: "MAGI Cornerman",
     webPreferences: {
       preload: process.env["VITE_DEV_SERVER_URL"]
@@ -80,9 +145,12 @@ export function ensureOverlayWindow(): void {
     },
   });
 
-  // Float above borderless-windowed games. (Exclusive-fullscreen apps cannot be
-  // overlaid by any OS window — known limitation.)
-  overlayWindow.setAlwaysOnTop(true, "screen-saver");
+  reinforceOverlayTopmost(overlayWindow);
+  overlayWindow.setFullScreenable(false);
+  if (process.platform !== "win32") {
+    overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  }
+  addDisplayChangeListeners();
 
   // Block navigation, but allow Vite HMR full-reloads in dev (same pattern as
   // createWindow() in index.ts — blanket-prevent would break hot reloads of the
@@ -114,11 +182,14 @@ export function ensureOverlayWindow(): void {
   const win = overlayWindow;
   win.on("move", () => scheduleSnapAndSave(win));
   win.on("resize", () => scheduleSnapAndSave(win));
+  win.on("hide", () => stopTopmostRefresh());
   win.on("closed", () => {
     if (snapTimer) {
       clearTimeout(snapTimer);
       snapTimer = null;
     }
+    stopTopmostRefresh();
+    removeDisplayChangeListeners();
     if (overlayWindow === win) overlayWindow = null;
   });
 }
@@ -149,15 +220,25 @@ export function finishOverlayResize(): boolean {
 /** Show without stealing focus from the game. */
 export function showOverlayWindow(): void {
   const win = getOverlayWindow();
-  if (win && !win.isVisible()) win.showInactive();
+  if (!win) return;
+  snapAndSave(win);
+  startTopmostRefresh(win);
+  if (!win.isVisible()) {
+    win.showInactive();
+  } else {
+    reinforceOverlayTopmost(win);
+  }
 }
 
 export function hideOverlayWindow(): void {
+  stopTopmostRefresh();
   getOverlayWindow()?.hide();
 }
 
 export function destroyOverlayWindow(): void {
   const win = getOverlayWindow();
   overlayWindow = null;
+  stopTopmostRefresh();
+  removeDisplayChangeListeners();
   win?.destroy();
 }
