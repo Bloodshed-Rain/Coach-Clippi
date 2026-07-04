@@ -31,7 +31,13 @@ export interface AdvanceOutcome {
 function gameResultFor(gr: GameResult, targetTag: string): "win" | "loss" | "draw" {
   const idx = findPlayerIdx(gr.gameSummary, targetTag);
   const oppIdx = idx === 0 ? 1 : 0;
-  return classifyGameResult(gr.gameSummary.result, gr.gameSummary.players[idx].tag, gr.gameSummary.players[oppIdx].tag, idx);
+  return classifyGameResult(
+    gr.gameSummary.result,
+    gr.gameSummary.players[idx].tag,
+    gr.gameSummary.players[oppIdx].tag,
+    idx,
+    gr.gameSummary.duration,
+  );
 }
 
 /**

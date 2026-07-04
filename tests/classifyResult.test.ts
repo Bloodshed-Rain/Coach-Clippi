@@ -70,4 +70,22 @@ describe("classifyGameResult", () => {
     const r = res({ winner: "Unknown", endMethod: "timeout", finalStocks: [2, 1], finalPercents: [80, 10] });
     expect(classifyGameResult(r, "MANG0", "PPMD", 0)).toBe("win");
   });
+
+  it("treats a sub-30s quit-out as a false start (draw) even with a known winner", () => {
+    const r = res({ winner: "MANG0", endMethod: "LRAS", finalStocks: [4, 3] });
+    expect(classifyGameResult(r, "MANG0", "PPMD", 0, 12)).toBe("draw");
+    expect(classifyGameResult(r, "PPMD", "MANG0", 1, 12)).toBe("draw");
+  });
+
+  it("does not apply the false-start rule at or past 30s", () => {
+    const r = res({ winner: "MANG0", endMethod: "LRAS", finalStocks: [4, 3] });
+    expect(classifyGameResult(r, "MANG0", "PPMD", 0, 30)).toBe("win");
+    expect(classifyGameResult(r, "MANG0", "PPMD", 0, 145)).toBe("win");
+  });
+
+  it("does not apply the false-start rule when a player is already dead", () => {
+    // A 25s 4-stock ending by LRAS-after-last-stock is still decisive
+    const r = res({ winner: "MANG0", endMethod: "LRAS", finalStocks: [4, 0] });
+    expect(classifyGameResult(r, "MANG0", "PPMD", 0, 25)).toBe("win");
+  });
 });

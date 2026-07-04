@@ -162,6 +162,13 @@ describe("win-rate correctness", () => {
     expect(DB_SOURCE).toMatch(/\(\(player_final_stocks = 0\) \+ \(opponent_final_stocks = 0\)\) = 1/);
   });
 
+  it("has migration v8 reverting sub-30s quit-outs to draws", () => {
+    expect(DB_SOURCE).toContain("version: 8");
+    expect(DB_SOURCE).toMatch(
+      /end_method = 'LRAS'\s*\n\s*AND duration_seconds < 30\s*\n\s*AND player_final_stocks > 0 AND opponent_final_stocks > 0\s*\n\s*AND result IN \('win', 'loss'\)/,
+    );
+  });
+
   it("never divides win rate by total games (draws must not count as losses)", () => {
     // Every SQL winRate must use the decisive-games denominator
     expect(DB_SOURCE).not.toMatch(/AS REAL\) \/ COUNT\(\*\)/);

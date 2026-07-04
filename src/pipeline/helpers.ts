@@ -73,6 +73,10 @@ export function endMethodString(gameEnd: GameEndType | undefined): string {
   }
 }
 
+/** Quit-outs shorter than this are false starts, not games — mirrors the
+ *  MIN_GAME_SECONDS handwarmer cutoff in cornerman.ts / detect-sets.ts. */
+export const FALSE_START_MAX_SECONDS = 30;
+
 /**
  * Classify a game as win/loss/draw for the player at `playerIdx`.
  *
@@ -81,15 +85,29 @@ export function endMethodString(gameEnd: GameEndType | undefined): string {
  * trusted first. The stock/percent fallback only handles replays where the
  * winner is unresolvable (no game-end block, pre-2.0 LRAS without an
  * initiator index) or where both players share a tag, making the winner
- * tag ambiguous.
+ * tag ambiguous. Sub-30s quit-outs with both players alive are false
+ * starts (wrong character, quick restart) and stay draws either way.
  */
 export function classifyGameResult(
   result: { winner: string; endMethod: string; finalStocks: [number, number]; finalPercents: [number, number] },
   playerTag: string,
   opponentTag: string,
   playerIdx: 0 | 1,
+  durationSeconds?: number,
 ): "win" | "loss" | "draw" {
   const opponentIdx = playerIdx === 0 ? 1 : 0;
+
+  const aliveP = result.finalStocks[playerIdx] > 0;
+  const aliveO = result.finalStocks[opponentIdx] > 0;
+  if (
+    result.endMethod === "LRAS" &&
+    aliveP &&
+    aliveO &&
+    durationSeconds !== undefined &&
+    durationSeconds < FALSE_START_MAX_SECONDS
+  ) {
+    return "draw";
+  }
 
   if (result.winner !== "Unknown" && playerTag !== opponentTag) {
     return result.winner === playerTag ? "win" : "loss";

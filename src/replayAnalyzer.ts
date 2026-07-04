@@ -151,7 +151,7 @@ export function buildInsertGameParams(
   const player = gameSummary.players[playerIdx];
   const opponent = gameSummary.players[opponentIdx];
 
-  const result = classifyGameResult(gameSummary.result, player.tag, opponent.tag, playerIdx);
+  const result = classifyGameResult(gameSummary.result, player.tag, opponent.tag, playerIdx, gameSummary.duration);
 
   return {
     sessionId,

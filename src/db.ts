@@ -304,6 +304,22 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    version: 8,
+    description: "Sub-30s quit-outs are false starts — revert them to draws",
+    up: (db) => {
+      // Mirrors FALSE_START_MAX_SECONDS in pipeline/helpers.ts and the
+      // MIN_GAME_SECONDS handwarmer cutoff used by set detection: a quit
+      // inside 30 seconds with both players alive is a restart, not a game.
+      db.exec(`
+        UPDATE games SET result = 'draw'
+        WHERE end_method = 'LRAS'
+          AND duration_seconds < 30
+          AND player_final_stocks > 0 AND opponent_final_stocks > 0
+          AND result IN ('win', 'loss')
+      `);
+    },
+  },
 ];
 
 /**

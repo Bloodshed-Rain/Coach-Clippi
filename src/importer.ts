@@ -120,7 +120,7 @@ async function importReplayInner(
   const opponent = gameSummary.players[opponentIdx];
   const playerInsights = derivedInsights[playerIdx];
 
-  const result = classifyGameResult(gameSummary.result, player.tag, opponent.tag, playerIdx);
+  const result = classifyGameResult(gameSummary.result, player.tag, opponent.tag, playerIdx, gameSummary.duration);
 
   // Compute total damage dealt from stock data
   const totalDamageDealt = player.stocks.reduce((sum, s) => sum + s.damageDealt, 0);
@@ -396,7 +396,13 @@ export async function importReplays(
         const opponent = gameSummary.players[opponentIdx];
         const playerInsights = derivedInsights[playerIdx];
 
-        const gameResultStr = classifyGameResult(gameSummary.result, player.tag, opponent.tag, playerIdx);
+        const gameResultStr = classifyGameResult(
+          gameSummary.result,
+          player.tag,
+          opponent.tag,
+          playerIdx,
+          gameSummary.duration,
+        );
 
         const totalDamageDealt = player.stocks.reduce((sum, s) => sum + s.damageDealt, 0);
 
