@@ -186,6 +186,7 @@ declare global {
       cornermanOverlayDismiss: () => Promise<boolean>;
       cornermanOverlayResize: (handle: string, deltaX: number, deltaY: number) => Promise<boolean>;
       cornermanOverlayResizeEnd: () => Promise<boolean>;
+      cornermanOverlayReady: () => Promise<boolean>;
       onCornermanStream: (callback: (chunk: string) => void) => () => void;
       onCornermanCard: (callback: (card: CornermanCard) => void) => () => void;
       onCornermanSetUpdate: (callback: (status: CornermanStatus) => void) => () => void;

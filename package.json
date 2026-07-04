@@ -49,6 +49,10 @@
         "to": "."
       },
       {
+        "from": "build/icon.ico",
+        "to": "."
+      },
+      {
         "from": "build/splash.html",
         "to": "."
       }

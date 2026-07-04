@@ -228,6 +228,7 @@ export function detectLiveConversionEvents({
   frames,
   stageId,
   minEventFrame = Number.NEGATIVE_INFINITY,
+  allowOpenConversions = false,
 }: {
   conversions: ConversionType[];
   players: CornermanLivePlayer[];
@@ -235,11 +236,20 @@ export function detectLiveConversionEvents({
   frames?: FramesType;
   stageId?: number | undefined;
   minEventFrame?: number;
+  /** Emit conversions that never closed — pass true once the game has ended,
+   *  when their endFrame (and thus the dedup key) can no longer change. */
+  allowOpenConversions?: boolean;
 }): CornermanLiveEvent[] {
   const events: CornermanLiveEvent[] = [];
 
   for (const conversion of conversions) {
     if (conversion.moves.length === 0) continue;
+
+    // Skip conversions still in progress: their endFrame (part of the dedup
+    // key) changes when they close, which would re-emit the same alert with a
+    // new id — and the damage total isn't final yet anyway. They close at most
+    // 45 frames (~0.75s) after the last hit, so the alert is barely delayed.
+    if (conversion.endFrame == null && !conversion.didKill && !allowOpenConversions) continue;
 
     const eventFrame = conversion.endFrame ?? conversion.startFrame;
     if (eventFrame < minEventFrame) continue;

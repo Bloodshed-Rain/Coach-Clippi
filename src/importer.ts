@@ -58,6 +58,12 @@ export interface ImportResult {
 
 // ── Single game import ───────────────────────────────────────────────
 
+/** Concurrent importReplay calls for the same file (e.g. the folder watcher
+ *  and Cornerman's live-completion import racing on one finished game) would
+ *  both pass the hash-dedup check before either inserts. The second caller
+ *  awaits the first and reports skipped instead. */
+const inFlightImports = new Map<string, Promise<ImportResult>>();
+
 export async function importReplay(
   filePath: string,
   targetPlayer: string | null,
@@ -65,6 +71,29 @@ export async function importReplay(
   sessionId: number | null = null,
 ): Promise<ImportResult> {
   const absolutePath = path.resolve(filePath);
+
+  const inFlight = inFlightImports.get(absolutePath);
+  if (inFlight) {
+    const result = await inFlight.catch(() => null);
+    if (result) return { filePath: absolutePath, hash: result.hash, skipped: true };
+    // The first caller failed — fall through and try fresh.
+  }
+
+  const attempt = importReplayInner(absolutePath, targetPlayer, gameNumber, sessionId);
+  inFlightImports.set(absolutePath, attempt);
+  try {
+    return await attempt;
+  } finally {
+    inFlightImports.delete(absolutePath);
+  }
+}
+
+async function importReplayInner(
+  absolutePath: string,
+  targetPlayer: string | null,
+  gameNumber: number,
+  sessionId: number | null,
+): Promise<ImportResult> {
   const hash = await hashFile(absolutePath);
 
   // Dedup check
@@ -184,7 +213,18 @@ export async function importReplay(
     return gameId;
   });
 
-  const gameId = importTransaction();
+  let gameId: number;
+  try {
+    gameId = importTransaction();
+  } catch (err) {
+    // Lost a dedup race with another importer of the same content (different
+    // path or another process): degrade to a clean skip instead of surfacing
+    // a UNIQUE-constraint error for a normally-imported game.
+    if (replayExists(hash)) {
+      return { filePath: absolutePath, hash, skipped: true };
+    }
+    throw err;
+  }
 
   return { filePath: absolutePath, hash, skipped: false, gameId, gameSummary, gameResult };
 }

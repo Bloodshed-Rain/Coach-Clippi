@@ -120,6 +120,7 @@ const api = {
   cornermanOverlayResize: (handle: string, deltaX: number, deltaY: number) =>
     ipcRenderer.invoke("cornerman:overlay-resize", handle, deltaX, deltaY),
   cornermanOverlayResizeEnd: () => ipcRenderer.invoke("cornerman:overlay-resize-end"),
+  cornermanOverlayReady: () => ipcRenderer.invoke("cornerman:overlay-ready"),
 
   // Queue status
   getQueueStatus: () => ipcRenderer.invoke("queue:status"),

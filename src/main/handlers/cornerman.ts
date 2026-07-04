@@ -4,21 +4,23 @@ import { getDb, insertCoachingAnalysis } from "../../db.js";
 import { advanceLiveSet, type LiveSetState } from "../../cornerman.js";
 import { startCornermanLiveMonitor, type CornermanLiveMonitor } from "../../cornermanLiveMonitor.js";
 import { resolveCornermanPopupSettings, shouldShowCornermanLiveAlert } from "../../cornermanPopupSettings.js";
+import { importReplay } from "../../importer.js";
 import { SYSTEM_PROMPT_CORNERMAN, assembleCornermanPrompt } from "../../pipeline/index.js";
 import { callLLMStream } from "../../llm.js";
 import { llmQueue } from "../../llmQueue.js";
 import { type SafeHandleFn, validatePath } from "../ipc.js";
 import { getMainWindow, setImportListener, type WatcherImportEvent } from "../state.js";
 import { resolveLLMConfig } from "./analysis.js";
-import { startReplayWatcher } from "./watcher.js";
+import { notifyGameHighlights, startReplayWatcher } from "./watcher.js";
 import {
   ensureOverlayWindow,
-  getOverlayWindow,
   showOverlayWindow,
   hideOverlayWindow,
   destroyOverlayWindow,
   resizeOverlayWindow,
   finishOverlayResize,
+  sendToOverlay,
+  markOverlayRendererReady,
 } from "../overlayWindow.js";
 
 /** Cap on games rendered into the prompt — long friendlies runs vs the same
@@ -59,11 +61,9 @@ function broadcast(channel: string, ...args: unknown[]): void {
   } catch {
     // window may have closed
   }
-  try {
-    getOverlayWindow()?.webContents.send(channel, ...args);
-  } catch {
-    // overlay may have closed
-  }
+  // Overlay leg is queued until its renderer mounts listeners — a send fired
+  // during the window's initial load would otherwise vanish silently.
+  sendToOverlay(channel, ...args);
 }
 
 function stopLiveMonitor(): void {
@@ -114,6 +114,8 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
         if (session !== mySession) return; // stale session — drop chunks, don't pop the toast
         if (!shownThisCard && popupSettings.coachingCards) {
           shownThisCard = true;
+          // Re-ensure: the overlay window may have died since cornerman:start.
+          ensureOverlayWindow();
           showOverlayWindow();
         }
         broadcast("cornerman:stream", chunk);
@@ -121,7 +123,10 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
     );
   } catch (err) {
     if (session === mySession) {
-      if (popupSettings.errors) showOverlayWindow();
+      if (popupSettings.errors) {
+        ensureOverlayWindow();
+        showOverlayWindow();
+      }
       broadcast("cornerman:error", err instanceof Error ? err.message : String(err));
     }
     return;
@@ -131,6 +136,13 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
   // skip the card broadcast and notification — they belong to a dead session.
   // The DB insert still runs because we already paid for the tokens.
   if (session === mySession) {
+    if (popupSettings.coachingCards) {
+      // Re-show for the finished card: if the user dismissed the toast
+      // mid-stream, the completed card would otherwise land in a hidden
+      // window and never be seen for the between-games window it serves.
+      ensureOverlayWindow();
+      showOverlayWindow();
+    }
     broadcast("cornerman:card", {
       text: card,
       gameNumber: totalGames,
@@ -166,6 +178,39 @@ async function handleCornermanImport(event: WatcherImportEvent): Promise<void> {
   }
 }
 
+/** Import a replay the live monitor saw finish and run the card flow on it.
+ *  Covers the game already in progress when the session starts: its .slp file
+ *  predates the folder watcher, whose ignoreInitial suppresses the "add" event,
+ *  so without this the first game would never produce a card. SHA-256 dedup in
+ *  importReplay makes this a cheap no-op when the watcher also imported it. */
+async function importCompletedLiveGame(filePath: string, targetPlayer: string): Promise<void> {
+  const mySession = session;
+  const result = await importReplay(filePath, targetPlayer);
+  if (session !== mySession) return;
+
+  if (!result.skipped) {
+    try {
+      getMainWindow()?.webContents.send("watcher:imported", {
+        filePath,
+        skipped: result.skipped,
+        gameId: result.gameId,
+      });
+    } catch {
+      // window may have closed
+    }
+    if (result.gameId) {
+      notifyGameHighlights(result.gameId);
+    }
+  }
+
+  await handleCornermanImport({
+    filePath,
+    skipped: result.skipped,
+    gameId: result.gameId,
+    gameResult: result.gameResult,
+  });
+}
+
 export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
   safeHandle("cornerman:start", (_e, replayFolder: string, targetPlayer: string) => {
     const safeFolder = validatePath(replayFolder);
@@ -185,6 +230,11 @@ export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
         for (const liveEvent of events) {
           broadcast("cornerman:live-event", liveEvent);
         }
+      },
+      onGameComplete: (filePath) => {
+        void importCompletedLiveGame(filePath, targetPlayer).catch((err) => {
+          console.error("[cornerman] live-game import failed:", err);
+        });
       },
       onError: (err, filePath) => {
         console.warn(`[cornerman] live monitor skipped ${filePath}: ${err.message}`);
@@ -222,6 +272,11 @@ export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
 
   safeHandle("cornerman:overlay-dismiss", () => {
     hideOverlayWindow();
+    return true;
+  });
+
+  safeHandle("cornerman:overlay-ready", () => {
+    markOverlayRendererReady();
     return true;
   });
 
