@@ -42,9 +42,10 @@ function fmtDmgDelta(d: number): { label: string; tone: "good" | "bad" | "neutra
 
 function buildRecentSummary(games: RecentGame[]): string {
   const wins = games.filter((g) => g.result === "win").length;
+  const losses = games.filter((g) => g.result === "loss").length;
   const avg = (fn: (g: RecentGame) => number) => games.reduce((s, g) => s + fn(g), 0) / games.length;
   return [
-    `Last ${games.length} games: ${wins}W-${games.length - wins}L`,
+    `Last ${games.length} games: ${wins}W-${losses}L`,
     `- Neutral ${(avg((g) => g.neutralWinRate) * 100).toFixed(1)}%`,
     `- L-Cancel ${(avg((g) => g.lCancelRate) * 100).toFixed(1)}%`,
     `- Conversion ${(avg((g) => g.conversionRate) * 100).toFixed(1)}%`,
@@ -112,7 +113,8 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
   const wins = record?.wins ?? 0;
   const losses = record?.losses ?? 0;
   const totalGames = record?.totalGames ?? recent.length;
-  const overallWR = totalGames > 0 ? (wins / totalGames) * 100 : 0;
+  const decisiveGames = wins + losses;
+  const overallWR = decisiveGames > 0 ? (wins / decisiveGames) * 100 : 0;
 
   const trends = highlights?.trends;
   const neutralD = trends ? fmtDelta(trends.neutralWinRate) : { label: "—", tone: "neutral" as const };

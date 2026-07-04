@@ -100,6 +100,7 @@ declare global {
         total: number;
         totalUnfiltered: number;
         wins: number;
+        losses: number;
         uniqueOpponents: number;
         charactersPlayed: number;
         characters: string[];

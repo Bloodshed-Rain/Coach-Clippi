@@ -438,8 +438,8 @@ export function Characters({ refreshKey: _ }: { refreshKey: number }) {
           const meta = CHARACTER_META[c.character] ?? DEFAULT_META;
           const games = c.gamesPlayed ?? 0;
           const wins = c.wins ?? 0;
-          const losses = c.losses ?? Math.max(0, games - wins);
-          const wr = c.winRate ?? (games > 0 ? wins / games : 0);
+          const losses = c.losses ?? 0;
+          const wr = c.winRate ?? (wins + losses > 0 ? wins / (wins + losses) : 0);
           const unplayed = games === 0;
           return (
             <button
@@ -685,7 +685,7 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
             <tbody>
               {matchups.slice(0, 12).map((m) => {
                 const gamesCount = m.gamesPlayed ?? 0;
-                const wr = m.winRate ?? (gamesCount > 0 ? m.wins / gamesCount : 0);
+                const wr = m.winRate ?? (m.wins + m.losses > 0 ? m.wins / (m.wins + m.losses) : 0);
                 return (
                   <tr key={m.opponentCharacter}>
                     <td style={{ fontWeight: 600 }}>{m.opponentCharacter}</td>

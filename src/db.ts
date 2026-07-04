@@ -276,6 +276,34 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    version: 7,
+    description: "Reclassify quit-out/timeout 'draw' games as win/loss from final stocks and percent",
+    up: (db) => {
+      // Historical imports marked every game where both players still had
+      // stocks as a draw — which is every LRAS quit-out. The quitter's
+      // identity wasn't stored, so infer the winner the same way the game
+      // resolves timeouts: stock lead first, then lower percent. Exact ties
+      // stay draws.
+      db.exec(`
+        UPDATE games SET result = CASE
+          WHEN player_final_stocks > opponent_final_stocks THEN 'win'
+          WHEN player_final_stocks < opponent_final_stocks THEN 'loss'
+          WHEN CAST(player_final_percent AS INTEGER) < CAST(opponent_final_percent AS INTEGER) THEN 'win'
+          WHEN CAST(player_final_percent AS INTEGER) > CAST(opponent_final_percent AS INTEGER) THEN 'loss'
+          ELSE 'draw'
+        END
+        WHERE result = 'draw' AND end_method IN ('LRAS', 'timeout')
+      `);
+      // Games that clearly ran to completion (exactly one player at 0 stocks)
+      // are decisive even when the replay lacked winner data.
+      db.exec(`
+        UPDATE games SET result = CASE WHEN player_final_stocks > 0 THEN 'win' ELSE 'loss' END
+        WHERE result = 'draw'
+          AND ((player_final_stocks = 0) + (opponent_final_stocks = 0)) = 1
+      `);
+    },
+  },
 ];
 
 /**
@@ -775,7 +803,7 @@ export function getAggregateStats(filters: AggregateStatsParams): AggregateStats
 
   return {
     ...stats,
-    winRate: stats.gamesPlayed > 0 ? stats.wins / stats.gamesPlayed : 0,
+    winRate: stats.wins + stats.losses > 0 ? stats.wins / (stats.wins + stats.losses) : 0,
     characterDistribution,
     opponentDistribution,
     stageDistribution,
@@ -1028,6 +1056,7 @@ export function getDeepInsightsData(): DeepInsightsData {
       CASE WHEN g.result = 'win' THEN 1 ELSE 0 END as is_win
     FROM game_stats gs
     JOIN games g ON gs.game_id = g.id
+    WHERE g.result IN ('win', 'loss')
   `,
     )
     .all() as DeepInsightsRow[];
@@ -1263,7 +1292,7 @@ export function getMatchupRecords(playerCharacter?: string): MatchupRecord[] {
       SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) as wins,
       SUM(CASE WHEN g.result = 'loss' THEN 1 ELSE 0 END) as losses,
       COUNT(*) as totalGames,
-      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate
+      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate
     FROM games g
     ${where}
     GROUP BY g.opponent_character
@@ -1290,7 +1319,7 @@ export function getStageRecords(): StageRecord[] {
       SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) as wins,
       SUM(CASE WHEN g.result = 'loss' THEN 1 ELSE 0 END) as losses,
       COUNT(*) as totalGames,
-      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate
+      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate
     FROM games g
     GROUP BY g.stage
     ORDER BY totalGames DESC
@@ -1351,11 +1380,11 @@ export function getDashboardHighlights(trendWindow: number = 10): DashboardHighl
     .prepare(
       `
     SELECT g.player_character as character,
-           ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate,
+           ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate,
            COUNT(*) as games
     FROM games g
     GROUP BY g.player_character
-    HAVING COUNT(*) >= 3
+    HAVING SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END) >= 3
     ORDER BY winRate DESC
     LIMIT 1
   `,
@@ -1367,11 +1396,11 @@ export function getDashboardHighlights(trendWindow: number = 10): DashboardHighl
     .prepare(
       `
     SELECT g.opponent_character as opponentCharacter,
-           ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate,
+           ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate,
            COUNT(*) as games
     FROM games g
     GROUP BY g.opponent_character
-    HAVING COUNT(*) >= 3
+    HAVING SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END) >= 3
     ORDER BY winRate DESC
     LIMIT 1
   `,
@@ -1383,11 +1412,11 @@ export function getDashboardHighlights(trendWindow: number = 10): DashboardHighl
     .prepare(
       `
     SELECT g.opponent_character as opponentCharacter,
-           ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate,
+           ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate,
            COUNT(*) as games
     FROM games g
     GROUP BY g.opponent_character
-    HAVING COUNT(*) >= 3
+    HAVING SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END) >= 3
     ORDER BY winRate ASC
     LIMIT 1
   `,
@@ -1399,11 +1428,11 @@ export function getDashboardHighlights(trendWindow: number = 10): DashboardHighl
     .prepare(
       `
     SELECT g.stage,
-           ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate,
+           ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate,
            COUNT(*) as games
     FROM games g
     GROUP BY g.stage
-    HAVING COUNT(*) >= 3
+    HAVING SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END) >= 3
     ORDER BY winRate DESC
     LIMIT 1
   `,
@@ -1584,6 +1613,7 @@ export interface LibraryGamesPage {
   total: number;
   totalUnfiltered: number;
   wins: number;
+  losses: number;
   uniqueOpponents: number;
   charactersPlayed: number;
   characters: string[];
@@ -1632,6 +1662,7 @@ export function getLibraryGames(filters: LibraryGameFilters = {}): LibraryGamesP
     SELECT
       COUNT(*) as total,
       SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) as wins,
+      SUM(CASE WHEN g.result = 'loss' THEN 1 ELSE 0 END) as losses,
       COUNT(DISTINCT COALESCE(g.opponent_connect_code, g.opponent_tag)) as uniqueOpponents,
       COUNT(DISTINCT g.player_character) as charactersPlayed
     FROM games g
@@ -1641,6 +1672,7 @@ export function getLibraryGames(filters: LibraryGameFilters = {}): LibraryGamesP
     .get(...params) as {
     total: number;
     wins: number | null;
+    losses: number | null;
     uniqueOpponents: number;
     charactersPlayed: number;
   };
@@ -1716,6 +1748,7 @@ export function getLibraryGames(filters: LibraryGameFilters = {}): LibraryGamesP
     total: summary?.total ?? 0,
     totalUnfiltered,
     wins: summary?.wins ?? 0,
+    losses: summary?.losses ?? 0,
     uniqueOpponents: summary?.uniqueOpponents ?? 0,
     charactersPlayed: summary?.charactersPlayed ?? 0,
     characters,
@@ -1746,7 +1779,7 @@ export function getOpponentHistory(opponent?: string): OpponentRecord[] {
         SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) as wins,
         SUM(CASE WHEN result = 'loss' THEN 1 ELSE 0 END) as losses,
         COUNT(*) as totalGames,
-        ROUND(CAST(SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate,
+        ROUND(CAST(SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate,
         GROUP_CONCAT(DISTINCT opponent_character) as characters,
         MAX(played_at) as lastPlayed
       FROM games
@@ -1979,7 +2012,7 @@ export function getOpponentDetail(opponentKey: string): OpponentDetail | null {
       SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) as wins,
       SUM(CASE WHEN g.result = 'loss' THEN 1 ELSE 0 END) as losses,
       COUNT(*) as totalGames,
-      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate,
+      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate,
       ROUND(AVG(gs.neutral_win_rate), 4) as avgNeutralWinRate,
       ROUND(AVG(gs.l_cancel_rate), 4) as avgLCancelRate,
       ROUND(AVG(gs.openings_per_kill), 2) as avgOpeningsPerKill,
@@ -2035,7 +2068,7 @@ export function getOpponentDetail(opponentKey: string): OpponentDetail | null {
       SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) as wins,
       SUM(CASE WHEN g.result = 'loss' THEN 1 ELSE 0 END) as losses,
       COUNT(*) as totalGames,
-      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate
+      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate
     FROM games g
     WHERE g.opponent_connect_code = ? OR g.opponent_tag = ?
     GROUP BY g.stage
@@ -2053,7 +2086,7 @@ export function getOpponentDetail(opponentKey: string): OpponentDetail | null {
       SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) as wins,
       SUM(CASE WHEN g.result = 'loss' THEN 1 ELSE 0 END) as losses,
       COUNT(*) as totalGames,
-      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate
+      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate
     FROM games g
     WHERE g.opponent_connect_code = ? OR g.opponent_tag = ?
     GROUP BY g.opponent_character
@@ -2120,7 +2153,7 @@ export function getCharacterList(): CharacterOverview[] {
       COUNT(*) as gamesPlayed,
       SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) as wins,
       SUM(CASE WHEN g.result = 'loss' THEN 1 ELSE 0 END) as losses,
-      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate,
+      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate,
       ROUND(AVG(gs.neutral_win_rate), 4) as avgNeutralWinRate,
       ROUND(AVG(gs.conversion_rate), 4) as avgConversionRate,
       ROUND(AVG(gs.l_cancel_rate), 4) as avgLCancelRate,
@@ -2158,7 +2191,7 @@ export function getCharacterMatchups(character: string): CharacterMatchup[] {
       COUNT(*) as gamesPlayed,
       SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) as wins,
       SUM(CASE WHEN g.result = 'loss' THEN 1 ELSE 0 END) as losses,
-      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate,
+      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate,
       ROUND(AVG(gs.neutral_win_rate), 4) as avgNeutralWinRate,
       ROUND(AVG(gs.conversion_rate), 4) as avgConversionRate,
       ROUND(AVG(gs.openings_per_kill), 2) as avgOpeningsPerKill
@@ -2189,7 +2222,7 @@ export function getCharacterStageStats(character: string): CharacterStageStats[]
       COUNT(*) as gamesPlayed,
       SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) as wins,
       SUM(CASE WHEN g.result = 'loss' THEN 1 ELSE 0 END) as losses,
-      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate
+      ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate
     FROM games g
     WHERE g.player_character = ?
     GROUP BY g.stage
@@ -2417,7 +2450,7 @@ export function getPlayerHistory(targetPlayer: string, recentLimit: number = 10)
       SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) as wins,
       SUM(CASE WHEN result = 'loss' THEN 1 ELSE 0 END) as losses,
       COUNT(*) as totalGames,
-      ROUND(CAST(SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate
+      ROUND(CAST(SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate
     FROM games
     WHERE player_tag = ? OR player_connect_code = ?
     GROUP BY player_character
@@ -2435,7 +2468,7 @@ export function getPlayerHistory(targetPlayer: string, recentLimit: number = 10)
       SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) as wins,
       SUM(CASE WHEN result = 'loss' THEN 1 ELSE 0 END) as losses,
       COUNT(*) as totalGames,
-      ROUND(CAST(SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate
+      ROUND(CAST(SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate
     FROM games
     WHERE player_tag = ? OR player_connect_code = ?
     GROUP BY opponent_character

@@ -95,14 +95,16 @@ export function Library({ refreshKey: _ }: { refreshKey: number }) {
 
       {(() => {
         const filteredWins = data?.wins ?? 0;
-        const filteredWR = total > 0 ? (filteredWins / total) * 100 : 0;
+        const filteredLosses = data?.losses ?? 0;
+        const decisive = filteredWins + filteredLosses;
+        const filteredWR = decisive > 0 ? (filteredWins / decisive) * 100 : 0;
         return (
           <div className="kpi-grid" style={{ marginBottom: 12 }}>
             <KPI label="Filtered" value={total} sub={isFetching ? "updating" : `${pageStart}-${pageEnd || 0} shown`} />
             <KPI
               label="Win Rate"
               value={`${filteredWR.toFixed(0)}%`}
-              sub={`${filteredWins}W · ${total - filteredWins}L`}
+              sub={`${filteredWins}W · ${filteredLosses}L`}
             />
             <KPI label="Unique Opponents" value={data?.uniqueOpponents ?? 0} />
             <KPI label="Characters Played" value={data?.charactersPlayed ?? 0} />

@@ -73,6 +73,51 @@ export function endMethodString(gameEnd: GameEndType | undefined): string {
   }
 }
 
+/**
+ * Classify a game as win/loss/draw for the player at `playerIdx`.
+ *
+ * slippi-js's getWinners() already resolves LRAS quit-outs (the non-quitter
+ * wins) and timeouts (stock lead, then percent), so a known winner tag is
+ * trusted first. The stock/percent fallback only handles replays where the
+ * winner is unresolvable (no game-end block, pre-2.0 LRAS without an
+ * initiator index) or where both players share a tag, making the winner
+ * tag ambiguous.
+ */
+export function classifyGameResult(
+  result: { winner: string; endMethod: string; finalStocks: [number, number]; finalPercents: [number, number] },
+  playerTag: string,
+  opponentTag: string,
+  playerIdx: 0 | 1,
+): "win" | "loss" | "draw" {
+  const opponentIdx = playerIdx === 0 ? 1 : 0;
+
+  if (result.winner !== "Unknown" && playerTag !== opponentTag) {
+    return result.winner === playerTag ? "win" : "loss";
+  }
+
+  const pStocks = result.finalStocks[playerIdx];
+  const oStocks = result.finalStocks[opponentIdx];
+
+  // A game that ran to completion (someone at 0 stocks) is decisive even
+  // when the replay lacks winner data.
+  if (pStocks === 0 || oStocks === 0) {
+    if (pStocks !== oStocks) return pStocks > oStocks ? "win" : "loss";
+    return "draw";
+  }
+
+  // Quit-out or timeout with both players alive: infer from final position.
+  if (result.endMethod === "LRAS" || result.endMethod === "timeout") {
+    if (pStocks !== oStocks) return pStocks > oStocks ? "win" : "loss";
+    const pPercent = result.finalPercents[playerIdx];
+    const oPercent = result.finalPercents[opponentIdx];
+    if (Math.trunc(pPercent) !== Math.trunc(oPercent)) {
+      return Math.trunc(pPercent) < Math.trunc(oPercent) ? "win" : "loss";
+    }
+  }
+
+  return "draw";
+}
+
 // ── Action state classification ───────────────────────────────────────
 
 export function isAirborne(actionState: number): boolean {

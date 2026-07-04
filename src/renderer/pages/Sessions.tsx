@@ -37,7 +37,8 @@ function DayCard({ day }: { day: Day }) {
   const [report, setReport] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const wr = day.games > 0 ? day.wins / day.games : 0;
+  const decisive = day.wins + day.losses;
+  const wr = decisive > 0 ? day.wins / decisive : 0;
   const pct = Math.round(wr * 100);
 
   const onReport = async () => {

@@ -4,6 +4,7 @@ import path from "path";
 
 import {
   findPlayerIdx,
+  classifyGameResult,
   computeAdaptationSignals,
   assembleUserPrompt,
   SYSTEM_PROMPT,
@@ -119,19 +120,7 @@ async function importReplayInner(
   const opponent = gameSummary.players[opponentIdx];
   const playerInsights = derivedInsights[playerIdx];
 
-  // Determine result — if both players have stocks remaining, count as a draw (e.g. LRAS quit-out)
-  const pStocks = gameSummary.result.finalStocks[playerIdx];
-  const oStocks = gameSummary.result.finalStocks[opponentIdx];
-  let result: "win" | "loss" | "draw";
-  if (pStocks > 0 && oStocks > 0) {
-    result = "draw";
-  } else if (gameSummary.result.winner === player.tag) {
-    result = "win";
-  } else if (gameSummary.result.winner === "Unknown") {
-    result = "draw";
-  } else {
-    result = "loss";
-  }
+  const result = classifyGameResult(gameSummary.result, player.tag, opponent.tag, playerIdx);
 
   // Compute total damage dealt from stock data
   const totalDamageDealt = player.stocks.reduce((sum, s) => sum + s.damageDealt, 0);
@@ -407,19 +396,7 @@ export async function importReplays(
         const opponent = gameSummary.players[opponentIdx];
         const playerInsights = derivedInsights[playerIdx];
 
-        // If both players have stocks remaining, count as a draw (e.g. LRAS quit-out)
-        const pStocks = gameSummary.result.finalStocks[playerIdx];
-        const oStocks = gameSummary.result.finalStocks[opponentIdx];
-        let gameResultStr: "win" | "loss" | "draw";
-        if (pStocks > 0 && oStocks > 0) {
-          gameResultStr = "draw";
-        } else if (gameSummary.result.winner === player.tag) {
-          gameResultStr = "win";
-        } else if (gameSummary.result.winner === "Unknown") {
-          gameResultStr = "draw";
-        } else {
-          gameResultStr = "loss";
-        }
+        const gameResultStr = classifyGameResult(gameSummary.result, player.tag, opponent.tag, playerIdx);
 
         const totalDamageDealt = player.stocks.reduce((sum, s) => sum + s.damageDealt, 0);
 
@@ -500,7 +477,7 @@ export async function importReplays(
           if (!latestGameTime || startAt > latestGameTime) latestGameTime = startAt;
         }
 
-        if (gameSummary.result.winner === targetTag) {
+        if (gameResultStr === "win") {
           winsCount++;
         }
 

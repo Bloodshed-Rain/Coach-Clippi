@@ -4,6 +4,7 @@
 export { processGame } from "./processGame.js";
 export { buildDerivedInsights } from "./derivedInsights.js";
 export { computeAdaptationSignals, findPlayerIdx } from "./adaptation.js";
+export { classifyGameResult } from "./helpers.js";
 export { detectHighlights } from "./highlights.js";
 export {
   assembleUserPrompt,

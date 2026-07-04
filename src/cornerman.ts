@@ -1,4 +1,4 @@
-import { findPlayerIdx, type GameResult } from "./pipeline";
+import { findPlayerIdx, classifyGameResult, type GameResult } from "./pipeline";
 
 /** Max gap between games of the same set — mirrors detect-sets.ts MAX_GAP_MS */
 export const SET_GAP_MS = 30 * 60 * 1000;
@@ -27,16 +27,11 @@ export interface AdvanceOutcome {
   isNewSet: boolean;
 }
 
-/** Mirror of the importer's result logic: dual-survivor or unknown winner = draw */
+/** Mirror of the importer's result logic (shared classifier) */
 function gameResultFor(gr: GameResult, targetTag: string): "win" | "loss" | "draw" {
   const idx = findPlayerIdx(gr.gameSummary, targetTag);
   const oppIdx = idx === 0 ? 1 : 0;
-  const pStocks = gr.gameSummary.result.finalStocks[idx];
-  const oStocks = gr.gameSummary.result.finalStocks[oppIdx];
-  if (pStocks > 0 && oStocks > 0) return "draw";
-  if (gr.gameSummary.result.winner === gr.gameSummary.players[idx].tag) return "win";
-  if (gr.gameSummary.result.winner === "Unknown") return "draw";
-  return "loss";
+  return classifyGameResult(gr.gameSummary.result, gr.gameSummary.players[idx].tag, gr.gameSummary.players[oppIdx].tag, idx);
 }
 
 /**

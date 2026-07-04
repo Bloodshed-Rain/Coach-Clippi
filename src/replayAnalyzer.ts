@@ -5,6 +5,7 @@ import { loadConfig } from "./config";
 import { getActiveModelId } from "./llm";
 import {
   findPlayerIdx,
+  classifyGameResult,
   type GameSummary,
   type DerivedInsights,
   type GameHighlight,
@@ -150,14 +151,7 @@ export function buildInsertGameParams(
   const player = gameSummary.players[playerIdx];
   const opponent = gameSummary.players[opponentIdx];
 
-  let result: "win" | "loss" | "draw";
-  if (gameSummary.result.winner === player.tag) {
-    result = "win";
-  } else if (gameSummary.result.winner === "Unknown") {
-    result = "draw";
-  } else {
-    result = "loss";
-  }
+  const result = classifyGameResult(gameSummary.result, player.tag, opponent.tag, playerIdx);
 
   return {
     sessionId,

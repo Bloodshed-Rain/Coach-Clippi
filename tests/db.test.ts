@@ -153,3 +153,27 @@ describe("db.ts module structure", () => {
     expect(DB_SOURCE).toContain("existing.gameResults.push({ id: r.id, result: r.result });");
   });
 });
+
+describe("win-rate correctness", () => {
+  it("has migration v7 reclassifying quit-out draws", () => {
+    expect(DB_SOURCE).toContain("version: 7");
+    expect(DB_SOURCE).toMatch(/WHERE result = 'draw' AND end_method IN \('LRAS', 'timeout'\)/);
+    // Completed-but-winnerless games: exactly one player at 0 stocks
+    expect(DB_SOURCE).toMatch(/\(\(player_final_stocks = 0\) \+ \(opponent_final_stocks = 0\)\) = 1/);
+  });
+
+  it("never divides win rate by total games (draws must not count as losses)", () => {
+    // Every SQL winRate must use the decisive-games denominator
+    expect(DB_SOURCE).not.toMatch(/AS REAL\) \/ COUNT\(\*\)/);
+    expect(DB_SOURCE).not.toContain("stats.wins / stats.gamesPlayed");
+  });
+
+  it("dashboard highlight rankings gate on decisive games", () => {
+    expect(DB_SOURCE).not.toContain("HAVING COUNT(*) >= 3");
+    expect(DB_SOURCE).toContain("HAVING SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END) >= 3");
+  });
+
+  it("library summary exposes losses separately from draws", () => {
+    expect(DB_SOURCE).toMatch(/SUM\(CASE WHEN g\.result = 'loss' THEN 1 ELSE 0 END\) as losses,\s*\n\s*COUNT\(DISTINCT COALESCE/);
+  });
+});
