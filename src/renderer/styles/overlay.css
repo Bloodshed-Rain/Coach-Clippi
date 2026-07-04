@@ -86,12 +86,34 @@ body.overlay-mode #root {
   padding: 10px 12px;
 }
 
+/* Collapsed until the popup is hovered (or the slider is focused/mid-drag) so
+   the controls don't eat toast space while the user is just reading cards. */
 .overlay-toast-controls {
   display: flex;
   align-items: center;
-  padding: 7px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0 12px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  border-bottom: 1px solid transparent;
   background: rgba(10, 13, 20, calc(var(--cornerman-head-alpha, 0.14) * 0.75));
+}
+
+.overlay-toast:hover .overlay-toast-controls,
+.overlay-toast-controls:focus-within {
+  padding: 7px 12px;
+  max-height: 40px;
+  opacity: 1;
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .overlay-toast-controls {
+    transition:
+      max-height 0.16s ease,
+      opacity 0.16s ease,
+      padding 0.16s ease;
+  }
 }
 
 .overlay-transparency {
