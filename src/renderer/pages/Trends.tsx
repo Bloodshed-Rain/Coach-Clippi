@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useTrendSeries, useRecentGames } from "../hooks/queries";
+import { useLibraryGames, useTrendSeriesBundle } from "../hooks/queries";
 import { Card } from "../components/ui/Card";
 import { Pill, PillRow } from "../components/ui/Pill";
 import { Sparkline } from "../components/ui/Sparkline";
@@ -87,25 +87,41 @@ export function Trends({ refreshKey: _ }: { refreshKey: number }) {
   const [metric, setMetric] = useState<MetricKey>("neutralWinRate");
   const [filterChar, setFilterChar] = useState<string>("all");
 
-  const { data: recent = [] } = useRecentGames(500);
-  const chars = Array.from(
-    new Set(recent.map((g) => (g as unknown as { opponentCharacter: string }).opponentCharacter)),
-  ).sort();
+  const { data: libraryOptions, isLoading: optionsLoading } = useLibraryGames({
+    search: "",
+    char: "all",
+    stage: "all",
+    result: "all",
+    limit: 1,
+    offset: 0,
+  });
+  const chars = libraryOptions?.characters ?? [];
+  const totalGames = libraryOptions?.totalUnfiltered ?? 0;
 
   const {
-    data: series = [],
+    data: trendSeries,
     isLoading,
     isError,
-  } = useTrendSeries(metric, range, filterChar === "all" ? null : filterChar);
+  } = useTrendSeriesBundle(range, filterChar === "all" ? null : filterChar);
 
   const current = METRICS.find((m) => m.key === metric)!;
+  const series = trendSeries?.[metric] ?? [];
   const values = series.map((p) => p.value);
   const smoothed = rolling(values, 5);
   const delta = firstHalfDelta(smoothed);
   const improving = current.invert ? delta < 0 : delta > 0;
   const lowSample = !isLoading && !isError && series.length < 5;
 
-  if (recent.length === 0) {
+  if (optionsLoading) {
+    return (
+      <div className="loading">
+        <div className="spinner loading-spinner" />
+        Loading…
+      </div>
+    );
+  }
+
+  if (totalGames === 0) {
     return <EmptyState title="No games yet" sub="Trends appear once you have replays imported." />;
   }
 
@@ -218,7 +234,7 @@ export function Trends({ refreshKey: _ }: { refreshKey: number }) {
 
       <div className="trends-grid">
         {METRICS.filter((m) => m.key !== metric).map((m) => (
-          <MiniChart key={m.key} metric={m} range={range} filterChar={filterChar} onSelect={() => setMetric(m.key)} />
+          <MiniChart key={m.key} metric={m} series={trendSeries?.[m.key] ?? []} onSelect={() => setMetric(m.key)} />
         ))}
       </div>
     </div>
@@ -227,16 +243,13 @@ export function Trends({ refreshKey: _ }: { refreshKey: number }) {
 
 function MiniChart({
   metric,
-  range,
-  filterChar,
+  series,
   onSelect,
 }: {
   metric: (typeof METRICS)[number];
-  range: "7d" | "30d" | "all";
-  filterChar: string;
+  series: Array<{ playedAt: string; value: number }>;
   onSelect: () => void;
 }) {
-  const { data: series = [] } = useTrendSeries(metric.key, range, filterChar === "all" ? null : filterChar);
   const smoothed = rolling(
     series.map((p) => p.value),
     5,

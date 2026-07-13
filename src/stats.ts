@@ -23,7 +23,8 @@ function printOverview(): void {
     return;
   }
 
-  const winRate = total > 0 ? ((record.wins / total) * 100).toFixed(1) : "0.0";
+  const decisive = record.wins + record.losses;
+  const winRate = decisive > 0 ? ((record.wins / decisive) * 100).toFixed(1) : "0.0";
 
   console.log("=== MAGI Stats ===\n");
   console.log(`Total games: ${total}`);

@@ -1,6 +1,6 @@
 {
   "name": "magi-melee",
-  "version": "1.6.5",
+  "version": "1.7.0",
   "description": "AI-powered Melee coaching from your Slippi replays",
   "main": "src/main/entry.js",
   "scripts": {
@@ -49,6 +49,10 @@
         "to": "."
       },
       {
+        "from": "build/icon.ico",
+        "to": "."
+      },
+      {
         "from": "build/splash.html",
         "to": "."
       }
@@ -80,6 +84,7 @@
           ]
         }
       ],
+      "artifactName": "MAGI-${version}-${arch}.${ext}",
       "icon": "build/icon.icns",
       "category": "public.app-category.utilities"
     },
@@ -98,14 +103,19 @@
           ]
         }
       ],
+      "artifactName": "MAGI-${version}.${ext}",
       "icon": "build/icon.png",
       "category": "Utility"
     },
     "nsis": {
+      "artifactName": "MAGI-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
+    },
+    "portable": {
+      "artifactName": "MAGI-${version}.${ext}"
     },
     "publish": {
       "provider": "github",
@@ -119,7 +129,6 @@
     "@tanstack/react-query": "^5.95.2",
     "better-sqlite3": "^12.8.0",
     "chokidar": "^5.0.0",
-    "clsx": "^2.1.1",
     "electron-updater": "^6.8.3",
     "framer-motion": "^12.38.0",
     "koffi": "^2.16.2",
@@ -129,7 +138,6 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.2",
     "recharts": "^3.8.0",
-    "tailwind-merge": "^3.5.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
@@ -139,7 +147,6 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
-    "concurrently": "^9.2.1",
     "electron": "^41.0.2",
     "electron-builder": "^26.8.1",
     "eslint": "^9.39.4",
@@ -152,7 +159,6 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.1",
     "vite": "^7.3.2",
-    "vitest": "^4.1.0",
-    "wait-on": "^9.0.4"
+    "vitest": "^4.1.0"
   }
 }

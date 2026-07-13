@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "react-router-dom";
 import magiLogo from "../assets/magi-controller.png";
+import { LiquidCharacterBackdrop } from "./LiquidCharacterBackdrop";
 
 export interface NavItem {
   id: string;
@@ -15,6 +16,7 @@ interface LiquidShellProps {
   analyzeItems: NavItem[];
   systemItems: NavItem[];
   onNavigate: (item: NavItem, isActive: boolean) => void;
+  isLiquidTheme: boolean;
   watcherActive: boolean;
   gamesCount: number;
   children: ReactNode;
@@ -24,11 +26,16 @@ export function LiquidShell({
   analyzeItems,
   systemItems,
   onNavigate,
+  isLiquidTheme,
   watcherActive,
   gamesCount,
   children,
 }: LiquidShellProps) {
   const location = useLocation();
+
+  // The Characters page already shows the full roster, so the drifting character
+  // backdrop is redundant noise there.
+  const showCharacterBackdrop = isLiquidTheme && !location.pathname.startsWith("/characters");
 
   const renderItem = (item: NavItem) => {
     const isActive = location.pathname === item.path || (location.pathname === "/" && item.path === "/dashboard");
@@ -61,7 +68,9 @@ export function LiquidShell({
         <span className="nav-icon" style={{ position: "relative", zIndex: 1 }}>
           <item.Icon size={18} />
         </span>
-        <span className="nav-label" style={{ position: "relative", zIndex: 1 }}>{item.label}</span>
+        <span className="nav-label" style={{ position: "relative", zIndex: 1 }}>
+          {item.label}
+        </span>
         {item.badge !== undefined && (
           <span className="nav-badge" style={{ position: "relative", zIndex: 1 }}>
             {item.badge}
@@ -80,6 +89,7 @@ export function LiquidShell({
 
   return (
     <div className="app-layout liquid-shell">
+      <LiquidCharacterBackdrop active={showCharacterBackdrop} />
       <button type="button" className="magi-brand-home" onClick={goHome} aria-label="Go to Dashboard">
         <motion.img
           className="magi-brand-logo"

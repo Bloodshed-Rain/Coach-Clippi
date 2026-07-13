@@ -9,7 +9,7 @@ const COMMAND_SOURCE = fs.readFileSync(
 );
 
 function extractPageUnion(source: string): string[] {
-  const match = source.match(/type Page = ([^;]+);/);
+  const match = source.match(/type Page\s*=\s*([\s\S]*?);/);
   if (!match) throw new Error("Could not find Page type");
   return Array.from(match[1]!.matchAll(/"([^"]+)"/g), (m) => m[1]!);
 }

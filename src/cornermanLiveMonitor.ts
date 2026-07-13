@@ -8,17 +8,27 @@ import {
   detectLiveConversionEvents,
   detectLiveFrameEvents,
   detectLiveItemEvents,
+  markObservedItemInstances,
   type CornermanLiveEvent,
   type CornermanLivePlayer,
 } from "./cornermanLiveEvents";
 
 const POLL_INTERVAL_MS = 500;
 const INITIAL_FILE_WINDOW_MS = 10 * 60 * 1000;
+/** Polls where the file grew but no new frames parsed before we assume the
+ *  incremental parser is wedged and rebuild it (see poll()). */
+const STALLED_PARSER_POLLS = 4;
 
 interface CornermanLiveMonitorOptions {
   replayFolder: string;
   targetPlayer: string;
   onEvents: (events: CornermanLiveEvent[]) => void;
+  /** Fires when the game that was already in progress at monitor start ends —
+   *  the one file the folder watcher's ignoreInitial suppresses, so nothing
+   *  else imports it. Files created during the session are the watcher's job
+   *  (importing them here too would race it), and files already complete when
+   *  tracking began are never reported. */
+  onGameComplete?: (filePath: string) => void;
   onError?: (error: Error, filePath: string) => void;
 }
 
@@ -69,7 +79,7 @@ function matchScore(player: { tag: string; connectCode: string }, id: string): n
 function resolveTargetIndex(players: CornermanLivePlayer[], targetPlayer: string): number {
   const scores = players.map((player) => ({ player, score: matchScore(player, targetPlayer.trim()) }));
   scores.sort((a, b) => b.score - a.score);
-  return scores[0]?.score ? scores[0].player.playerIndex : players[0]?.playerIndex ?? 0;
+  return scores[0]?.score ? scores[0].player.playerIndex : (players[0]?.playerIndex ?? 0);
 }
 
 function buildPlayers(settings: GameStartType, targetPlayer: string): CornermanLivePlayer[] {
@@ -131,11 +141,17 @@ class LiveReplayTracker {
   private baselineFrame: number | null = null;
   private ended = false;
   private completedPolls = 0;
+  private firstPollLatestFrame: number | null = null;
+  private lastLatestFrame = Frames.FIRST_PLAYABLE - 1;
+  /** File size the current SlippiGame instance is known to have parsed
+   *  through (updated whenever frames advance, and on rebuild). */
+  private consumedSize = -1;
+  private stalledPolls = 0;
 
   constructor(
     private filePath: string,
     private targetPlayer: string,
-    private suppressExistingEvents: boolean,
+    readonly suppressExistingEvents: boolean,
   ) {
     this.game = new SlippiGame(filePath, { processOnTheFly: true });
   }
@@ -144,9 +160,61 @@ class LiveReplayTracker {
     return this.ended && this.completedPolls >= 2;
   }
 
+  /** True when the game's end was observed while tracking — i.e. frames were
+   *  still being written after we started, as opposed to a file that was
+   *  already complete when the tracker attached. */
+  wasCompletedLive(): boolean {
+    return this.ended && this.firstPollLatestFrame !== null && this.lastLatestFrame > this.firstPollLatestFrame;
+  }
+
+  /** slippi-js's incremental reader wedges permanently when a growing file
+   *  already declares its final rawDataLength (e.g. a finished replay being
+   *  copied into the folder): reads past EOF advance the internal position to
+   *  the declared end, and appended bytes are never parsed. Detect "bytes on
+   *  disk beyond what this parser instance consumed, and no new frames" and
+   *  rebuild the parser; the seen-key dedup state lives on this tracker, so a
+   *  rebuild never re-emits past events. Comparing against consumedSize (not
+   *  poll-over-poll growth) matters: a parser wedged when the copy FINISHES
+   *  would otherwise never rebuild because the file has stopped growing. */
+  private noteProgress(fileSize: number, latestFrame: number): void {
+    if (this.firstPollLatestFrame === null) this.firstPollLatestFrame = latestFrame;
+    const advanced = latestFrame > this.lastLatestFrame;
+    this.lastLatestFrame = Math.max(this.lastLatestFrame, latestFrame);
+    if (advanced && fileSize >= 0) this.consumedSize = fileSize;
+
+    if (this.ended || fileSize < 0 || advanced || fileSize <= this.consumedSize) {
+      this.stalledPolls = 0;
+      return;
+    }
+    this.stalledPolls++;
+    if (this.stalledPolls >= STALLED_PARSER_POLLS) {
+      this.game = new SlippiGame(this.filePath, { processOnTheFly: true });
+      // The fresh instance consumes everything currently on disk on the next
+      // poll; requiring further growth (or frame progress) before another
+      // rebuild prevents a rebuild loop on a file that will never parse
+      // further, e.g. a truncated copy.
+      this.consumedSize = fileSize;
+      this.stalledPolls = 0;
+    }
+  }
+
+  private statFileSize(): number {
+    try {
+      return fs.statSync(this.filePath).size;
+    } catch {
+      return -1;
+    }
+  }
+
   poll(): CornermanLiveEvent[] {
+    const fileSize = this.statFileSize();
     const settings = this.game.getSettings();
-    if (!settings) return [];
+    if (!settings) {
+      // Even the header can wedge on a declared-length file; track progress so
+      // the stalled-parser rebuild above can kick in.
+      this.noteProgress(fileSize, Frames.FIRST_PLAYABLE - 1);
+      return [];
+    }
 
     if (!this.players) {
       this.players = buildPlayers(settings, this.targetPlayer);
@@ -155,8 +223,21 @@ class LiveReplayTracker {
     const stats = this.game.getStats();
     const frames = this.game.getFrames();
     const latestFrame = stats?.lastFrame ?? this.game.getLatestFrame()?.frame ?? Frames.FIRST_PLAYABLE - 1;
+    this.noteProgress(fileSize, latestFrame);
+
+    // Checked before detection so conversions left open by the game ending
+    // (LRAS, timeout) can still alert on this same poll.
+    if (this.game.getGameEnd()) {
+      this.ended = true;
+    }
 
     if (this.baselineFrame === null && this.suppressExistingEvents) {
+      markObservedItemInstances({
+        frames,
+        seenKeys: this.seenItemKeys,
+        fromFrame: Frames.FIRST_PLAYABLE,
+        toFrame: latestFrame,
+      });
       this.baselineFrame = latestFrame;
       this.lastItemFrame = latestFrame;
       this.lastFrameEventFrame = latestFrame;
@@ -175,6 +256,9 @@ class LiveReplayTracker {
           frames,
           stageId: settings.stageId,
           minEventFrame,
+          // Once the game has ended, open conversions will never close —
+          // emit them now instead of dropping them.
+          allowOpenConversions: this.ended,
         }),
       );
     }
@@ -208,9 +292,6 @@ class LiveReplayTracker {
       this.lastItemFrame = latestFrame;
     }
 
-    if (this.game.getGameEnd()) {
-      this.ended = true;
-    }
     if (this.ended) {
       this.completedPolls++;
     }
@@ -251,6 +332,13 @@ export function startCornermanLiveMonitor(options: CornermanLiveMonitorOptions):
         }
         if (tracker.isDone()) {
           trackers.delete(filePath);
+          // Only the seeded pre-watcher file: files added during the session
+          // are imported by the folder watcher's own "add" event; reporting
+          // them here too would race that import (double parse + spurious
+          // UNIQUE-constraint errors).
+          if (tracker.suppressExistingEvents && tracker.wasCompletedLive()) {
+            options.onGameComplete?.(filePath);
+          }
         }
       } catch (err) {
         options.onError?.(err instanceof Error ? err : new Error(String(err)), filePath);

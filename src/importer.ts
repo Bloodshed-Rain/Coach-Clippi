@@ -4,6 +4,7 @@ import path from "path";
 
 import {
   findPlayerIdx,
+  classifyGameResult,
   computeAdaptationSignals,
   assembleUserPrompt,
   SYSTEM_PROMPT,
@@ -58,6 +59,12 @@ export interface ImportResult {
 
 // ── Single game import ───────────────────────────────────────────────
 
+/** Concurrent importReplay calls for the same file (e.g. the folder watcher
+ *  and Cornerman's live-completion import racing on one finished game) would
+ *  both pass the hash-dedup check before either inserts. The second caller
+ *  awaits the first and reports skipped instead. */
+const inFlightImports = new Map<string, Promise<ImportResult>>();
+
 export async function importReplay(
   filePath: string,
   targetPlayer: string | null,
@@ -65,6 +72,29 @@ export async function importReplay(
   sessionId: number | null = null,
 ): Promise<ImportResult> {
   const absolutePath = path.resolve(filePath);
+
+  const inFlight = inFlightImports.get(absolutePath);
+  if (inFlight) {
+    const result = await inFlight.catch(() => null);
+    if (result) return { filePath: absolutePath, hash: result.hash, skipped: true };
+    // The first caller failed — fall through and try fresh.
+  }
+
+  const attempt = importReplayInner(absolutePath, targetPlayer, gameNumber, sessionId);
+  inFlightImports.set(absolutePath, attempt);
+  try {
+    return await attempt;
+  } finally {
+    inFlightImports.delete(absolutePath);
+  }
+}
+
+async function importReplayInner(
+  absolutePath: string,
+  targetPlayer: string | null,
+  gameNumber: number,
+  sessionId: number | null,
+): Promise<ImportResult> {
   const hash = await hashFile(absolutePath);
 
   // Dedup check
@@ -90,19 +120,7 @@ export async function importReplay(
   const opponent = gameSummary.players[opponentIdx];
   const playerInsights = derivedInsights[playerIdx];
 
-  // Determine result — if both players have stocks remaining, count as a draw (e.g. LRAS quit-out)
-  const pStocks = gameSummary.result.finalStocks[playerIdx];
-  const oStocks = gameSummary.result.finalStocks[opponentIdx];
-  let result: "win" | "loss" | "draw";
-  if (pStocks > 0 && oStocks > 0) {
-    result = "draw";
-  } else if (gameSummary.result.winner === player.tag) {
-    result = "win";
-  } else if (gameSummary.result.winner === "Unknown") {
-    result = "draw";
-  } else {
-    result = "loss";
-  }
+  const result = classifyGameResult(gameSummary.result, player.tag, opponent.tag, playerIdx, gameSummary.duration);
 
   // Compute total damage dealt from stock data
   const totalDamageDealt = player.stocks.reduce((sum, s) => sum + s.damageDealt, 0);
@@ -184,7 +202,18 @@ export async function importReplay(
     return gameId;
   });
 
-  const gameId = importTransaction();
+  let gameId: number;
+  try {
+    gameId = importTransaction();
+  } catch (err) {
+    // Lost a dedup race with another importer of the same content (different
+    // path or another process): degrade to a clean skip instead of surfacing
+    // a UNIQUE-constraint error for a normally-imported game.
+    if (replayExists(hash)) {
+      return { filePath: absolutePath, hash, skipped: true };
+    }
+    throw err;
+  }
 
   return { filePath: absolutePath, hash, skipped: false, gameId, gameSummary, gameResult };
 }
@@ -367,19 +396,13 @@ export async function importReplays(
         const opponent = gameSummary.players[opponentIdx];
         const playerInsights = derivedInsights[playerIdx];
 
-        // If both players have stocks remaining, count as a draw (e.g. LRAS quit-out)
-        const pStocks = gameSummary.result.finalStocks[playerIdx];
-        const oStocks = gameSummary.result.finalStocks[opponentIdx];
-        let gameResultStr: "win" | "loss" | "draw";
-        if (pStocks > 0 && oStocks > 0) {
-          gameResultStr = "draw";
-        } else if (gameSummary.result.winner === player.tag) {
-          gameResultStr = "win";
-        } else if (gameSummary.result.winner === "Unknown") {
-          gameResultStr = "draw";
-        } else {
-          gameResultStr = "loss";
-        }
+        const gameResultStr = classifyGameResult(
+          gameSummary.result,
+          player.tag,
+          opponent.tag,
+          playerIdx,
+          gameSummary.duration,
+        );
 
         const totalDamageDealt = player.stocks.reduce((sum, s) => sum + s.damageDealt, 0);
 
@@ -460,7 +483,7 @@ export async function importReplays(
           if (!latestGameTime || startAt > latestGameTime) latestGameTime = startAt;
         }
 
-        if (gameSummary.result.winner === targetTag) {
+        if (gameResultStr === "win") {
           winsCount++;
         }
 

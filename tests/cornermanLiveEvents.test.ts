@@ -5,6 +5,7 @@ import {
   detectLiveConversionEvents,
   detectLiveFrameEvents,
   detectLiveItemEvents,
+  markObservedItemInstances,
   type CornermanLivePlayer,
 } from "../src/cornermanLiveEvents";
 import {
@@ -54,7 +55,10 @@ function conversion(overrides: Partial<ConversionType>): ConversionType {
 }
 
 function framesWithPosts(
-  entries: Record<number, Record<number, { stocksRemaining?: number; actionStateId?: number; positionX?: number; positionY?: number }>>,
+  entries: Record<
+    number,
+    Record<number, { stocksRemaining?: number; actionStateId?: number; positionX?: number; positionY?: number }>
+  >,
 ): FramesType {
   const frames: FramesType = {};
   for (const [frameKey, playersForFrame] of Object.entries(entries)) {
@@ -366,6 +370,104 @@ describe("detectLiveConversionEvents", () => {
 
     expect(events).toHaveLength(0);
   });
+
+  it("emits an in-progress conversion exactly once, after it closes", () => {
+    // Live polling sees the same conversion twice: open (endFrame null) and
+    // then closed. Keying on the mutable endFrame used to alert both times.
+    const moves = [
+      { playerIndex: 0, frame: 130, moveId: MOVE_DSMASH, hitCount: 1, damage: 14 },
+      { playerIndex: 0, frame: 200, moveId: MOVE_DSMASH, hitCount: 1, damage: 13 },
+      { playerIndex: 0, frame: 300, moveId: MOVE_DSMASH, hitCount: 1, damage: 14 },
+    ];
+    const seenKeys = new Set<string>();
+    const peachPlayers: CornermanLivePlayer[] = [
+      { ...players[0]!, character: "Peach" },
+      { ...players[1]!, character: "Fox" },
+    ];
+
+    const whileOpen = detectLiveConversionEvents({
+      conversions: [conversion({ endFrame: null, currentPercent: 60, endPercent: null as never, moves })],
+      players: peachPlayers,
+      seenKeys,
+    });
+    expect(whileOpen).toHaveLength(0);
+
+    const afterClose = detectLiveConversionEvents({
+      conversions: [conversion({ endFrame: 360, moves })],
+      players: peachPlayers,
+      seenKeys,
+    });
+    expect(afterClose).toHaveLength(1);
+
+    const replayed = detectLiveConversionEvents({
+      conversions: [conversion({ endFrame: 360, moves })],
+      players: peachPlayers,
+      seenKeys,
+    });
+    expect(replayed).toHaveLength(0);
+  });
+
+  it("emits open conversions when allowed (game ended, endFrame will never close)", () => {
+    const seenKeys = new Set<string>();
+    const openConversion = conversion({
+      endFrame: null,
+      moves: [
+        { playerIndex: 0, frame: 130, moveId: 13, hitCount: 1, damage: 20 },
+        { playerIndex: 0, frame: 150, moveId: 16, hitCount: 1, damage: 24 },
+        { playerIndex: 0, frame: 170, moveId: 10, hitCount: 1, damage: 26 },
+      ],
+      startPercent: 10,
+      endPercent: 80,
+      currentPercent: 80,
+    });
+    const falconPlayers: CornermanLivePlayer[] = [{ ...players[0]!, character: "Falcon" }, players[1]!];
+
+    // Not emitted while the game is live and the conversion could still close…
+    const whileLive = detectLiveConversionEvents({
+      conversions: [openConversion],
+      players: falconPlayers,
+      seenKeys,
+    });
+    expect(whileLive).toHaveLength(0);
+
+    // …but after game end (allowOpenConversions) it must not be lost.
+    const events = detectLiveConversionEvents({
+      conversions: [openConversion],
+      players: falconPlayers,
+      seenKeys,
+      allowOpenConversions: true,
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0]!.type).toBe("huge-conversion");
+
+    // Re-detection after game end must not duplicate: the key is stable now.
+    const again = detectLiveConversionEvents({
+      conversions: [openConversion],
+      players: falconPlayers,
+      seenKeys,
+      allowOpenConversions: true,
+    });
+    expect(again).toHaveLength(0);
+  });
+
+  it("still emits a kill conversion even if its endFrame is unset", () => {
+    const events = detectLiveConversionEvents({
+      conversions: [
+        conversion({
+          endFrame: null,
+          didKill: true,
+          moves: [
+            { playerIndex: 0, frame: 130, moveId: MOVE_FAIR, hitCount: 1, damage: 12 },
+            { playerIndex: 0, frame: 170, moveId: MOVE_DAIR, hitCount: 1, damage: 55 },
+          ],
+        }),
+      ],
+      players,
+      seenKeys: new Set(),
+    });
+
+    expect(events.length).toBeGreaterThan(0);
+  });
 });
 
 describe("detectLiveItemEvents", () => {
@@ -417,6 +519,70 @@ describe("detectLiveItemEvents", () => {
     expect(events).toHaveLength(1);
     expect(events[0].type).toBe("rare-item");
     expect(events[0].title).toBe("Bob-omb");
+  });
+
+  it("does not call later Peach ownership a rare item pull", () => {
+    const frames = {
+      220: {
+        frame: 220,
+        start: undefined,
+        players: {},
+        followers: {},
+        items: [{ frame: 220, typeId: 104, owner: -1, spawnId: 43 }],
+        stageEvents: undefined,
+      },
+      240: {
+        frame: 240,
+        start: undefined,
+        players: {},
+        followers: {},
+        items: [{ frame: 240, typeId: 104, owner: 0, spawnId: 43 }],
+        stageEvents: undefined,
+      },
+    } as FramesType;
+
+    const events = detectLiveItemEvents({
+      frames,
+      players: [{ ...players[0], character: "Peach" }, players[1]],
+      seenKeys: new Set(),
+      fromFrame: 200,
+      toFrame: 260,
+    });
+
+    expect(events).toHaveLength(0);
+  });
+
+  it("does not alert on rare items observed before live monitoring starts", () => {
+    const frames = {
+      220: {
+        frame: 220,
+        start: undefined,
+        players: {},
+        followers: {},
+        items: [{ frame: 220, typeId: 103, owner: 0, spawnId: 44 }],
+        stageEvents: undefined,
+      },
+      240: {
+        frame: 240,
+        start: undefined,
+        players: {},
+        followers: {},
+        items: [{ frame: 240, typeId: 103, owner: 0, spawnId: 44 }],
+        stageEvents: undefined,
+      },
+    } as FramesType;
+    const seenKeys = new Set<string>();
+    markObservedItemInstances({ frames, seenKeys, fromFrame: 200, toFrame: 220 });
+
+    const events = detectLiveItemEvents({
+      frames,
+      players: [{ ...players[0], character: "Peach" }, players[1]],
+      seenKeys,
+      fromFrame: 221,
+      toFrame: 260,
+    });
+
+    expect(events).toHaveLength(0);
   });
 });
 

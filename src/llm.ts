@@ -164,36 +164,42 @@ export interface CallLLMOptions {
   modelOverride?: string;
 }
 
+/** Thrown when no provider/model has been chosen in Settings. */
+export class NoModelSelectedError extends Error {
+  constructor() {
+    super(
+      "No AI model selected. Choose a provider and model in Settings (the free Pollinations provider needs no API key).",
+    );
+    this.name = "NoModelSelectedError";
+  }
+}
+
+// Provider failures propagate to the caller — never silently reroute the
+// user's gameplay data to a different service than the one they picked.
 export async function callLLM(opts: CallLLMOptions): Promise<string> {
   const modelId = opts.modelOverride ?? opts.config.modelId;
 
   if (!modelId) {
-    console.warn("No AI model selected, falling back to free Pollinations API.");
-    return callPollinations(opts.systemPrompt, opts.userPrompt, "pollinations", opts.config);
+    throw new NoModelSelectedError();
   }
 
   const provider = getModelProvider(modelId);
 
-  try {
-    switch (provider) {
-      case "openrouter":
-        return await callOpenRouter(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-      case "gemini":
-        return await callGemini(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-      case "anthropic":
-        return await callAnthropic(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-      case "openai":
-        return await callOpenAI(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-      case "pollinations":
-        return await callPollinations(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-      case "local":
-        return await callLocal(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-      default:
-        throw new Error(`Unknown provider: ${provider}`);
-    }
-  } catch (error) {
-    console.warn(`Primary LLM provider (${provider}) failed. Falling back to free Pollinations API. Error:`, error);
-    return callPollinations(opts.systemPrompt, opts.userPrompt, "pollinations", opts.config);
+  switch (provider) {
+    case "openrouter":
+      return await callOpenRouter(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+    case "gemini":
+      return await callGemini(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+    case "anthropic":
+      return await callAnthropic(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+    case "openai":
+      return await callOpenAI(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+    case "pollinations":
+      return await callPollinations(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+    case "local":
+      return await callLocal(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+    default:
+      throw new Error(`Unknown provider: ${provider}`);
   }
 }
 
@@ -210,35 +216,26 @@ export async function callLLMStream(opts: CallLLMOptions, onChunk: StreamChunkCa
   const modelId = opts.modelOverride ?? opts.config.modelId;
 
   if (!modelId) {
-    console.warn("No AI model selected, falling back to free Pollinations API.");
-    return callPollinationsStream(opts.systemPrompt, opts.userPrompt, "pollinations", opts.config, onChunk);
+    throw new NoModelSelectedError();
   }
 
   const provider = getModelProvider(modelId);
 
-  try {
-    switch (provider) {
-      case "gemini":
-        return await callGeminiStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
-      case "openrouter":
-        return await callOpenRouterStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
-      case "anthropic":
-        return await callAnthropicStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
-      case "openai":
-        return await callOpenAIStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
-      case "pollinations":
-        return await callPollinationsStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
-      case "local":
-        return await callLocalStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
-      default:
-        throw new Error(`Unknown provider: ${provider}`);
-    }
-  } catch (error) {
-    console.warn(
-      `Primary LLM provider (${provider}) stream failed. Falling back to free Pollinations API. Error:`,
-      error,
-    );
-    return callPollinationsStream(opts.systemPrompt, opts.userPrompt, "pollinations", opts.config, onChunk);
+  switch (provider) {
+    case "gemini":
+      return await callGeminiStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+    case "openrouter":
+      return await callOpenRouterStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+    case "anthropic":
+      return await callAnthropicStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+    case "openai":
+      return await callOpenAIStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+    case "pollinations":
+      return await callPollinationsStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+    case "local":
+      return await callLocalStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+    default:
+      throw new Error(`Unknown provider: ${provider}`);
   }
 }
 
@@ -1130,7 +1127,7 @@ async function callPollinations(
   systemPrompt: string,
   userPrompt: string,
   modelId: string,
-  config: LLMConfig,
+  _config: LLMConfig,
 ): Promise<string> {
   const url = "https://text.pollinations.ai/openai";
   const body = JSON.stringify({
@@ -1191,7 +1188,7 @@ async function callPollinationsStream(
   systemPrompt: string,
   userPrompt: string,
   modelId: string,
-  config: LLMConfig,
+  _config: LLMConfig,
   onChunk: StreamChunkCallback,
 ): Promise<string> {
   const url = "https://text.pollinations.ai/openai";

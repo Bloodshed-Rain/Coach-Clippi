@@ -36,6 +36,10 @@ describe("database schema", () => {
     expect(schema).toContain("idx_games_player_character");
     expect(schema).toContain("idx_games_opponent_character");
     expect(schema).toContain("idx_games_stage");
+    expect(schema).toContain("idx_games_played_at_desc");
+    expect(schema).toContain("idx_games_player_character_played_at");
+    expect(schema).toContain("idx_games_opponent_connect_played_at");
+    expect(schema).toContain("idx_coaching_scope_identifier_created");
   });
 
   it("has unique constraint on replay_hash", () => {
@@ -107,6 +111,27 @@ describe("db.ts module structure", () => {
     expect(DB_SOURCE).toContain("export function closeDb()");
   });
 
+  it("exports paged library query support", () => {
+    expect(DB_SOURCE).toContain("export function getLibraryGames");
+    expect(DB_SOURCE).toContain("export interface LibraryGamesPage");
+    expect(DB_SOURCE).toContain("totalUnfiltered");
+    expect(DB_SOURCE).toContain("LIMIT ? OFFSET ?");
+  });
+
+  it("keeps rival queries lightweight", () => {
+    expect(DB_SOURCE).toContain("WITH opponent_records AS");
+    expect(DB_SOURCE).toContain("characters LIKE ?");
+    expect(DB_SOURCE).toContain("avgEdgeguardSuccessRate");
+    expect(DB_SOURCE).toContain("LIMIT 50");
+  });
+
+  it("exports bundled trend series support", () => {
+    expect(DB_SOURCE).toContain("export type TrendSeriesBundle");
+    expect(DB_SOURCE).toContain("export function getTrendSeriesBundle");
+    expect(DB_SOURCE).toContain("gs.neutral_win_rate as neutralWinRate");
+    expect(DB_SOURCE).toContain("gs.avg_death_percent as avgDeathPercent");
+  });
+
   it("uses WAL journal mode", () => {
     expect(DB_SOURCE).toContain("journal_mode = WAL");
   });
@@ -126,5 +151,36 @@ describe("db.ts module structure", () => {
   it("day session summaries preserve each game result next to its id", () => {
     expect(DB_SOURCE).toMatch(/gameResults:\s*\{\s*id:\s*number;\s*result:\s*string;?\s*\}\s*\[\]/);
     expect(DB_SOURCE).toContain("existing.gameResults.push({ id: r.id, result: r.result });");
+  });
+});
+
+describe("win-rate correctness", () => {
+  it("has migration v7 reclassifying quit-out draws", () => {
+    expect(DB_SOURCE).toContain("version: 7");
+    expect(DB_SOURCE).toMatch(/WHERE result = 'draw' AND end_method IN \('LRAS', 'timeout'\)/);
+    // Completed-but-winnerless games: exactly one player at 0 stocks
+    expect(DB_SOURCE).toMatch(/\(\(player_final_stocks = 0\) \+ \(opponent_final_stocks = 0\)\) = 1/);
+  });
+
+  it("has migration v8 reverting sub-30s quit-outs to draws", () => {
+    expect(DB_SOURCE).toContain("version: 8");
+    expect(DB_SOURCE).toMatch(
+      /end_method = 'LRAS'\s*\n\s*AND duration_seconds < 30\s*\n\s*AND player_final_stocks > 0 AND opponent_final_stocks > 0\s*\n\s*AND result IN \('win', 'loss'\)/,
+    );
+  });
+
+  it("never divides win rate by total games (draws must not count as losses)", () => {
+    // Every SQL winRate must use the decisive-games denominator
+    expect(DB_SOURCE).not.toMatch(/AS REAL\) \/ COUNT\(\*\)/);
+    expect(DB_SOURCE).not.toContain("stats.wins / stats.gamesPlayed");
+  });
+
+  it("dashboard highlight rankings gate on decisive games", () => {
+    expect(DB_SOURCE).not.toContain("HAVING COUNT(*) >= 3");
+    expect(DB_SOURCE).toContain("HAVING SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END) >= 3");
+  });
+
+  it("library summary exposes losses separately from draws", () => {
+    expect(DB_SOURCE).toMatch(/SUM\(CASE WHEN g\.result = 'loss' THEN 1 ELSE 0 END\) as losses,\s*\n\s*COUNT\(DISTINCT COALESCE/);
   });
 });

@@ -4,7 +4,17 @@ import { ChevronRight, Zap, UserCircle } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────
 
-type Page = "dashboard" | "sessions" | "library" | "trends" | "characters" | "rivals" | "cornerman" | "practice" | "oracle" | "settings";
+type Page =
+  | "dashboard"
+  | "sessions"
+  | "library"
+  | "trends"
+  | "characters"
+  | "rivals"
+  | "cornerman"
+  | "practice"
+  | "oracle"
+  | "settings";
 
 interface CommandItem {
   id: string;
@@ -18,6 +28,20 @@ interface CommandItem {
 interface CommandPaletteProps {
   navigateTo: (page: Page) => void;
   onImport: () => void;
+  isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+}
+
+interface PaletteOpponent {
+  tag: string;
+  code: string;
+  games: number;
+}
+
+interface OpponentSearchResult {
+  opponentTag?: string;
+  opponentConnectCode?: string | null;
+  totalGames?: number;
 }
 
 // ── Icons ────────────────────────────────────────────────────────────
@@ -78,11 +102,10 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 // ── Component ────────────────────────────────────────────────────────
 
-export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function CommandPalette({ navigateTo, onImport, isOpen, onOpenChange }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [opponents, setOpponents] = useState<{ tag: string; code: string; games: number }[]>([]);
+  const [opponents, setOpponents] = useState<PaletteOpponent[]>([]);
   const [opponentSearchPending, setOpponentSearchPending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -90,78 +113,19 @@ export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
 
   // ── Open / close ─────────────────────────────────────────────────
 
-  const open = useCallback(() => {
-    setIsOpen(true);
-    setQuery("");
-    setSelectedIndex(0);
-    setOpponents([]);
-  }, []);
-
   const close = useCallback(() => {
-    setIsOpen(false);
+    onOpenChange(false);
     setQuery("");
     setSelectedIndex(0);
-  }, []);
-
-  // ── Global keyboard shortcuts ────────────────────────────────────
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-
-      // Cmd/Ctrl+K toggles palette
-      if (mod && e.key === "k") {
-        e.preventDefault();
-        if (isOpen) {
-          close();
-        } else {
-          open();
-        }
-        return;
-      }
-
-      // Cmd/Ctrl+1-0 for page navigation (only when palette is NOT open,
-      // to avoid conflict with typing)
-      if (mod && !isOpen) {
-        const pages: Page[] = [
-          "dashboard",
-          "sessions",
-          "library",
-          "trends",
-          "characters",
-          "rivals",
-          "cornerman",
-          "practice",
-          "oracle",
-          "settings",
-        ];
-        let num = parseInt(e.key, 10);
-        // Handle Ctrl+0 as index 9 (settings)
-        if (e.key === "0") num = 10;
-        if (num >= 1 && num <= pages.length) {
-          e.preventDefault();
-          navigateTo(pages[num - 1]!);
-          return;
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, open, close, navigateTo]);
-
-  // ── Open via custom event (sidebar hint) ─────────────────────────
-
-  useEffect(() => {
-    const handleOpen = () => open();
-    window.addEventListener("magi:open-palette", handleOpen);
-    return () => window.removeEventListener("magi:open-palette", handleOpen);
-  }, [open]);
+  }, [onOpenChange]);
 
   // ── Focus input on open ──────────────────────────────────────────
 
   useEffect(() => {
     if (isOpen) {
+      setQuery("");
+      setSelectedIndex(0);
+      setOpponents([]);
       // Slight delay to ensure the element is mounted
       requestAnimationFrame(() => {
         inputRef.current?.focus();
@@ -181,7 +145,13 @@ export function CommandPalette({ navigateTo, onImport }: CommandPaletteProps) {
       debounceRef.current = setTimeout(async () => {
         try {
           const results = await window.clippi.getOpponents(query);
-          setOpponents(results ?? []);
+          setOpponents(
+            ((results ?? []) as OpponentSearchResult[]).slice(0, 8).map((opponent) => ({
+              tag: opponent.opponentTag ?? "Unknown",
+              code: opponent.opponentConnectCode ?? "",
+              games: opponent.totalGames ?? 0,
+            })),
+          );
         } catch {
           setOpponents([]);
         }

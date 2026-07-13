@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ExternalLink, Play, Pause, RotateCcw, HelpCircle } from "lucide-react";
 import { useReplayPlayerStore } from "../stores/useReplayPlayerStore";
@@ -39,10 +39,25 @@ export function ReplayPlayer() {
   const stageRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string | null>(null);
 
+  const onTogglePause = useCallback(() => {
+    if (!sessionId) return;
+    window.clippi.embedReplaySendKey(sessionId, VK_SPACE);
+    setIsPaused((current) => !current);
+  }, [sessionId]);
+
   // Keep a ref synced to sessionId for cleanup paths that don't depend on it.
   useEffect(() => {
     sessionIdRef.current = sessionId;
   }, [sessionId]);
+
+  useEffect(() => {
+    return () => {
+      const sid = sessionIdRef.current;
+      if (sid != null) {
+        window.clippi.embedReplayClose(sid).catch(() => {});
+      }
+    };
+  }, []);
 
   // Listen for main-process embed events.
   useEffect(() => {
@@ -173,11 +188,7 @@ export function ReplayPlayer() {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target?.isContentEditable
-      ) {
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable) {
         return;
       }
       if (e.key === "Escape") closePlayer();
@@ -190,22 +201,11 @@ export function ReplayPlayer() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [open, closePlayer, sessionId, isPaused]);
-
-  const onTogglePause = () => {
-    if (!sessionId) return;
-    window.clippi.embedReplaySendKey(sessionId, VK_SPACE);
-    setIsPaused(!isPaused);
-  };
+  }, [open, closePlayer, onTogglePause]);
 
   const onRestart = () => {
     if (!replayPath) return;
-    openPlayer(
-      replayPath,
-      0,
-      playerCharacter ?? undefined,
-      opponentCharacter ?? undefined,
-    );
+    openPlayer(replayPath, 0, playerCharacter ?? undefined, opponentCharacter ?? undefined);
   };
 
   const onOpenInDolphin = async () => {
@@ -291,8 +291,12 @@ export function ReplayPlayer() {
                     <HelpCircle size={14} />
                   </button>
                   <div className="replay-hotkey-help-tooltip" role="tooltip">
-                    <div><kbd>Space</kbd> Pause / Play</div>
-                    <div><kbd>Esc</kbd> Close</div>
+                    <div>
+                      <kbd>Space</kbd> Pause / Play
+                    </div>
+                    <div>
+                      <kbd>Esc</kbd> Close
+                    </div>
                   </div>
                 </div>
               </div>

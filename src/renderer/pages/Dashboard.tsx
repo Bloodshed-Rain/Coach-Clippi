@@ -5,6 +5,7 @@ import Markdown from "react-markdown";
 import { useRecentGames, useOverallRecord, useDashboardHighlights } from "../hooks/queries";
 import { Card } from "../components/ui/Card";
 import { KPI } from "../components/ui/KPI";
+import { RecentHighlightReel } from "../components/HighlightReel";
 import { DataTable } from "../components/ui/DataTable";
 import { ResultDot } from "../components/ui/ResultDot";
 import { Sparkline } from "../components/ui/Sparkline";
@@ -42,9 +43,10 @@ function fmtDmgDelta(d: number): { label: string; tone: "good" | "bad" | "neutra
 
 function buildRecentSummary(games: RecentGame[]): string {
   const wins = games.filter((g) => g.result === "win").length;
+  const losses = games.filter((g) => g.result === "loss").length;
   const avg = (fn: (g: RecentGame) => number) => games.reduce((s, g) => s + fn(g), 0) / games.length;
   return [
-    `Last ${games.length} games: ${wins}W-${games.length - wins}L`,
+    `Last ${games.length} games: ${wins}W-${losses}L`,
     `- Neutral ${(avg((g) => g.neutralWinRate) * 100).toFixed(1)}%`,
     `- L-Cancel ${(avg((g) => g.lCancelRate) * 100).toFixed(1)}%`,
     `- Conversion ${(avg((g) => g.conversionRate) * 100).toFixed(1)}%`,
@@ -63,7 +65,7 @@ function buildRecentSummary(games: RecentGame[]): string {
 
 export function Dashboard({ refreshKey }: { refreshKey: number }) {
   const navigate = useNavigate();
-  const { data: games = [], isLoading, refetch } = useRecentGames(100);
+  const { data: games = [], isLoading, refetch } = useRecentGames(20);
   const { data: record, refetch: refetchRecord } = useOverallRecord();
   const { data: highlights, refetch: refetchHighlights } = useDashboardHighlights();
   const [importing, setImporting] = useState(false);
@@ -94,7 +96,7 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
     }
   }, [navigate, refetch, refetchRecord, refetchHighlights]);
 
-  const recent = (games as unknown as RecentGame[]).slice(0, 20);
+  const recent = useMemo(() => (games as unknown as RecentGame[]).slice(0, 20), [games]);
   const last10 = recent.slice(0, 10);
   const avgNeutral = useMemo(
     () => (recent.length ? recent.reduce((s, g) => s + g.neutralWinRate, 0) / recent.length : 0),
@@ -112,7 +114,8 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
   const wins = record?.wins ?? 0;
   const losses = record?.losses ?? 0;
   const totalGames = record?.totalGames ?? recent.length;
-  const overallWR = totalGames > 0 ? (wins / totalGames) * 100 : 0;
+  const decisiveGames = wins + losses;
+  const overallWR = decisiveGames > 0 ? (wins / decisiveGames) * 100 : 0;
 
   const trends = highlights?.trends;
   const neutralD = trends ? fmtDelta(trends.neutralWinRate) : { label: "—", tone: "neutral" as const };
@@ -216,6 +219,8 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
           <KPI label="Dmg / Opening" value={avgDmg.toFixed(1)} sub={dmgD.label} subTone={dmgD.tone} />
         </motion.div>
       </motion.div>
+
+      <RecentHighlightReel refreshKey={refreshKey} />
 
       <div className="dash-split">
         <Card title="Recent Form">

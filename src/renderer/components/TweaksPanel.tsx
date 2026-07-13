@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { THEMES, THEME_ORDER, applyTheme, getResolvedTheme, ColorMode } from "../themes";
 import { useGlobalStore, Density } from "../stores/useGlobalStore";
+import { LiquidAppearanceControls } from "./LiquidAppearanceControls";
 
 const DENSITIES: Density[] = ["comfortable", "compact"];
 
@@ -24,12 +25,7 @@ export function TweaksPanel() {
 
   if (!open) {
     return (
-      <button
-        className="tweaks-toggle-btn"
-        onClick={() => setOpen(true)}
-        aria-label="Appearance"
-        title="Appearance"
-      >
+      <button className="tweaks-toggle-btn" onClick={() => setOpen(true)} aria-label="Appearance" title="Appearance">
         <svg
           width="18"
           height="18"
@@ -80,6 +76,11 @@ export function TweaksPanel() {
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="tweaks-group">
+        <div className="tweaks-label">Liquid Metal</div>
+        <LiquidAppearanceControls variant="tweaks" />
       </div>
     </div>
   );

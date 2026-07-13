@@ -1,5 +1,10 @@
 import { create } from "zustand";
 import { ColorMode } from "../themes";
+import {
+  DEFAULT_LIQUID_APPEARANCE,
+  resolveLiquidAppearanceSettings,
+  type LiquidAppearanceSettings,
+} from "../../liquidAppearance";
 
 export type Density = "comfortable" | "compact";
 
@@ -12,6 +17,8 @@ interface GlobalState {
   setColorMode: (mode: ColorMode) => void;
   density: Density;
   setDensity: (density: Density) => void;
+  liquidAppearance: LiquidAppearanceSettings;
+  setLiquidAppearance: (appearance: Partial<LiquidAppearanceSettings>) => void;
   watcherActive: boolean;
   setWatcherActive: (active: boolean) => void;
   gamesCount: number;
@@ -28,6 +35,11 @@ export const useGlobalStore = create<GlobalState>((set) => ({
   setColorMode: (mode) => set({ colorMode: mode }),
   density: "comfortable",
   setDensity: (density) => set({ density }),
+  liquidAppearance: DEFAULT_LIQUID_APPEARANCE,
+  setLiquidAppearance: (appearance) =>
+    set((state) => ({
+      liquidAppearance: resolveLiquidAppearanceSettings({ ...state.liquidAppearance, ...appearance }),
+    })),
   watcherActive: false,
   setWatcherActive: (active) => set({ watcherActive: active }),
   gamesCount: 0,

@@ -9,7 +9,7 @@ import {
   type PlayerType,
 } from "@slippi/slippi-js/node";
 
-import type { PlayerSummary, KenComboStats, TurnipPullStats } from "./types.js";
+import type { PlayerSummary, KenComboStats } from "./types.js";
 import {
   getPlayerTag,
   getCharacterName,
@@ -39,6 +39,7 @@ import {
   computeSurvivalDIScore,
   getComboGameStrength,
 } from "./characterData.js";
+import { PEACH_CHARACTER_ID, collectPeachTurnipPullStats } from "../peachItems.js";
 
 // ── Ken combo detection (Marth only) ─────────────────────────────────
 
@@ -83,26 +84,6 @@ export function detectKenCombos(
     combos,
   };
 }
-
-// ── Peach turnip pull tracking constants ──────────────────────────────
-
-const PEACH_CHARACTER_ID = 12;
-const TURNIP_TYPE_ID = 99;
-const PEACH_RARE_ITEMS: Record<number, string> = {
-  103: "Mr. Saturn",
-  104: "Bob-omb",
-  55: "Beam Sword",
-};
-const TURNIP_FACE_NAMES: Record<number, string> = {
-  0: "neutral",
-  1: "smile",
-  2: "wink",
-  3: "surprised",
-  4: "happy",
-  5: "circle eyes",
-  6: "carrot eyes",
-  7: "stitch face",
-};
 
 // ── Core pipeline ─────────────────────────────────────────────────────
 
@@ -554,73 +535,10 @@ export function buildPlayerSummary(
   });
 
   // ── Peach turnip pull tracking ────────────────────────────────────
-  let turnipPulls: TurnipPullStats | null = null;
-
-  if (player.characterId === PEACH_CHARACTER_ID) {
-    const seenSpawnIds = new Set<number>();
-    const faceCounts = new Map<number, number>();
-    const rareItemCounts = new Map<string, number>();
-    let totalPulls = 0;
-    let turnipsHit = 0;
-
-    for (let f = Frames.FIRST_PLAYABLE; f <= lastFrame; f++) {
-      const items = frames[f]?.items;
-      if (!items) continue;
-
-      for (const item of items) {
-        if (item.owner !== playerIndex) continue;
-        const spawnId = item.spawnId;
-        if (spawnId == null || seenSpawnIds.has(spawnId)) continue;
-        seenSpawnIds.add(spawnId);
-
-        const typeId = item.typeId ?? -1;
-
-        if (typeId === TURNIP_TYPE_ID) {
-          totalPulls++;
-          const face = item.turnipFace ?? 0;
-          faceCounts.set(face, (faceCounts.get(face) ?? 0) + 1);
-        } else if (PEACH_RARE_ITEMS[typeId]) {
-          totalPulls++;
-          const name = PEACH_RARE_ITEMS[typeId]!;
-          rareItemCounts.set(name, (rareItemCounts.get(name) ?? 0) + 1);
-        }
-      }
-    }
-
-    // Detect turnip hits from conversion data.
-    // In Melee, item throw hits register as moveId 1 ("misc") in slippi-js.
-    // Count conversion moves with moveId 1 where Peach is the attacker.
-    // (conversions where opponent is victim = playerIndex !== this player)
-    const ITEM_THROW_MOVE_ID = 1;
-    for (const conv of myConversions) {
-      for (const move of conv.moves) {
-        if (move.moveId === ITEM_THROW_MOVE_ID) {
-          turnipsHit++;
-        }
-      }
-    }
-
-    if (totalPulls > 0) {
-      const faces = [...faceCounts.entries()]
-        .map(([face, count]) => ({ face: TURNIP_FACE_NAMES[face] ?? `face ${face}`, count }))
-        .sort((a, b) => b.count - a.count);
-
-      const rareItems = [...rareItemCounts.entries()]
-        .map(([item, count]) => ({ item, count }))
-        .sort((a, b) => b.count - a.count);
-
-      // Hit rate: item throw hits / total turnip pulls (not counting rare items)
-      const turnipCount = [...faceCounts.values()].reduce((a, b) => a + b, 0);
-
-      turnipPulls = {
-        totalPulls,
-        faces,
-        turnipsHit,
-        hitRate: turnipCount > 0 ? ratio(turnipsHit, turnipCount) : 0,
-        rareItems,
-      };
-    }
-  }
+  const turnipPulls =
+    player.characterId === PEACH_CHARACTER_ID
+      ? collectPeachTurnipPullStats({ frames, playerIndex, myConversions, lastFrame })
+      : null;
 
   const kenCombos = detectKenCombos(player.characterId, myConversions);
 

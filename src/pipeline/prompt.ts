@@ -496,7 +496,8 @@ export function assemblePlayerContext(history: PlayerHistory): string {
 
   // Overall record
   const { wins, losses, totalGames } = history.overallRecord;
-  const overallWinRate = totalGames > 0 ? ((wins / totalGames) * 100).toFixed(1) : "0.0";
+  const decisive = wins + losses;
+  const overallWinRate = decisive > 0 ? ((wins / decisive) * 100).toFixed(1) : "0.0";
   lines.push(`Lifetime record: ${wins}W-${losses}L (${overallWinRate}% win rate, ${totalGames} games)`);
 
   // Current streak

@@ -12,6 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Card } from "../components/ui/Card";
+import { LiquidAppearanceControls } from "../components/LiquidAppearanceControls";
 import { PROVIDERS, PROVIDER_BY_ID, type ProviderId } from "../../llmProviders";
 import { useGlobalStore, type Density } from "../stores/useGlobalStore";
 import { THEMES, THEME_ORDER, applyTheme, getResolvedTheme, type ColorMode } from "../themes";
@@ -38,6 +39,9 @@ interface Config {
   localEndpoint: string | null;
   theme: string | null;
   colorMode: string | null;
+  liquidCharacterVisibility: number | null;
+  liquidCardOpacity: number | null;
+  liquidCardBlur: number | null;
   cornermanOverlayTransparency: number | null;
   cornermanOverlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right" | null;
   cornermanOverlaySize: { width: number; height: number } | null;
@@ -147,6 +151,9 @@ export function Settings({ onImport }: SettingsProps) {
     localEndpoint: null,
     theme: null,
     colorMode: null,
+    liquidCharacterVisibility: null,
+    liquidCardOpacity: null,
+    liquidCardBlur: null,
     cornermanOverlayTransparency: null,
     cornermanOverlayCorner: null,
     cornermanOverlaySize: null,
@@ -266,6 +273,9 @@ export function Settings({ onImport }: SettingsProps) {
       // stale values captured at mount — those persist through their own setters.
       delete payload.theme;
       delete payload.colorMode;
+      delete payload.liquidCharacterVisibility;
+      delete payload.liquidCardOpacity;
+      delete payload.liquidCardBlur;
       const updatedKeys: Partial<Record<ProviderId, string>> = {};
       for (const [pid, val] of Object.entries(keyEdits)) {
         if (val && val.trim()) updatedKeys[pid as ProviderId] = val.trim();
@@ -509,6 +519,11 @@ export function Settings({ onImport }: SettingsProps) {
                       </button>
                     ))}
                   </div>
+                </div>
+                <div className="settings-divider" />
+                <div className="settings-field" style={{ marginBottom: 0 }}>
+                  <label id="appearance-liquid-label">Liquid Metal</label>
+                  <LiquidAppearanceControls variant="settings" />
                 </div>
               </Card>
             )}

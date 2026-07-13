@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MAGI</title>
+    <style>
+      :root {
+        --bg: #0a0d14;
+        --accent: #22d3ee;
+        --accent-rgb: 34, 211, 238;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg);
+        -webkit-user-select: none;
+        user-select: none;
+        cursor: default;
+      }
+
+      /* Whole stage fades out when main process adds .fade-out to <body>. */
+      body {
+        opacity: 1;
+        transition: opacity 280ms ease;
+      }
+      body.fade-out {
+        opacity: 0;
+      }
+
+      .stage {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 32px;
+        background: var(--bg);
+        overflow: hidden;
+      }
+
+      /* Liquid-metal color blooms, echoing the app's "liquid" theme. */
+      .stage::before {
+        content: "";
+        position: absolute;
+        inset: -20%;
+        z-index: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(420px 320px at 18% 22%, rgba(160, 168, 255, 0.24), transparent 60%),
+          radial-gradient(460px 360px at 88% 84%, rgba(255, 138, 158, 0.16), transparent 60%),
+          radial-gradient(360px 280px at 62% 38%, rgba(126, 232, 197, 0.14), transparent 60%);
+        filter: blur(24px);
+        animation: bloom 18s ease-in-out infinite alternate;
+      }
+
+      /* Faint diagonal sheen overlay. */
+      .stage::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background: repeating-linear-gradient(135deg, transparent 0 3px, rgba(255, 255, 255, 0.012) 3px 6px);
+      }
+
+      .logo-wrap {
+        position: relative;
+        z-index: 1;
+        animation: logo-in 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      .logo-wrap img {
+        display: block;
+        width: 208px;
+        height: 208px;
+        object-fit: contain;
+        filter: drop-shadow(0 6px 24px rgba(0, 0, 0, 0.55));
+        animation: float 6s ease-in-out infinite;
+      }
+
+      /* Soft accent halo behind the chrome mark. */
+      .logo-wrap::before {
+        content: "";
+        position: absolute;
+        inset: -28% -28%;
+        z-index: -1;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(var(--accent-rgb), 0.18) 0%, transparent 68%);
+        animation: pulse 3.6s ease-in-out infinite;
+      }
+
+      .tagline {
+        position: relative;
+        z-index: 1;
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 4.5px;
+        text-transform: uppercase;
+        color: rgba(226, 232, 240, 0.55);
+        animation: fade-up 900ms 220ms ease both;
+      }
+
+      .loader {
+        position: relative;
+        z-index: 1;
+        width: 240px;
+        height: 3px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.07);
+        overflow: hidden;
+        animation: fade-up 900ms 360ms ease both;
+      }
+
+      .loader::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 42%;
+        border-radius: 2px;
+        background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.6);
+        animation: sweep 1.25s ease-in-out infinite;
+      }
+
+      @keyframes logo-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px) scale(0.92);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes fade-up {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-5px);
+        }
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.55;
+          transform: scale(0.96);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.04);
+        }
+      }
+
+      @keyframes sweep {
+        0% {
+          left: -42%;
+        }
+        100% {
+          left: 100%;
+        }
+      }
+
+      @keyframes bloom {
+        0% {
+          transform: translate(0, 0) scale(1);
+        }
+        50% {
+          transform: translate(-14px, 18px) scale(1.05);
+        }
+        100% {
+          transform: translate(18px, -12px) scale(0.98);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .logo-wrap,
+        .logo-wrap img,
+        .logo-wrap::before,
+        .tagline,
+        .loader,
+        .loader::before,
+        .stage::before {
+          animation: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <div class="logo-wrap">
+        <img src="icon.png" alt="MAGI" />
+      </div>
+      <div class="tagline">Melee Analysis through Generative Intelligence</div>
+      <div class="loader" role="progressbar" aria-label="Loading"></div>
+    </div>
+  </body>
+</html>

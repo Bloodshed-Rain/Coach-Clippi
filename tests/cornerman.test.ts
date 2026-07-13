@@ -67,7 +67,7 @@ describe("advanceLiveSet", () => {
     expect(advanceLiveSet(null, g, targetTag, 0)).toBeNull();
   });
 
-  it("tracks score: win when winner is target, loss when winner is opponent, draw when both have stocks", () => {
+  it("tracks score: win when winner is target, loss when winner is opponent, draw only when unresolvable", () => {
     const idx = findPlayerIdx(game1.gameSummary, targetTag);
     const oppIdx = idx === 0 ? 1 : 0;
 
@@ -82,8 +82,12 @@ describe("advanceLiveSet", () => {
     lossGame.gameSummary.result.finalStocks[idx] = 0;
     lossGame.gameSummary.result.finalStocks[oppIdx] = 1;
 
+    // A quit-out with a known winner is NOT a draw — only an unresolvable
+    // ending (no winner data, both alive, no stock/percent signal) is.
     const drawGame = clone(game2);
     drawGame.gameSummary.duration = 50; // game2 fixture is too short, fix for testing
+    drawGame.gameSummary.result.winner = "Unknown";
+    drawGame.gameSummary.result.endMethod = "unknown";
     drawGame.gameSummary.result.finalStocks[idx] = 2;
     drawGame.gameSummary.result.finalStocks[oppIdx] = 2;
 

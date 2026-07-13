@@ -4,6 +4,7 @@ import {
   getStageRecords,
   getLatestAnalysis,
   getRecentGames,
+  getLibraryGames,
   getOpponentHistory,
   detectSets,
   clearAllGames,
@@ -20,6 +21,7 @@ import {
   getGameDetail,
   getSessionsByDay,
   getTrendSeries,
+  getTrendSeriesBundle,
   type TrendMetric,
 } from "../../db.js";
 import type { SafeHandleFn } from "../ipc.js";
@@ -29,6 +31,7 @@ export function registerStatsHandlers(safeHandle: SafeHandleFn): void {
   safeHandle("stats:matchups", () => getMatchupRecords());
   safeHandle("stats:stages", () => getStageRecords());
   safeHandle("stats:recentGames", (_e, limit: number) => getRecentGames(limit));
+  safeHandle("stats:libraryGames", (_e, filters: Parameters<typeof getLibraryGames>[0]) => getLibraryGames(filters));
   safeHandle("stats:latestAnalysis", () => getLatestAnalysis(1));
   safeHandle("stats:opponents", (_e, search?: string) => getOpponentHistory(search));
   safeHandle("stats:sets", () => detectSets());
@@ -48,6 +51,9 @@ export function registerStatsHandlers(safeHandle: SafeHandleFn): void {
   safeHandle("stats:sessionsByDay", (_e, daysBack?: number) => getSessionsByDay(daysBack));
   safeHandle("stats:trendSeries", (_e, metric: TrendMetric, range: "7d" | "30d" | "all", filterChar: string | null) =>
     getTrendSeries(metric, range, filterChar),
+  );
+  safeHandle("stats:trendSeriesBundle", (_e, range: "7d" | "30d" | "all", filterChar: string | null) =>
+    getTrendSeriesBundle(range, filterChar),
   );
   safeHandle("data:clearAll", () => {
     clearAllGames();

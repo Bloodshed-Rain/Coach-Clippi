@@ -258,7 +258,7 @@ function handleTool(name: string, args: Args) {
             SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) as wins,
             SUM(CASE WHEN g.result = 'loss' THEN 1 ELSE 0 END) as losses,
             COUNT(*) as totalGames,
-            ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) as winRate
+            ROUND(CAST(SUM(CASE WHEN g.result = 'win' THEN 1 ELSE 0 END) AS REAL) / MAX(SUM(CASE WHEN g.result IN ('win', 'loss') THEN 1 ELSE 0 END), 1), 4) as winRate
           FROM games g
           WHERE g.player_character = ?
           GROUP BY g.stage

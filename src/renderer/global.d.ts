@@ -6,6 +6,10 @@ declare module "*.png" {
   const src: string;
   export default src;
 }
+declare module "*.webp" {
+  const src: string;
+  export default src;
+}
 
 declare global {
   interface CornermanStatus {
@@ -84,6 +88,24 @@ declare global {
       getMatchupRecords: () => Promise<any[]>;
       getStageRecords: () => Promise<any[]>;
       getRecentGames: (limit: number) => Promise<any[]>;
+      getLibraryGames: (filters: {
+        search?: string;
+        char?: string;
+        stage?: string;
+        result?: string;
+        limit?: number;
+        offset?: number;
+      }) => Promise<{
+        games: any[];
+        total: number;
+        totalUnfiltered: number;
+        wins: number;
+        losses: number;
+        uniqueOpponents: number;
+        charactersPlayed: number;
+        characters: string[];
+        stages: string[];
+      }>;
       getLatestAnalysis: () => Promise<any[]>;
       getOpponents: (search?: string) => Promise<any[]>;
       clearAllGames: () => Promise<boolean>;
@@ -120,6 +142,20 @@ declare global {
         range: "7d" | "30d" | "all",
         filterChar: string | null,
       ) => Promise<Array<{ playedAt: string; value: number }>>;
+      getTrendSeriesBundle: (
+        range: "7d" | "30d" | "all",
+        filterChar: string | null,
+      ) => Promise<
+        Record<
+          | "neutralWinRate"
+          | "lCancelRate"
+          | "conversionRate"
+          | "avgDamagePerOpening"
+          | "openingsPerKill"
+          | "avgDeathPercent",
+          Array<{ playedAt: string; value: number }>
+        >
+      >;
       openInDolphin: (replayPath: string) => Promise<boolean>;
       openInDolphinAtFrame: (replayPath: string, frame: number) => Promise<boolean>;
       embedReplayOpen: (
@@ -151,6 +187,7 @@ declare global {
       cornermanOverlayDismiss: () => Promise<boolean>;
       cornermanOverlayResize: (handle: string, deltaX: number, deltaY: number) => Promise<boolean>;
       cornermanOverlayResizeEnd: () => Promise<boolean>;
+      cornermanOverlayReady: () => Promise<boolean>;
       onCornermanStream: (callback: (chunk: string) => void) => () => void;
       onCornermanCard: (callback: (card: CornermanCard) => void) => () => void;
       onCornermanSetUpdate: (callback: (status: CornermanStatus) => void) => () => void;

@@ -46,6 +46,7 @@ const api = {
   getMatchupRecords: () => ipcRenderer.invoke("stats:matchups"),
   getStageRecords: () => ipcRenderer.invoke("stats:stages"),
   getRecentGames: (limit: number) => ipcRenderer.invoke("stats:recentGames", limit),
+  getLibraryGames: (filters: unknown) => ipcRenderer.invoke("stats:libraryGames", filters),
   getLatestAnalysis: () => ipcRenderer.invoke("stats:latestAnalysis"),
   getOpponents: (search?: string) => ipcRenderer.invoke("stats:opponents", search),
   getSets: () => ipcRenderer.invoke("stats:sets"),
@@ -65,6 +66,8 @@ const api = {
   getSessionsByDay: (daysBack?: number) => ipcRenderer.invoke("stats:sessionsByDay", daysBack),
   getTrendSeries: (metric: string, range: string, filterChar: string | null) =>
     ipcRenderer.invoke("stats:trendSeries", metric, range, filterChar),
+  getTrendSeriesBundle: (range: string, filterChar: string | null) =>
+    ipcRenderer.invoke("stats:trendSeriesBundle", range, filterChar),
 
   // Stock timeline
   getStockTimeline: (replayPath: string) => ipcRenderer.invoke("stats:stockTimeline", replayPath),
@@ -117,6 +120,7 @@ const api = {
   cornermanOverlayResize: (handle: string, deltaX: number, deltaY: number) =>
     ipcRenderer.invoke("cornerman:overlay-resize", handle, deltaX, deltaY),
   cornermanOverlayResizeEnd: () => ipcRenderer.invoke("cornerman:overlay-resize-end"),
+  cornermanOverlayReady: () => ipcRenderer.invoke("cornerman:overlay-ready"),
 
   // Queue status
   getQueueStatus: () => ipcRenderer.invoke("queue:status"),
@@ -214,19 +218,21 @@ const api = {
     ipcRenderer.on("cornerman:set-update", listener);
     return () => ipcRenderer.removeListener("cornerman:set-update", listener);
   },
-  onCornermanLiveEvent: (callback: (event: {
-    id: string;
-    type: string;
-    title: string;
-    body: string;
-    timestamp: string;
-    frame: number;
-    actorTag: string;
-    actorCharacter: string;
-    victimTag: string | null;
-    victimCharacter: string | null;
-    importance: "info" | "high";
-  }) => void) => {
+  onCornermanLiveEvent: (
+    callback: (event: {
+      id: string;
+      type: string;
+      title: string;
+      body: string;
+      timestamp: string;
+      frame: number;
+      actorTag: string;
+      actorCharacter: string;
+      victimTag: string | null;
+      victimCharacter: string | null;
+      importance: "info" | "high";
+    }) => void,
+  ) => {
     const listener = (
       _event: unknown,
       liveEvent: {

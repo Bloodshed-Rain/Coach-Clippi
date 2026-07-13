@@ -4,6 +4,24 @@ import { getGameHighlights } from "../../db.js";
 import { getMainWindow, getFileWatcher, setFileWatcher, getImportListener } from "../state.js";
 import { type SafeHandleFn, validatePath } from "../ipc.js";
 
+/** Desktop notification when an imported game recorded highlights. Shared by
+ *  the folder watcher and Cornerman's live-completion import. */
+export function notifyGameHighlights(gameId: number): void {
+  try {
+    const highlights = getGameHighlights(gameId);
+    if (highlights.length > 0) {
+      const labels = highlights.map((h) => h.label);
+      const unique = [...new Set(labels)];
+      new Notification({
+        title: "MAGI — Game Highlights",
+        body: unique.join(", "),
+      }).show();
+    }
+  } catch {
+    // Non-critical — don't break the import flow
+  }
+}
+
 /** Start (or restart) the replay folder watcher. Shared by watcher:start and cornerman:start. */
 export function startReplayWatcher(replayFolder: string, targetPlayer: string): void {
   const safeFolder = validatePath(replayFolder);
@@ -33,19 +51,7 @@ export function startReplayWatcher(replayFolder: string, targetPlayer: string): 
 
         // Fire desktop notification if the game has highlights
         if (result.gameId && !result.skipped) {
-          try {
-            const highlights = getGameHighlights(result.gameId);
-            if (highlights.length > 0) {
-              const labels = highlights.map((h) => h.label);
-              const unique = [...new Set(labels)];
-              new Notification({
-                title: "MAGI — Game Highlights",
-                body: unique.join(", "),
-              }).show();
-            }
-          } catch {
-            // Non-critical — don't break the import flow
-          }
+          notifyGameHighlights(result.gameId);
         }
       },
       onError: (err) => {

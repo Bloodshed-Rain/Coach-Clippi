@@ -99,6 +99,9 @@ export function CornermanOverlay() {
       setError(message);
       scheduleAutoHide();
     });
+    // All listeners are mounted — tell main to flush anything it queued while
+    // this window was loading (sends before this point would have been lost).
+    window.clippi.cornermanOverlayReady?.().catch(() => {});
     return () => {
       document.documentElement.classList.remove("overlay-mode");
       document.body.classList.remove("overlay-mode");

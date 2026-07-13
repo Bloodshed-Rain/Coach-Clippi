@@ -1,0 +1,776 @@
+/* Theme personality pass: keeps shared layout while giving each theme its own material. */
+
+/* Liquid Metal: web-style character art fades in behind the workspace. */
+.liquid-character-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0 0 0 var(--rail-width);
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+body[data-theme="liquid"] .liquid-character-backdrop {
+  display: block;
+}
+
+.liquid-character-backdrop__art {
+  position: absolute;
+  left: var(--liquid-char-left);
+  top: var(--liquid-char-top);
+  display: block;
+  width: auto;
+  height: var(--liquid-char-height);
+  max-width: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: grayscale(1) brightness(1.7) contrast(1.02) drop-shadow(0 24px 48px rgba(0, 0, 0, 0.42));
+  transform: translate3d(0, 0, 0) rotate(var(--liquid-char-rotate)) scale(var(--liquid-char-scale));
+  animation:
+    liquidCharacterFade var(--liquid-char-life) ease-in-out forwards,
+    liquidCharacterDrift var(--liquid-char-drift-life) ease-in-out infinite alternate;
+  will-change: opacity, transform;
+}
+
+.liquid-character-backdrop__art.is-static {
+  opacity: calc(var(--liquid-char-peak) * var(--liquid-character-visibility, 1));
+  animation: none;
+}
+
+body[data-theme="liquid"] .app-layout::before {
+  opacity: 0;
+}
+
+body[data-theme="liquid"] .card,
+body[data-theme="liquid"] .panel {
+  background: rgba(14, 18, 28, var(--liquid-card-opacity, 0.32));
+  border-color: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(var(--liquid-card-blur, 9px)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--liquid-card-blur, 9px)) saturate(1.4);
+}
+
+body[data-theme="liquid"] .card:hover {
+  background: rgba(20, 25, 38, var(--liquid-card-hover-opacity, 0.44));
+}
+
+body[data-theme="liquid"] .card::before,
+body[data-theme="liquid"] .panel::before {
+  opacity: 0.34;
+}
+
+body[data-theme="liquid"] .main-content::before {
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.035), transparent 34%, rgba(255, 255, 255, 0.018) 68%, transparent),
+    radial-gradient(circle, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    28px 28px;
+  opacity: 0.28;
+  animation: meshPan 28s ease-in-out infinite alternate;
+}
+
+@keyframes liquidCharacterFade {
+  0%,
+  10% {
+    opacity: 0;
+  }
+  30%,
+  66% {
+    opacity: calc(var(--liquid-char-peak) * var(--liquid-character-visibility, 1));
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes liquidCharacterDrift {
+  from {
+    transform: translate3d(0, 0, 0) rotate(var(--liquid-char-rotate)) scale(var(--liquid-char-scale));
+  }
+  to {
+    transform: translate3d(var(--liquid-char-drift-x), var(--liquid-char-drift-y), 0)
+      rotate(var(--liquid-char-end-rotate)) scale(var(--liquid-char-end-scale));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-character-backdrop__art {
+    animation: none;
+    opacity: calc(var(--liquid-char-peak) * var(--liquid-character-visibility, 1));
+  }
+}
+
+@media (max-width: 900px) {
+  .liquid-character-backdrop {
+    left: 0;
+  }
+}
+
+/* Telemetry: instrument-panel grid, cyan separators, technical plates. */
+body[data-theme="telemetry"] .app-layout::before {
+  opacity: 0.18;
+  mix-blend-mode: screen;
+}
+
+body[data-theme="telemetry"] .main-content::before {
+  background:
+    linear-gradient(90deg, rgba(34, 211, 238, 0.09) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(34, 211, 238, 0.055) 1px, transparent 1px),
+    linear-gradient(115deg, transparent 0 54%, rgba(34, 211, 238, 0.055) 54% 55%, transparent 55%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0), rgba(34, 211, 238, 0.04));
+  background-size:
+    72px 72px,
+    72px 72px,
+    100% 100%,
+    100% 100%;
+  opacity: 0.55;
+  animation: telemetryScan 18s linear infinite;
+}
+
+body[data-theme="telemetry"] .card,
+body[data-theme="telemetry"] .panel,
+body[data-theme="telemetry"] .settings-nav,
+body[data-theme="telemetry"] .game-list {
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.045), transparent 42%), rgba(8, 17, 31, 0.76);
+  border-color: rgba(34, 211, 238, 0.18);
+  box-shadow:
+    inset 3px 0 0 rgba(34, 211, 238, 0.22),
+    0 12px 30px rgba(0, 0, 0, 0.24);
+}
+
+body[data-theme="telemetry"] .card:hover {
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.08), transparent 46%), rgba(15, 30, 48, 0.88);
+  border-color: rgba(34, 211, 238, 0.32);
+}
+
+body[data-theme="telemetry"] .card-title,
+body[data-theme="telemetry"] .stat-label,
+body[data-theme="telemetry"] .nav-section-label,
+body[data-theme="telemetry"] .tweaks-label {
+  color: color-mix(in srgb, var(--accent) 68%, var(--text-muted));
+  letter-spacing: 0.16em;
+}
+
+body[data-theme="telemetry"] .data-table th {
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.12), rgba(34, 211, 238, 0.02));
+}
+
+@keyframes telemetryScan {
+  from {
+    background-position:
+      0 0,
+      0 0,
+      0 0,
+      0 0;
+  }
+  to {
+    background-position:
+      72px 0,
+      0 72px,
+      0 0,
+      0 0;
+  }
+}
+
+/* Tournament: black broadcast plates with bracket-like rules. */
+body[data-theme="tournament"] .app-layout::before {
+  opacity: 0.26;
+  mix-blend-mode: screen;
+}
+
+body[data-theme="tournament"] .main-content::before {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 96px),
+    linear-gradient(180deg, transparent 0 43%, rgba(59, 130, 246, 0.08) 43% 45%, transparent 45%),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.08), transparent 36%, rgba(255, 255, 255, 0.025));
+  opacity: 0.48;
+  animation: none;
+}
+
+body[data-theme="tournament"] .card,
+body[data-theme="tournament"] .panel,
+body[data-theme="tournament"] .settings-nav,
+body[data-theme="tournament"] .game-list {
+  background: linear-gradient(180deg, rgba(15, 15, 15, 0.96), rgba(3, 3, 3, 0.96));
+  border-color: rgba(255, 255, 255, 0.13);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 2px 0 rgba(59, 130, 246, 0.42),
+    0 14px 34px rgba(0, 0, 0, 0.52);
+}
+
+body[data-theme="tournament"] .card:hover {
+  background: linear-gradient(180deg, rgba(22, 22, 22, 0.98), rgba(8, 8, 8, 0.98));
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+body[data-theme="tournament"] .liquid-shell .nav-item.active {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+body[data-theme="tournament"] .btn-primary {
+  background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+  border-color: #60a5fa;
+}
+
+body[data-theme="tournament"] .card-title,
+body[data-theme="tournament"] .data-table th,
+body[data-theme="tournament"] .nav-section-label {
+  color: #bfdbfe;
+}
+
+/* CRT: phosphor scanlines, glow, and terminal-like surfaces. */
+body[data-theme="crt"] .app-layout::before {
+  opacity: 0.16;
+  mix-blend-mode: screen;
+}
+
+body[data-theme="crt"] .main-content::before {
+  background:
+    repeating-linear-gradient(0deg, rgba(51, 255, 51, 0.1) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgba(51, 255, 51, 0.035) 0 1px, transparent 1px 80px),
+    linear-gradient(180deg, rgba(51, 255, 51, 0.045), transparent 44%);
+  opacity: 0.36;
+  animation: crtPulse 5.5s steps(2, end) infinite;
+}
+
+body[data-theme="crt"] .card,
+body[data-theme="crt"] .panel,
+body[data-theme="crt"] .settings-nav,
+body[data-theme="crt"] .game-list {
+  background: rgba(4, 16, 4, 0.82);
+  border-color: rgba(51, 255, 51, 0.2);
+  box-shadow:
+    inset 0 0 0 1px rgba(51, 255, 51, 0.06),
+    inset 0 0 28px rgba(51, 255, 51, 0.045),
+    0 0 22px rgba(51, 255, 51, 0.1);
+}
+
+body[data-theme="crt"] .card:hover {
+  background: rgba(8, 28, 8, 0.9);
+  border-color: rgba(51, 255, 51, 0.34);
+}
+
+body[data-theme="crt"] .card-title,
+body[data-theme="crt"] .stat-label,
+body[data-theme="crt"] .data-table th,
+body[data-theme="crt"] .btn,
+body[data-theme="crt"] .tab,
+body[data-theme="crt"] .nav-section-label {
+  text-shadow: 0 0 8px rgba(51, 255, 51, 0.45);
+}
+
+body[data-theme="crt"] .data-table tbody tr:nth-child(even) td {
+  background: rgba(51, 255, 51, 0.035);
+}
+
+@keyframes crtPulse {
+  0%,
+  100% {
+    opacity: 0.34;
+  }
+  50% {
+    opacity: 0.42;
+  }
+}
+
+/* Amber: warm ledger surfaces and brass dividers. */
+body[data-theme="amber"] .app-layout::before {
+  opacity: 0.19;
+  mix-blend-mode: screen;
+}
+
+body[data-theme="amber"] .main-content::before {
+  background:
+    repeating-linear-gradient(90deg, rgba(217, 165, 64, 0.04) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(0deg, rgba(217, 165, 64, 0.026) 0 1px, transparent 1px 28px),
+    linear-gradient(90deg, rgba(217, 165, 64, 0.07), transparent 36%, rgba(125, 186, 90, 0.04));
+  opacity: 0.48;
+  animation: none;
+}
+
+body[data-theme="amber"] .card,
+body[data-theme="amber"] .panel,
+body[data-theme="amber"] .settings-nav,
+body[data-theme="amber"] .game-list {
+  background: linear-gradient(180deg, rgba(57, 37, 15, 0.9), rgba(28, 18, 7, 0.94));
+  border-color: rgba(217, 175, 106, 0.2);
+  box-shadow:
+    inset 4px 0 0 rgba(217, 165, 64, 0.25),
+    inset 0 1px 0 rgba(255, 226, 170, 0.06),
+    0 14px 32px rgba(0, 0, 0, 0.32);
+}
+
+body[data-theme="amber"] .card:hover {
+  background: linear-gradient(180deg, rgba(70, 45, 17, 0.94), rgba(35, 22, 8, 0.96));
+  border-color: rgba(217, 175, 106, 0.34);
+}
+
+body[data-theme="amber"] .card-title,
+body[data-theme="amber"] .data-table th,
+body[data-theme="amber"] .nav-section-label {
+  color: #f2c36d;
+}
+
+body[data-theme="amber"] .btn-primary {
+  background: linear-gradient(180deg, #d9a540, #a86f1f);
+  border-color: #f2c36d;
+}
+
+/* Light: bright desk/blueprint feel with cleaner white surfaces. */
+body[data-theme="light"] .app-layout::before {
+  opacity: 0.12;
+}
+
+body[data-theme="light"] .main-content::before {
+  background:
+    linear-gradient(90deg, rgba(14, 165, 233, 0.085) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(14, 165, 233, 0.06) 1px, transparent 1px),
+    linear-gradient(135deg, transparent 0 68%, rgba(99, 102, 241, 0.055) 68% 69%, transparent 69%);
+  background-size:
+    44px 44px,
+    44px 44px,
+    100% 100%;
+  opacity: 0.5;
+  animation: none;
+}
+
+body[data-theme="light"] .card,
+body[data-theme="light"] .panel,
+body[data-theme="light"] .settings-nav,
+body[data-theme="light"] .game-list {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(15, 23, 42, 0.11);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 14px 34px rgba(15, 23, 42, 0.08);
+}
+
+body[data-theme="light"] .card:hover {
+  background: #ffffff;
+  border-color: rgba(14, 165, 233, 0.26);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 16px 38px rgba(15, 23, 42, 0.1);
+}
+
+body[data-theme="light"] .data-table th {
+  background: rgba(14, 165, 233, 0.08);
+}
+
+body[data-theme="light"] .liquid-shell .sidebar {
+  box-shadow: 10px 0 28px rgba(15, 23, 42, 0.12);
+}
+
+/* Second personality pass: non-liquid themes get distinct materials and UI gestures. */
+
+body[data-theme="telemetry"] .page-header,
+body[data-theme="telemetry"] .settings-section-head,
+body[data-theme="telemetry"] .trends-hero-head {
+  padding-left: 14px;
+  border-left: 2px solid rgba(34, 211, 238, 0.62);
+  box-shadow: -8px 0 18px -16px rgba(34, 211, 238, 0.9);
+}
+
+body[data-theme="telemetry"] .liquid-shell .sidebar {
+  background:
+    linear-gradient(180deg, rgba(34, 211, 238, 0.055), transparent 34%),
+    linear-gradient(90deg, #071120 0%, #0c1727 100%);
+  border-right-color: rgba(34, 211, 238, 0.28);
+  box-shadow: inset -1px 0 0 rgba(34, 211, 238, 0.16);
+}
+
+body[data-theme="telemetry"] .liquid-shell .nav-item {
+  border: 1px solid transparent;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+}
+
+body[data-theme="telemetry"] .liquid-shell .nav-item:hover,
+body[data-theme="telemetry"] .liquid-shell .nav-item.active {
+  border-color: rgba(34, 211, 238, 0.26);
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.13), transparent 78%), rgba(34, 211, 238, 0.035);
+  box-shadow: inset 2px 0 0 rgba(34, 211, 238, 0.62);
+}
+
+body[data-theme="telemetry"] .card,
+body[data-theme="telemetry"] .panel,
+body[data-theme="telemetry"] .settings-nav,
+body[data-theme="telemetry"] .game-list,
+body[data-theme="telemetry"] .provider-option {
+  border-radius: 3px;
+  background:
+    linear-gradient(90deg, rgba(34, 211, 238, 0.42) 0 18px, transparent 18px) left top / 70px 1px no-repeat,
+    linear-gradient(180deg, rgba(34, 211, 238, 0.28) 0 18px, transparent 18px) left top / 1px 70px no-repeat,
+    linear-gradient(270deg, rgba(34, 211, 238, 0.3) 0 14px, transparent 14px) right bottom / 58px 1px no-repeat,
+    linear-gradient(0deg, rgba(34, 211, 238, 0.2) 0 14px, transparent 14px) right bottom / 1px 58px no-repeat,
+    linear-gradient(180deg, rgba(34, 211, 238, 0.06), transparent 45%),
+    rgba(8, 17, 31, 0.82);
+}
+
+body[data-theme="telemetry"] .btn,
+body[data-theme="telemetry"] .tweaks-chip,
+body[data-theme="telemetry"] .settings-nav-button,
+body[data-theme="telemetry"] .library-filter-input,
+body[data-theme="telemetry"] .model-select,
+body[data-theme="telemetry"] .oracle-input,
+body[data-theme="telemetry"] .settings-field input {
+  border-radius: 3px;
+  background: rgba(8, 17, 31, 0.72);
+  border-color: rgba(34, 211, 238, 0.2);
+}
+
+body[data-theme="telemetry"] .btn-primary,
+body[data-theme="telemetry"] .tweaks-chip.active,
+body[data-theme="telemetry"] .tab.active {
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.98), rgba(56, 189, 248, 0.82)), var(--accent);
+  color: #03111d;
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.24);
+}
+
+body[data-theme="telemetry"] .data-table th {
+  border-bottom-color: rgba(34, 211, 238, 0.74);
+  box-shadow: inset 0 -1px 0 rgba(34, 211, 238, 0.28);
+}
+
+body[data-theme="telemetry"] .winrate-bar {
+  height: 5px;
+  border-radius: 1px;
+  background: rgba(34, 211, 238, 0.12);
+}
+
+body[data-theme="tournament"] .page-header,
+body[data-theme="tournament"] .settings-section-head,
+body[data-theme="tournament"] .trends-hero-head {
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 4px solid var(--accent);
+  background:
+    repeating-linear-gradient(135deg, transparent 0 8px, rgba(255, 255, 255, 0.028) 8px 10px), rgba(2, 4, 8, 0.62);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.34);
+}
+
+body[data-theme="tournament"] .liquid-shell .sidebar {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.12), transparent 28%), #030303;
+  border-right-color: rgba(255, 255, 255, 0.18);
+}
+
+body[data-theme="tournament"] .liquid-shell .nav-item {
+  border-radius: 0;
+  border: 1px solid transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+body[data-theme="tournament"] .liquid-shell .nav-item:hover,
+body[data-theme="tournament"] .liquid-shell .nav-item.active {
+  border-color: rgba(59, 130, 246, 0.34);
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.2), transparent 68%), rgba(255, 255, 255, 0.035);
+}
+
+body[data-theme="tournament"] .card,
+body[data-theme="tournament"] .panel,
+body[data-theme="tournament"] .settings-nav,
+body[data-theme="tournament"] .game-list,
+body[data-theme="tournament"] .provider-option {
+  background:
+    linear-gradient(90deg, var(--accent) 0 54px, transparent 54px) top left / 100% 3px no-repeat,
+    repeating-linear-gradient(135deg, transparent 0 10px, rgba(255, 255, 255, 0.035) 10px 12px),
+    linear-gradient(180deg, rgba(19, 19, 19, 0.98), rgba(2, 2, 2, 0.98));
+  border-radius: 0;
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 16px 38px rgba(0, 0, 0, 0.6);
+}
+
+body[data-theme="tournament"] .card-title,
+body[data-theme="tournament"] .stat-label,
+body[data-theme="tournament"] .nav-section-label,
+body[data-theme="tournament"] .tweaks-label {
+  color: #bfdbfe;
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+body[data-theme="tournament"] .btn,
+body[data-theme="tournament"] .tweaks-chip,
+body[data-theme="tournament"] .settings-nav-button,
+body[data-theme="tournament"] .library-filter-input,
+body[data-theme="tournament"] .model-select,
+body[data-theme="tournament"] .oracle-input,
+body[data-theme="tournament"] .settings-field input {
+  border-radius: 0;
+  background: #070707;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+body[data-theme="tournament"] .btn-primary,
+body[data-theme="tournament"] .tweaks-chip.active {
+  color: #ffffff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 8px 18px rgba(59, 130, 246, 0.28);
+}
+
+body[data-theme="tournament"] .data-table th {
+  background: #050505;
+  border-bottom: 3px solid var(--accent);
+}
+
+body[data-theme="tournament"] .winrate-bar,
+body[data-theme="tournament"] .progress-track {
+  height: 6px;
+  border-radius: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+body[data-theme="crt"] .app-layout {
+  text-shadow: 0 0 6px rgba(51, 255, 51, 0.26);
+}
+
+body[data-theme="crt"] .page-header,
+body[data-theme="crt"] .settings-section-head,
+body[data-theme="crt"] .trends-hero-head {
+  padding: 8px 0 10px;
+  border-bottom: 1px dashed rgba(51, 255, 51, 0.32);
+  box-shadow: 0 1px 0 rgba(51, 255, 51, 0.1);
+}
+
+body[data-theme="crt"] .liquid-shell .sidebar {
+  background: repeating-linear-gradient(0deg, rgba(51, 255, 51, 0.045) 0 1px, transparent 1px 5px), #020702;
+  border-right-color: rgba(51, 255, 51, 0.24);
+  box-shadow:
+    inset -1px 0 0 rgba(51, 255, 51, 0.22),
+    inset 0 0 26px rgba(51, 255, 51, 0.035);
+}
+
+body[data-theme="crt"] .liquid-shell .nav-item {
+  border-radius: 2px;
+  font-family: var(--font-mono);
+}
+
+body[data-theme="crt"] .liquid-shell .nav-item:hover,
+body[data-theme="crt"] .liquid-shell .nav-item.active {
+  background: rgba(51, 255, 51, 0.105);
+  box-shadow:
+    inset 0 0 0 1px rgba(51, 255, 51, 0.24),
+    0 0 14px rgba(51, 255, 51, 0.1);
+}
+
+body[data-theme="crt"] .card,
+body[data-theme="crt"] .panel,
+body[data-theme="crt"] .settings-nav,
+body[data-theme="crt"] .game-list,
+body[data-theme="crt"] .provider-option {
+  background:
+    repeating-linear-gradient(0deg, rgba(51, 255, 51, 0.035) 0 1px, transparent 1px 4px),
+    radial-gradient(120% 120% at 50% 10%, rgba(51, 255, 51, 0.07), transparent 42%), rgba(3, 13, 3, 0.92);
+  border-color: rgba(51, 255, 51, 0.28);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 0 1px rgba(51, 255, 51, 0.08),
+    inset 0 0 42px rgba(51, 255, 51, 0.05),
+    0 0 26px rgba(51, 255, 51, 0.11);
+}
+
+body[data-theme="crt"] .btn,
+body[data-theme="crt"] .tweaks-chip,
+body[data-theme="crt"] .settings-nav-button,
+body[data-theme="crt"] .library-filter-input,
+body[data-theme="crt"] .model-select,
+body[data-theme="crt"] .oracle-input,
+body[data-theme="crt"] .settings-field input {
+  background: rgba(0, 8, 0, 0.88);
+  border-color: rgba(51, 255, 51, 0.28);
+  box-shadow: inset 0 0 12px rgba(51, 255, 51, 0.045);
+  color: var(--text);
+}
+
+body[data-theme="crt"] .btn-primary,
+body[data-theme="crt"] .tweaks-chip.active {
+  background: rgba(51, 255, 51, 0.16);
+  color: #baffba;
+  box-shadow:
+    inset 0 0 18px rgba(51, 255, 51, 0.12),
+    0 0 18px rgba(51, 255, 51, 0.2);
+}
+
+body[data-theme="crt"] .card-title::before,
+body[data-theme="crt"] .settings-section-eyebrow::before {
+  content: "> ";
+  color: var(--accent);
+}
+
+body[data-theme="crt"] .winrate-bar {
+  height: 5px;
+  background: rgba(51, 255, 51, 0.12);
+  box-shadow: inset 0 0 12px rgba(51, 255, 51, 0.08);
+}
+
+body[data-theme="amber"] .page-header,
+body[data-theme="amber"] .settings-section-head,
+body[data-theme="amber"] .trends-hero-head {
+  padding: 12px 14px;
+  border: 1px solid rgba(217, 175, 106, 0.16);
+  border-left: 4px solid rgba(217, 165, 64, 0.7);
+  background: linear-gradient(90deg, rgba(217, 165, 64, 0.09), transparent 46%), rgba(42, 27, 11, 0.56);
+}
+
+body[data-theme="amber"] .liquid-shell .sidebar {
+  background:
+    repeating-linear-gradient(0deg, rgba(217, 165, 64, 0.028) 0 1px, transparent 1px 22px),
+    linear-gradient(180deg, #1b1006, #110804);
+  border-right-color: rgba(217, 165, 64, 0.25);
+  box-shadow: inset -4px 0 0 rgba(217, 165, 64, 0.08);
+}
+
+body[data-theme="amber"] .liquid-shell .nav-item {
+  border-radius: 3px;
+  border: 1px solid transparent;
+}
+
+body[data-theme="amber"] .liquid-shell .nav-item:hover,
+body[data-theme="amber"] .liquid-shell .nav-item.active {
+  background: linear-gradient(90deg, rgba(217, 165, 64, 0.16), transparent 76%), rgba(125, 186, 90, 0.035);
+  border-color: rgba(217, 175, 106, 0.22);
+  box-shadow: inset 3px 0 0 rgba(217, 165, 64, 0.68);
+}
+
+body[data-theme="amber"] .card,
+body[data-theme="amber"] .panel,
+body[data-theme="amber"] .settings-nav,
+body[data-theme="amber"] .game-list,
+body[data-theme="amber"] .provider-option {
+  background:
+    linear-gradient(90deg, rgba(217, 165, 64, 0.22), transparent 28px) left top / 100% 100% no-repeat,
+    repeating-linear-gradient(0deg, rgba(245, 230, 200, 0.035) 0 1px, transparent 1px 24px),
+    linear-gradient(180deg, rgba(57, 37, 15, 0.92), rgba(24, 15, 6, 0.96));
+  border-color: rgba(217, 175, 106, 0.24);
+  border-radius: 5px;
+  box-shadow:
+    inset 5px 0 0 rgba(217, 165, 64, 0.28),
+    inset 0 1px 0 rgba(255, 226, 170, 0.08),
+    0 14px 32px rgba(0, 0, 0, 0.34);
+}
+
+body[data-theme="amber"] .card-title,
+body[data-theme="amber"] .stat-label,
+body[data-theme="amber"] .nav-section-label,
+body[data-theme="amber"] .tweaks-label {
+  color: #f2c36d;
+  font-family: var(--font-display);
+  letter-spacing: 0.14em;
+}
+
+body[data-theme="amber"] .btn,
+body[data-theme="amber"] .tweaks-chip,
+body[data-theme="amber"] .settings-nav-button,
+body[data-theme="amber"] .library-filter-input,
+body[data-theme="amber"] .model-select,
+body[data-theme="amber"] .oracle-input,
+body[data-theme="amber"] .settings-field input {
+  background: rgba(29, 18, 7, 0.86);
+  border-color: rgba(217, 175, 106, 0.22);
+}
+
+body[data-theme="amber"] .btn-primary,
+body[data-theme="amber"] .tweaks-chip.active {
+  color: #1a1006;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 180, 0.22),
+    0 8px 20px rgba(217, 165, 64, 0.18);
+}
+
+body[data-theme="amber"] .data-table th {
+  background: linear-gradient(90deg, rgba(217, 165, 64, 0.15), rgba(125, 186, 90, 0.04)), rgba(35, 23, 9, 0.7);
+}
+
+body[data-theme="amber"] .winrate-bar {
+  height: 5px;
+  background: linear-gradient(90deg, rgba(217, 165, 64, 0.16), rgba(125, 186, 90, 0.08)), var(--surface-3);
+}
+
+body[data-theme="light"] .page-header,
+body[data-theme="light"] .settings-section-head,
+body[data-theme="light"] .trends-hero-head {
+  padding: 12px 14px;
+  border: 1px solid rgba(14, 165, 233, 0.12);
+  border-left: 4px solid rgba(14, 165, 233, 0.5);
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.08), transparent 48%), rgba(255, 255, 255, 0.74);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+body[data-theme="light"] .liquid-shell .sidebar {
+  background: linear-gradient(180deg, rgba(14, 165, 233, 0.09), transparent 28%), #0f172a;
+  border-right-color: rgba(14, 165, 233, 0.2);
+}
+
+body[data-theme="light"] .liquid-shell .nav-item {
+  border-radius: 8px;
+}
+
+body[data-theme="light"] .liquid-shell .nav-item:hover,
+body[data-theme="light"] .liquid-shell .nav-item.active {
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.18), rgba(99, 102, 241, 0.08)), rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
+body[data-theme="light"] .card,
+body[data-theme="light"] .panel,
+body[data-theme="light"] .settings-nav,
+body[data-theme="light"] .game-list,
+body[data-theme="light"] .provider-option {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94)),
+    linear-gradient(90deg, rgba(14, 165, 233, 0.08) 0 1px, transparent 1px);
+  border-color: rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9),
+    0 12px 28px rgba(15, 23, 42, 0.075);
+}
+
+body[data-theme="light"] .card-title,
+body[data-theme="light"] .stat-label,
+body[data-theme="light"] .nav-section-label,
+body[data-theme="light"] .tweaks-label {
+  color: #0369a1;
+  letter-spacing: 0.13em;
+}
+
+body[data-theme="light"] .btn,
+body[data-theme="light"] .tweaks-chip,
+body[data-theme="light"] .settings-nav-button,
+body[data-theme="light"] .library-filter-input,
+body[data-theme="light"] .model-select,
+body[data-theme="light"] .oracle-input,
+body[data-theme="light"] .settings-field input {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.12);
+  border-radius: 7px;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+}
+
+body[data-theme="light"] .btn-primary,
+body[data-theme="light"] .tweaks-chip.active {
+  background: linear-gradient(180deg, #0ea5e9, #0284c7);
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.22);
+}
+
+body[data-theme="light"] .data-table th {
+  color: #0369a1;
+  border-bottom-color: rgba(14, 165, 233, 0.45);
+}
+
+body[data-theme="light"] .winrate-bar {
+  height: 6px;
+  background: rgba(14, 165, 233, 0.1);
+}

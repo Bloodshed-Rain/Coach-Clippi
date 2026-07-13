@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import {
   useCharacterList,
@@ -11,38 +11,40 @@ import { DataTable } from "../components/ui/DataTable";
 import { WinrateBar } from "../components/ui/WinrateBar";
 import { type StatItem } from "../components/ui/StatGroupCard";
 import { EmptyState } from "../components/ui/EmptyState";
-import { CoachingModal } from "../components/CoachingModal";
-import { PlayerRadar } from "../components/RadarChart";
 import { computeRadarStats, type RadarGameStats, type RadarStats } from "../radarStats";
+
+const PlayerRadar = lazy(() => import("../components/RadarChart").then((m) => ({ default: m.PlayerRadar })));
+const CoachingModal = lazy(() => import("../components/CoachingModal").then((m) => ({ default: m.CoachingModal })));
 
 // ── Character card art (dynamic, falls back to emoji) ────────────────
 
-const CHARACTER_IMAGE_NAMES: Record<string, string> = {
-  Fox: "fox.png",
-  Falco: "falco.png",
-  Marth: "marth.png",
-  Sheik: "sheik.png",
-  Falcon: "falcon.png",
-  Puff: "puff.png",
-  Peach: "peach.png",
-  ICs: "ics.png",
-  Samus: "samus.png",
-  Pikachu: "pikachu.png",
-  Luigi: "luigi.png",
-  Mario: "mario.png",
-  Doc: "doc.png",
-  Yoshi: "yoshi.png",
-  Ganon: "ganon.png",
-  Link: "link.png",
-  YLink: "ylink.png",
-  Zelda: "zelda.png",
-  Roy: "roy.png",
-  Mewtwo: "mewtwo.png",
-  Ness: "ness.png",
-  Bowser: "bowser.png",
-  Kirby: "kirby.png",
-  DK: "dk.png",
-  Pichu: "pichu.png",
+const CHARACTER_IMAGE_URLS: Record<string, string> = {
+  Fox: new URL("../assets/characters/fox.webp", import.meta.url).href,
+  Falco: new URL("../assets/characters/falco.webp", import.meta.url).href,
+  Marth: new URL("../assets/characters/marth.webp", import.meta.url).href,
+  Sheik: new URL("../assets/characters/sheik.webp", import.meta.url).href,
+  Falcon: new URL("../assets/characters/falcon.webp", import.meta.url).href,
+  Puff: new URL("../assets/characters/puff.webp", import.meta.url).href,
+  Peach: new URL("../assets/characters/peach.webp", import.meta.url).href,
+  ICs: new URL("../assets/characters/ics.webp", import.meta.url).href,
+  Samus: new URL("../assets/characters/samus.webp", import.meta.url).href,
+  Pikachu: new URL("../assets/characters/pikachu.webp", import.meta.url).href,
+  Luigi: new URL("../assets/characters/luigi.webp", import.meta.url).href,
+  Mario: new URL("../assets/characters/mario.webp", import.meta.url).href,
+  Doc: new URL("../assets/characters/doc.webp", import.meta.url).href,
+  Yoshi: new URL("../assets/characters/yoshi.webp", import.meta.url).href,
+  Ganon: new URL("../assets/characters/ganon.webp", import.meta.url).href,
+  Link: new URL("../assets/characters/link.webp", import.meta.url).href,
+  YLink: new URL("../assets/characters/ylink.webp", import.meta.url).href,
+  Zelda: new URL("../assets/characters/zelda.webp", import.meta.url).href,
+  Roy: new URL("../assets/characters/roy.webp", import.meta.url).href,
+  Mewtwo: new URL("../assets/characters/mewtwo.webp", import.meta.url).href,
+  Ness: new URL("../assets/characters/ness.webp", import.meta.url).href,
+  Bowser: new URL("../assets/characters/bowser.webp", import.meta.url).href,
+  Kirby: new URL("../assets/characters/kirby.webp", import.meta.url).href,
+  DK: new URL("../assets/characters/dk.webp", import.meta.url).href,
+  Pichu: new URL("../assets/characters/pichu.webp", import.meta.url).href,
+  "G&W": new URL("../assets/characters/gnw.png", import.meta.url).href,
 };
 
 function CharacterCardImage({
@@ -54,9 +56,8 @@ function CharacterCardImage({
   variant?: "bg" | "portrait";
   color?: string;
 }) {
-  const filename = CHARACTER_IMAGE_NAMES[character];
-  if (!filename) return null;
-  const src = new URL(`../assets/characters/${filename}`, import.meta.url).href;
+  const src = CHARACTER_IMAGE_URLS[character];
+  if (!src) return null;
   const className = variant === "portrait" ? "char-hero-portrait" : "char-card-bg-img";
   const style: CSSProperties = {
     WebkitMaskImage: `url(${src})`,
@@ -437,8 +438,8 @@ export function Characters({ refreshKey: _ }: { refreshKey: number }) {
           const meta = CHARACTER_META[c.character] ?? DEFAULT_META;
           const games = c.gamesPlayed ?? 0;
           const wins = c.wins ?? 0;
-          const losses = c.losses ?? Math.max(0, games - wins);
-          const wr = c.winRate ?? (games > 0 ? wins / games : 0);
+          const losses = c.losses ?? 0;
+          const wr = c.winRate ?? (wins + losses > 0 ? wins / (wins + losses) : 0);
           const unplayed = games === 0;
           return (
             <button
@@ -447,7 +448,7 @@ export function Characters({ refreshKey: _ }: { refreshKey: number }) {
               onClick={() => setSelected(c.character)}
             >
               <div className="character-tile-art">
-                {CHARACTER_IMAGE_NAMES[c.character] ? (
+                {CHARACTER_IMAGE_URLS[c.character] ? (
                   <CharacterCardImage character={c.character} />
                 ) : (
                   <div className="character-tile-emoji">{meta.emoji}</div>
@@ -524,7 +525,7 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
         <Card tone="chrome-plate">
           <EmptyState
             icon={
-              CHARACTER_IMAGE_NAMES[character] ? (
+              CHARACTER_IMAGE_URLS[character] ? (
                 <CharacterCardImage character={character} variant="portrait" color={meta.color} />
               ) : (
                 meta.emoji
@@ -573,7 +574,7 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
           </div>
 
           <div className="character-hero-art-xl">
-            {CHARACTER_IMAGE_NAMES[character] ? (
+            {CHARACTER_IMAGE_URLS[character] ? (
               <CharacterCardImage character={character} variant="portrait" color={meta.color} />
             ) : (
               <div className="character-hero-emoji">{meta.emoji}</div>
@@ -635,7 +636,15 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
             </div>
           </div>
 
-          <PlayerRadar stats={radarStats} games={gameStatRows} accentColor={meta.color} />
+          <Suspense
+            fallback={
+              <div className="character-radar-loading">
+                <div className="spinner" />
+              </div>
+            }
+          >
+            <PlayerRadar stats={radarStats} games={gameStatRows} accentColor={meta.color} />
+          </Suspense>
 
           <div className="character-radar-readout">
             <div>
@@ -676,7 +685,7 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
             <tbody>
               {matchups.slice(0, 12).map((m) => {
                 const gamesCount = m.gamesPlayed ?? 0;
-                const wr = m.winRate ?? (gamesCount > 0 ? m.wins / gamesCount : 0);
+                const wr = m.winRate ?? (m.wins + m.losses > 0 ? m.wins / (m.wins + m.losses) : 0);
                 return (
                   <tr key={m.opponentCharacter}>
                     <td style={{ fontWeight: 600 }}>{m.opponentCharacter}</td>
@@ -708,14 +717,16 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
       </div>
 
       {coachOpen && (
-        <CoachingModal
-          isOpen
-          onClose={() => setCoachOpen(false)}
-          scope="character"
-          id={character}
-          title={`${character} Matchup Analysis`}
-          replayPath=""
-        />
+        <Suspense fallback={null}>
+          <CoachingModal
+            isOpen
+            onClose={() => setCoachOpen(false)}
+            scope="character"
+            id={character}
+            title={`${character} Matchup Analysis`}
+            replayPath=""
+          />
+        </Suspense>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, lazy, Suspense, useMemo } from "react";
+import { useCallback, useEffect, lazy, Suspense, useMemo, useState } from "react";
 import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
 
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
@@ -12,9 +12,9 @@ const Practice = lazy(() => import("./pages/Practice").then((m) => ({ default: m
 const Oracle = lazy(() => import("./pages/Oracle").then((m) => ({ default: m.Oracle })));
 const GameTheater = lazy(() => import("./pages/GameTheater").then((m) => ({ default: m.GameTheater })));
 const Cornerman = lazy(() => import("./pages/Cornerman").then((m) => ({ default: m.Cornerman })));
-const CornermanOverlay = lazy(() =>
-  import("./pages/CornermanOverlay").then((m) => ({ default: m.CornermanOverlay })),
-);
+const CornermanOverlay = lazy(() => import("./pages/CornermanOverlay").then((m) => ({ default: m.CornermanOverlay })));
+const ReplayPlayer = lazy(() => import("./components/ReplayPlayer").then((m) => ({ default: m.ReplayPlayer })));
+const CommandPalette = lazy(() => import("./components/CommandPalette").then((m) => ({ default: m.CommandPalette })));
 
 import { applyTheme, getResolvedTheme, THEMES, type ColorMode } from "./themes";
 import {
@@ -29,14 +29,24 @@ import {
   RivalsIcon,
   CornermanIcon,
 } from "./components/NavIcons";
-import { CommandPalette } from "./components/CommandPalette";
 import { LiquidShell, type NavItem as LiquidNavItem } from "./components/LiquidShell";
 import { TweaksPanel } from "./components/TweaksPanel";
-import { ReplayPlayer } from "./components/ReplayPlayer";
 import { useGlobalStore, type Density } from "./stores/useGlobalStore";
+import { useReplayPlayerStore } from "./stores/useReplayPlayerStore";
 import { useOverallRecord } from "./hooks/queries";
+import { resolveLiquidAppearanceSettings } from "../liquidAppearance";
 
-type Page = "dashboard" | "sessions" | "library" | "trends" | "characters" | "rivals" | "cornerman" | "practice" | "oracle" | "settings";
+type Page =
+  | "dashboard"
+  | "sessions"
+  | "library"
+  | "trends"
+  | "characters"
+  | "rivals"
+  | "cornerman"
+  | "practice"
+  | "oracle"
+  | "settings";
 
 interface NavItem extends LiquidNavItem {
   id: Page;
@@ -60,13 +70,17 @@ export function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const setColorMode = useGlobalStore((state) => state.setColorMode);
+  const colorMode = useGlobalStore((state) => state.colorMode);
   const density = useGlobalStore((state) => state.density);
   const setDensity = useGlobalStore((state) => state.setDensity);
+  const liquidAppearance = useGlobalStore((state) => state.liquidAppearance);
+  const setLiquidAppearance = useGlobalStore((state) => state.setLiquidAppearance);
   const watcherActive = useGlobalStore((state) => state.watcherActive);
   const gamesCount = useGlobalStore((state) => state.gamesCount);
   const setGamesCount = useGlobalStore((state) => state.setGamesCount);
   const refreshKey = useGlobalStore((state) => state.refreshKey);
   const triggerRefresh = useGlobalStore((state) => state.triggerRefresh);
+  const replayPlayerOpen = useReplayPlayerStore((state) => state.open);
   const { data: record, refetch: refetchRecord } = useOverallRecord();
 
   useEffect(() => {
@@ -90,16 +104,28 @@ export function App() {
         }
         const savedDensity: Density = config?.density === "compact" ? "compact" : "comfortable";
         setDensity(savedDensity);
+        setLiquidAppearance(resolveLiquidAppearanceSettings(config ?? {}));
       } catch {
         applyTheme(getResolvedTheme("liquid", "liquid"));
       }
     }
     loadTheme();
-  }, [setColorMode, setDensity]);
+  }, [setColorMode, setDensity, setLiquidAppearance]);
 
   useEffect(() => {
     document.body.setAttribute("data-density", density);
   }, [density]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const cardOpacity = liquidAppearance.liquidCardOpacity / 100;
+    const hoverOpacity = Math.min(0.9, cardOpacity + 0.12);
+
+    root.style.setProperty("--liquid-character-visibility", `${liquidAppearance.liquidCharacterVisibility / 100}`);
+    root.style.setProperty("--liquid-card-opacity", `${cardOpacity}`);
+    root.style.setProperty("--liquid-card-hover-opacity", `${hoverOpacity}`);
+    root.style.setProperty("--liquid-card-blur", `${liquidAppearance.liquidCardBlur}px`);
+  }, [liquidAppearance]);
 
   useEffect(() => {
     setGamesCount(record?.totalGames ?? 0);
@@ -166,18 +192,93 @@ export function App() {
 
   return (
     <>
-      <CommandPalette navigateTo={(page) => navigate(`/${page}`)} onImport={handleCommandImport} />
+      <CommandPaletteHost navigateTo={(page) => navigate(`/${page}`)} onImport={handleCommandImport} />
       <LiquidShell
         analyzeItems={ANALYZE_ITEMS}
         systemItems={SYSTEM_ITEMS}
         onNavigate={handleNavigate}
+        isLiquidTheme={colorMode === "liquid"}
         watcherActive={watcherActive}
         gamesCount={gamesCount}
       >
         {routes}
       </LiquidShell>
       <TweaksPanel />
-      <ReplayPlayer />
+      {replayPlayerOpen && (
+        <Suspense fallback={null}>
+          <ReplayPlayer />
+        </Suspense>
+      )}
     </>
+  );
+}
+
+function CommandPaletteHost({ navigateTo, onImport }: { navigateTo: (page: Page) => void; onImport: () => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
+
+  const openPalette = useCallback(() => {
+    setHasLoaded(true);
+    setIsOpen(true);
+  }, []);
+
+  const setPaletteOpen = useCallback((nextOpen: boolean) => {
+    if (nextOpen) setHasLoaded(true);
+    setIsOpen(nextOpen);
+  }, []);
+
+  useEffect(() => {
+    const handleOpen = () => openPalette();
+    window.addEventListener("magi:open-palette", handleOpen);
+    return () => window.removeEventListener("magi:open-palette", handleOpen);
+  }, [openPalette]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+
+      if (e.key === "k") {
+        e.preventDefault();
+        if (isOpen) {
+          setPaletteOpen(false);
+        } else {
+          openPalette();
+        }
+        return;
+      }
+
+      if (!isOpen) {
+        const pages: Page[] = [
+          "dashboard",
+          "sessions",
+          "library",
+          "trends",
+          "characters",
+          "rivals",
+          "cornerman",
+          "practice",
+          "oracle",
+          "settings",
+        ];
+        let num = parseInt(e.key, 10);
+        if (e.key === "0") num = 10;
+        if (num >= 1 && num <= pages.length) {
+          e.preventDefault();
+          navigateTo(pages[num - 1]!);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, navigateTo, openPalette, setPaletteOpen]);
+
+  if (!hasLoaded) return null;
+
+  return (
+    <Suspense fallback={null}>
+      <CommandPalette navigateTo={navigateTo} onImport={onImport} isOpen={isOpen} onOpenChange={setPaletteOpen} />
+    </Suspense>
   );
 }
