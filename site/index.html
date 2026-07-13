@@ -907,6 +907,69 @@
         white-space: pre;
       }
 
+      .faq-list {
+        display: grid;
+        gap: 10px;
+        max-width: 900px;
+      }
+
+      .faq-item {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .faq-item summary {
+        list-style: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 20px;
+        cursor: pointer;
+        font-weight: 800;
+        font-size: 16px;
+      }
+
+      .faq-item summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .faq-item summary::after {
+        content: "+";
+        flex-shrink: 0;
+        color: var(--win);
+        font-size: 22px;
+        font-weight: 900;
+        line-height: 1;
+        transition: rotate 160ms ease;
+      }
+
+      .faq-item[open] summary::after {
+        rotate: 45deg;
+      }
+
+      .faq-item summary:hover {
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .faq-item summary:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: -2px;
+      }
+
+      .faq-body {
+        display: grid;
+        gap: 10px;
+        padding: 0 20px 18px;
+      }
+
+      .faq-body p {
+        color: var(--text-soft);
+      }
+
       footer {
         padding: 32px;
         border-top: 1px solid var(--line);
@@ -971,6 +1034,7 @@
         <a class="hide-sm" href="#cornerman">Cornerman</a>
         <a class="hide-sm" href="#rival-dossier">Rivals</a>
         <a class="hide-sm" href="#oracle">Oracle</a>
+        <a class="hide-sm" href="#faq">FAQ</a>
         <a href="https://github.com/Bloodshed-Rain/TheMAGI" target="_blank" rel="noreferrer">GitHub</a>
         <a
           class="button primary"
@@ -1194,6 +1258,109 @@
               <img src="screenshots/app-oracle-analysis-chat.png" alt="MAGI Oracle analysis chat with response text" />
               <figcaption>Oracle lets you ask direct questions against your local replay context.</figcaption>
             </figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="feature-section">
+        <div class="wrap">
+          <div class="section-head">
+            <h2>Fair Questions</h2>
+            <p>
+              Melee players are allergic to snake oil, and they should be. Here is exactly what MAGI is, what it isn't,
+              and where your data goes.
+            </p>
+          </div>
+          <div class="faq-list">
+            <details class="faq-item" open>
+              <summary>Isn't this just AI slop?</summary>
+              <div class="faq-body">
+                <p>
+                  The numbers never come from the AI. MAGI's parser computes every stat — L-cancel rate, neutral wins,
+                  conversions, edgeguards — deterministically from Slippi frame data, the same way any stats tool does.
+                  The AI's only job is to read those verified numbers and point at what matters.
+                </p>
+                <p>
+                  And every claim comes with a clickable timestamp. Don't trust a word it says? Click it and watch the
+                  replay yourself. Receipts over vibes.
+                </p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>Where does my data go?</summary>
+              <div class="faq-body">
+                <p>
+                  Your replays, stats, and config live in a SQLite database and JSON file on your machine. No account,
+                  no MAGI-hosted backend. If this project vanished tomorrow, your app and your data keep working.
+                </p>
+                <p>
+                  When you run AI coaching, a compact stat summary — not your replay files — goes to the provider you
+                  configured. Run a local model through Ollama or LM Studio and nothing leaves your machine at all. The
+                  code is MIT-licensed, so you can audit every network call.
+                </p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>What does it cost?</summary>
+              <div class="faq-body">
+                <p>
+                  Nothing. Free, open source, no account, no subscription, no pro tier. AI coaching works with a free
+                  no-key fallback, your own API key, or a local model — and the stat tracking, library, trends, and
+                  replay review don't need AI at all.
+                </p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>Slippi already shows me stats.</summary>
+              <div class="faq-body">
+                <p>
+                  For one game at a time. MAGI is the layer above that: a searchable database of every game you've
+                  played, rolling trends, per-character and matchup records, opponent dossiers, and detection that
+                  per-game stats don't cover — habit entropy, signature confirms like Ken combos and waveshines,
+                  highlight moments. The point isn't the numbers in one game; it's the pattern across two hundred.
+                </p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>Does it touch my game? Is this fine on netplay?</summary>
+              <div class="faq-body">
+                <p>
+                  MAGI never touches Dolphin or Melee — no injection, no memory reading, no inputs. It reads the .slp
+                  replay files Slippi itself writes to disk. Cornerman's live popups come from reading that same replay
+                  stream as it's written — the same information a friend standing behind you could call out.
+                </p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>A real coach would smoke this thing.</summary>
+              <div class="faq-body">
+                <p>
+                  Correct. If you have access to a good human coach, use them. MAGI is for everyone else — it watches
+                  every single game you play, never gets bored, and never charges an hourly rate. And if you do get a
+                  coach later, showing up with months of tracked data makes their job easier, not harder.
+                </p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>I'm not good enough to need this.</summary>
+              <div class="faq-body">
+                <p>
+                  Bad habits show up at every level — they're just easier to fix at yours. "You roll to ledge on every
+                  knockdown" or "you die at 40 because you never DI the first hit" is exactly the kind of pattern MAGI
+                  surfaces, and fixing one of those pays off faster at mid level than at top level.
+                </p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>Windows only?</summary>
+              <div class="faq-body">
+                <p>
+                  MAGI ships for Windows, macOS, and Linux. The embedded in-app replay viewer is Windows-only for now;
+                  on Mac and Linux, replay review launches through your Slippi Dolphin externally. Everything else —
+                  stats, coaching, Oracle, dossiers — works everywhere.
+                </p>
+              </div>
+            </details>
           </div>
         </div>
       </section>
