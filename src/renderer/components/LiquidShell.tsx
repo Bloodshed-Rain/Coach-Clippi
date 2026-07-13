@@ -33,6 +33,10 @@ export function LiquidShell({
 }: LiquidShellProps) {
   const location = useLocation();
 
+  // The Characters page already shows the full roster, so the drifting character
+  // backdrop is redundant noise there.
+  const showCharacterBackdrop = isLiquidTheme && !location.pathname.startsWith("/characters");
+
   const renderItem = (item: NavItem) => {
     const isActive = location.pathname === item.path || (location.pathname === "/" && item.path === "/dashboard");
     return (
@@ -85,7 +89,7 @@ export function LiquidShell({
 
   return (
     <div className="app-layout liquid-shell">
-      <LiquidCharacterBackdrop active={isLiquidTheme} />
+      <LiquidCharacterBackdrop active={showCharacterBackdrop} />
       <button type="button" className="magi-brand-home" onClick={goHome} aria-label="Go to Dashboard">
         <motion.img
           className="magi-brand-logo"

@@ -58,26 +58,25 @@ Three processes communicate via IPC:
 - `src/watcher.ts`: chokidar file watcher for live replay folder monitoring.
 - `src/detect-sets.ts`: Groups replays into tournament-style sets by player matchup and time proximity (15-minute window).
 - `src/parsePool.ts` / `src/parseWorker.ts`: Worker-based parallel .slp parsing. Workers run in Node `worker_threads`; bumping pool size affects import throughput vs. memory.
-- `src/player-profile.ts`: Player profile management (archetype detection, radar stats).
-- `src/stats.ts`: Stat computation helpers for DB queries and trend data.
-- `src/setup.ts`: First-run setup and migration logic.
+- `src/player-profile.ts`: Standalone CLI (`npx tsx src/player-profile.ts <tag>`) — archetype detection and radar stats. Not imported by the app.
+- `src/stats.ts`: Standalone CLI (`npx tsx src/stats.ts <overview|sets|analysis>`) that prints DB stats. Not imported by the app.
+- `src/setup.ts`: Standalone first-run setup CLI (`npx tsx src/setup.ts --tag ... --folder ...`). `watcher.ts` and `pipeline-cli.ts` point users here in their error messages.
 - `src/mcp-server.ts`: Model Context Protocol server exposing replay/coaching data to external MCP clients via `@modelcontextprotocol/sdk`. Not started by the Electron app by default — runnable standalone for integrations.
 
 ### Renderer Pages
 
-`Dashboard`, `Sessions`, `Library` (history + filters, with `pages/library/` subviews), `Trends`, `Characters`, `Oracle` (persistent chat with recent-games context), `Practice` (LLM-generated drill plans), `Settings` — each in `src/renderer/pages/`.
+`Dashboard`, `Sessions`, `Library` (history + filters, with `pages/library/` subviews), `Trends`, `Characters`, `Oracle` (persistent chat with recent-games context), `Practice` (LLM-generated drill plans), `Rivals` (opponent dossiers), `GameTheater` (replay viewer), `Cornerman` / `CornermanOverlay` (live coaching overlay), `Settings` — each in `src/renderer/pages/`.
 
 Key components in `src/renderer/components/`:
 - `LiquidShell.tsx`: App chrome / nav rail used by every page; theme switching lives here
 - `CoachingCards.tsx`: Parsed markdown coaching display with collapsible sections, section icons, timestamp links
 - `CoachingModal.tsx`: Full-page coaching modal with LLM streaming, scope info
-- `GameDrawer.tsx`: Side drawer that opens on a game row — stats, coaching, replay actions
 - `ReplayPlayer.tsx` (+ `useReplayPlayerStore`, `styles/replay-player.css`): Embedded Dolphin playback surface (uses `embeddedReplay` IPC + `win32Embed` on Windows)
 - `RadarChart.tsx`: 6-axis player radar (neutral, conversion, L-cancel, recovery, edgeguard, DI)
 - `CommandPalette.tsx`: Ctrl+K quick navigation and import
 - `StockTimeline.tsx`: Visual stock progression timeline
 - `TweaksPanel.tsx`: Live developer/user tweak panel
-- `ErrorBoundary.tsx`, `Tooltip.tsx`, `NavIcons.tsx`, plus shared primitives in `components/ui/`
+- `ErrorBoundary.tsx`, `NavIcons.tsx`, plus shared primitives in `components/ui/`
 
 ## TypeScript Configuration
 

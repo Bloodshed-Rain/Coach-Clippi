@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from "electron";
 import * as path from "path";
 import * as fs from "fs";
+import { APP_USER_MODEL_ID, resolveAppIconPath } from "./appIcon";
 
 // Load key.env (dev only) so OPENAI_API_KEY / GEMINI_API_KEY / etc. flow into
 // process.env. Released builds never bundle keys — users supply their own in Settings.
@@ -88,9 +89,7 @@ function closeSplash(): void {
 }
 
 function createWindow(): void {
-  const iconPath = process.env["VITE_DEV_SERVER_URL"]
-    ? path.resolve(__dirname, "../../build/icon.png")
-    : path.resolve(process.resourcesPath ?? __dirname, "icon.png");
+  const iconPath = resolveAppIconPath();
 
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -174,6 +173,10 @@ function createWindow(): void {
 }
 
 // ── App lifecycle ────────────────────────────────────────────────────
+
+// Windows derives the taskbar icon from the AppUserModelID, not the window's
+// icon. Without this the shell falls back to electron.exe's default icon.
+if (process.platform === "win32") app.setAppUserModelId(APP_USER_MODEL_ID);
 
 app.whenReady().then(() => {
   // Show the boot splash immediately so the logo covers DB/IPC init and the
