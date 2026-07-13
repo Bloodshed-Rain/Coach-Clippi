@@ -34,12 +34,12 @@ MAGI is a local-first desktop AI coach for Super Smash Bros. Melee. It turns Sli
 
 MAGI is currently a Vite + React desktop app with an Electron main process, typed preload bridge, SQLite storage, Slippi replay parsing, multi-provider LLM support, and a redesigned Liquid Metal UI. The active app surface includes:
 
-- **Dashboard** - record, recent form, rolling stat cards, recent games, and an Oracle summary of your latest games.
+- **Dashboard** - record, recent form, rolling stat cards, recent games, a recent-highlights reel, and an Oracle summary of your latest games.
 - **Library** - filter up to 500 recent games by opponent search, matchup, stage, and result.
 - **Trends** - 5-game rolling averages for neutral win rate, L-cancel rate, conversion, damage/opening, openings/kill, and average death percent.
 - **Sessions** - calendar-day session cards with win/loss dots, opponent summaries, and cached AI session reports.
 - **Characters** - 26-character roster view with character art, played-character records, matchup tables, signature stats, and character-scope coaching.
-- **Game Theater** - per-game review route with a Windows-only in-app replay viewer, external Dolphin fallback on other platforms, stock timeline, game stats, and inline MAGI coaching.
+- **Game Theater** - per-game review route with a Windows-only in-app replay viewer, external Dolphin fallback on other platforms, stock timeline, detected highlights that seek the replay to the moment, game stats, and inline MAGI coaching.
 - **Practice** - generated drill plans based on detected weakness patterns, with drill completion tracking.
 - **MAGI Oracle** - persistent chat that answers questions from recent local game context.
 - **Settings** - player profile, replay folder import, watcher controls, Slippi Dolphin paths, provider setup, themes, density, and data reset.
@@ -50,6 +50,7 @@ MAGI is currently a Vite + React desktop app with an Electron main process, type
 - **Turn replay review into drills:** let generated practice plans target repeated weakness patterns.
 - **Ask your recent games questions:** use MAGI Oracle to ask what changed, where you are bleeding stocks, or what to review next.
 - **Review games in context:** combine replay launch, stock timelines, stats, and coaching in Game Theater.
+- **Relive your best moments:** highlight chips deep-link into the replay viewer at the exact frame of the spike kill, 0-to-death, or signature combo.
 - **Track current form:** compare rolling neutral, punish, survival, and conversion trends over recent games.
 
 ## Screenshots
@@ -82,7 +83,7 @@ MAGI imports Slippi games into a local SQLite database and computes replay-deriv
 - DI survival and combo-quality estimates
 - habit entropy for ledge, knockdown, shield pressure, and related decision patterns
 - character-specific signature stats stored per game
-- highlights such as high-damage conversions, spike kills, 0-to-deaths, and notable stock events
+- highlights such as high-damage conversions, spike kills, 0-to-deaths, 4-stocks, comebacks, and character signature moments (Ken combos, shine spikes, rest kills, wobbles, and more) — shown on the Dashboard and in Game Theater, where clicking one jumps the replay to that moment
 
 ## AI Coaching
 

@@ -1867,6 +1867,153 @@ input[type="checkbox"] {
   animation: timeline-load 1.2s ease-in-out infinite;
 }
 
+/* ── Highlight Reel ────────────────────────────────────────────── */
+.highlight-reel {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+}
+.highlight-reel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.highlight-reel-title {
+  font-size: 9px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+}
+.highlight-reel-count {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+.highlight-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.highlight-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+.highlight-chip svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.highlight-chip-kill svg {
+  color: var(--loss);
+}
+.highlight-chip:hover,
+.highlight-chip:focus-visible {
+  border-color: rgba(var(--accent-rgb), 0.55);
+  background: rgba(var(--accent-rgb), 0.08);
+  color: var(--text);
+}
+.highlight-chip-static {
+  cursor: default;
+}
+.highlight-chip-static:hover {
+  border-color: var(--border);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+}
+.highlight-chip-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.highlight-chip-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Dashboard recent-highlights strip */
+.dash-highlights-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+.dash-highlights-row::-webkit-scrollbar {
+  height: 6px;
+}
+.dash-highlights-row::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dash-highlights-row::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+.dash-highlights-row::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+.dash-highlight-item {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 8px 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  font: inherit;
+  text-align: left;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.dash-highlight-item:hover,
+.dash-highlight-item:focus-visible {
+  border-color: rgba(var(--accent-rgb), 0.55);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+.dash-highlight-item svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.dash-highlight-item.highlight-chip-kill svg {
+  color: var(--loss);
+}
+.dash-highlight-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dash-highlight-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+.dash-highlight-sub {
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 /* ── Command Palette ───────────────────────────────────────────── */
 .cmd-overlay {
   position: fixed;
@@ -3347,8 +3494,8 @@ body[data-theme="liquid"] .tweaks-chip.active {
 
 .characters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 22px;
 }
 .character-tile {
   position: relative;
@@ -3416,7 +3563,7 @@ body[data-theme="liquid"] .tweaks-chip.active {
   transform: scale(1.05);
 }
 .character-tile-emoji {
-  font-size: 80px;
+  font-size: 112px;
   line-height: 1;
   opacity: 0.85;
 }

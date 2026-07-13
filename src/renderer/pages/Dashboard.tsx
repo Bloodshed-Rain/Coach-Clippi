@@ -5,6 +5,7 @@ import Markdown from "react-markdown";
 import { useRecentGames, useOverallRecord, useDashboardHighlights } from "../hooks/queries";
 import { Card } from "../components/ui/Card";
 import { KPI } from "../components/ui/KPI";
+import { RecentHighlightReel } from "../components/HighlightReel";
 import { DataTable } from "../components/ui/DataTable";
 import { ResultDot } from "../components/ui/ResultDot";
 import { Sparkline } from "../components/ui/Sparkline";
@@ -218,6 +219,8 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
           <KPI label="Dmg / Opening" value={avgDmg.toFixed(1)} sub={dmgD.label} subTone={dmgD.tone} />
         </motion.div>
       </motion.div>
+
+      <RecentHighlightReel refreshKey={refreshKey} />
 
       <div className="dash-split">
         <Card title="Recent Form">

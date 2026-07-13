@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { useGameDetail } from "../hooks/queries";
 import { useReplayPlayerStore } from "../stores/useReplayPlayerStore";
@@ -9,6 +9,7 @@ import { ReplayEmbed } from "../components/ReplayEmbed";
 import { GameStats } from "../components/GameStats";
 import { CoachingPanel } from "../components/CoachingPanel";
 import { StockTimeline } from "../components/StockTimeline";
+import { GameHighlightReel } from "../components/HighlightReel";
 
 interface CoachingEntry {
   id: number;
@@ -47,8 +48,13 @@ interface GameDetailShape {
 export function GameTheater() {
   const { id: idParam } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const parsed = idParam != null ? Number(idParam) : NaN;
   const gameId = Number.isFinite(parsed) ? parsed : null;
+
+  // Set when arriving from a highlight click elsewhere in the app — the embed
+  // opens directly at that moment.
+  const initialSeekFrame = (location.state as { seekFrame?: number } | null)?.seekFrame;
 
   const closeGlobalPlayer = useReplayPlayerStore((s) => s.closePlayer);
 
@@ -70,7 +76,7 @@ export function GameTheater() {
   const game = data as GameDetailShape | undefined | null;
 
   // Frame to (re)open the embed at — bumped on timestamp click to force seek.
-  const [seekFrame, setSeekFrame] = useState<number | undefined>(undefined);
+  const [seekFrame, setSeekFrame] = useState<number | undefined>(initialSeekFrame);
   const [reopenKey, setReopenKey] = useState(0);
 
   const handleTimestampSeek = (frame: number) => {
@@ -159,6 +165,8 @@ export function GameTheater() {
             onSeekFrame={handleTimestampSeek}
           />
         )}
+
+        <GameHighlightReel gameId={game.id} onSeekFrame={game.replayPath ? handleTimestampSeek : undefined} />
 
         <CoachingPanel
           scope="game"
