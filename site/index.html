@@ -1349,6 +1349,24 @@
               </div>
             </details>
             <details class="faq-item">
+              <summary>What about the water and energy AI burns?</summary>
+              <div class="faq-body">
+                <p>
+                  The industry-scale concern is real — training runs and hyperscale data centers consume serious
+                  electricity and water, and it's fair to care about that. But scale matters: MAGI trains nothing and
+                  generates text, not video. A coaching analysis is one small text query, and published estimates put a
+                  single text prompt at around a quarter watt-hour and a few drops of water. The netplay session you're
+                  analyzing used hundreds of times more electricity than the analysis of it.
+                </p>
+                <p>
+                  MAGI is also frugal by architecture, not by promise. Stats, trends, and tracking are deterministic
+                  local compute — no AI involved. Analyses are cached in your local database, so the same game is never
+                  analyzed twice. And if you want the entire footprint on your own meter, run a local model through
+                  Ollama or LM Studio — then the only water involved is whatever's in your AIO.
+                </p>
+              </div>
+            </details>
+            <details class="faq-item">
               <summary>I'm not good enough to need this.</summary>
               <div class="faq-body">
                 <p>
