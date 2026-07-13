@@ -405,6 +405,17 @@
         margin-top: 32px;
       }
 
+      .download-meta {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .download-meta a {
+        color: var(--text-soft);
+      }
+
       .hero-stats {
         display: grid;
         grid-template-columns: repeat(4, minmax(120px, 1fr));
@@ -1038,6 +1049,7 @@
         <a href="https://github.com/Bloodshed-Rain/TheMAGI" target="_blank" rel="noreferrer">GitHub</a>
         <a
           class="button primary"
+          data-download-cta="short"
           href="https://github.com/Bloodshed-Rain/TheMAGI/releases"
           target="_blank"
           rel="noreferrer"
@@ -1073,6 +1085,7 @@
           <div class="hero-actions">
             <a
               class="button primary"
+              data-download-cta="long"
               href="https://github.com/Bloodshed-Rain/TheMAGI/releases"
               target="_blank"
               rel="noreferrer"
@@ -1082,6 +1095,12 @@
               >View Source</a
             >
           </div>
+          <p class="download-meta" id="download-meta">
+            Windows, macOS, and Linux ·
+            <a href="https://github.com/Bloodshed-Rain/TheMAGI/releases" target="_blank" rel="noreferrer"
+              >GitHub Releases</a
+            >
+          </p>
         </div>
       </header>
 
@@ -1401,6 +1420,7 @@
             <div class="hero-actions" style="margin: 0">
               <a
                 class="button primary"
+                data-download-cta="long"
                 href="https://github.com/Bloodshed-Rain/TheMAGI/releases"
                 target="_blank"
                 rel="noreferrer"
@@ -1489,6 +1509,54 @@
         document.addEventListener("keydown", (event) => {
           if (event.key === "Escape" && lightbox.classList.contains("is-open")) closeLightbox();
         });
+      })();
+
+      (() => {
+        const OWNER_REPO = "Bloodshed-Rain/TheMAGI";
+        const ctas = [...document.querySelectorAll("[data-download-cta]")];
+        const meta = document.getElementById("download-meta");
+        if (ctas.length === 0) return;
+
+        const probe = `${navigator.userAgentData?.platform || navigator.platform || ""} ${navigator.userAgent}`;
+        let os = null;
+        if (/android|iphone|ipad|ipod/i.test(probe)) os = null;
+        else if (/mac/i.test(probe)) os = "mac";
+        else if (/linux|x11/i.test(probe)) os = "linux";
+        else if (/win/i.test(probe)) os = "windows";
+        if (!os) return; // phones and unknown platforms keep the GitHub Releases link
+
+        const matchers = {
+          windows: (name) => /^magi[-.]setup[-.].*\.exe$/i.test(name),
+          mac: (name) => /\.dmg$/i.test(name),
+          linux: (name) => /\.appimage$/i.test(name),
+        };
+        const labels = { windows: "Windows", mac: "Mac", linux: "Linux" };
+
+        fetch(`https://api.github.com/repos/${OWNER_REPO}/releases/latest`, {
+          headers: { Accept: "application/vnd.github+json" },
+        })
+          .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+          .then((release) => {
+            const asset = (release.assets || []).find((a) => matchers[os](a.name));
+            if (!asset) return;
+
+            ctas.forEach((cta) => {
+              cta.href = asset.browser_download_url;
+              cta.removeAttribute("target"); // direct asset link downloads in place; no need for a new tab
+              if (cta.dataset.downloadCta === "long") cta.textContent = `Download for ${labels[os]}`;
+            });
+
+            if (meta) {
+              const version = release.tag_name ? `${release.tag_name} ` : "";
+              meta.innerHTML =
+                `${version}direct download · ` +
+                `<a href="https://github.com/${OWNER_REPO}/releases" target="_blank" rel="noreferrer">` +
+                `all platforms &amp; older builds</a>`;
+            }
+          })
+          .catch(() => {
+            // API unreachable or rate limited — buttons keep pointing at GitHub Releases.
+          });
       })();
 
       (() => {
