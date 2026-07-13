@@ -1,6 +1,6 @@
 {
   "name": "magi-melee",
-  "version": "1.6.5",
+  "version": "1.7.0",
   "description": "AI-powered Melee coaching from your Slippi replays",
   "main": "src/main/entry.js",
   "scripts": {
@@ -84,6 +84,7 @@
           ]
         }
       ],
+      "artifactName": "MAGI-${version}-${arch}.${ext}",
       "icon": "build/icon.icns",
       "category": "public.app-category.utilities"
     },
@@ -102,14 +103,19 @@
           ]
         }
       ],
+      "artifactName": "MAGI-${version}.${ext}",
       "icon": "build/icon.png",
       "category": "Utility"
     },
     "nsis": {
+      "artifactName": "MAGI-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
+    },
+    "portable": {
+      "artifactName": "MAGI-${version}.${ext}"
     },
     "publish": {
       "provider": "github",
