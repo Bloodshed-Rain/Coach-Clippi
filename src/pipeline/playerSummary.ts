@@ -131,9 +131,12 @@ export function buildPlayerSummary(
   let dashDanceFrameCount = 0;
   let playableFrames = 0;
 
-  // Power shield tracking
+  // Power shield tracking. GuardReflect (182) is the shield-RAISE animation
+  // entered on EVERY shield press (it only reflects on frames 1-2), so its mere
+  // presence is not a power-shield. A physical power-shield = being put into
+  // shieldstun (GuardSetOff, 181) within the first ~4 frames of raising shield.
   let powerShieldCount = 0;
-  let shieldFrameCount = 0; // how many frames since shield was first activated
+  let shieldRaisedAtFrame = -1; // frame the current shield was raised; -1 = not shielding
   let prevActionState = 0;
 
   // Shield pressure tracking: detect sequences where THIS player's attacks
@@ -166,26 +169,25 @@ export function buildPlayerSummary(
     const posY = pd.positionY ?? 0;
     const actionState = pd.actionStateId ?? 0;
 
-    // Power shield detection:
-    // Projectile reflect: transition into GuardReflect (182)
-    if (actionState === GUARD_REFLECT && prevActionState !== GUARD_REFLECT) {
-      powerShieldCount++;
+    // Power shield detection: shieldstun (GuardSetOff, 181) entered within ~4
+    // frames of the shield going up = a physical power-shield. Track when the
+    // shield was raised (any shield state entered from a non-shield state).
+    const inShield = actionState === GUARD_REFLECT || actionState === GUARD_ON || actionState === GUARD;
+    const wasInShield =
+      prevActionState === GUARD_REFLECT || prevActionState === GUARD_ON || prevActionState === GUARD;
+    if (inShield && !wasInShield) {
+      shieldRaisedAtFrame = f;
     }
-    // Physical powershield: transition into GuardSetOff (181) within the 2-frame window
-    // Melee's physical powershield window is frames 1-2 of shield activation
     if (
       actionState === GUARD_SET_OFF &&
       prevActionState !== GUARD_SET_OFF &&
-      shieldFrameCount > 0 &&
-      shieldFrameCount <= 2
+      shieldRaisedAtFrame >= 0 &&
+      f - shieldRaisedAtFrame <= 4
     ) {
       powerShieldCount++;
     }
-    // Track total frames in shield (GuardOn or Guard)
-    if (actionState === GUARD_ON || actionState === GUARD) {
-      shieldFrameCount++;
-    } else {
-      shieldFrameCount = 0;
+    if (!inShield && actionState !== GUARD_SET_OFF) {
+      shieldRaisedAtFrame = -1; // fully out of shield
     }
     prevActionState = actionState;
 

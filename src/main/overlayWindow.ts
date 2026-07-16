@@ -254,11 +254,24 @@ export function getOverlayWindow(): BrowserWindow | null {
   return overlayWindow && !overlayWindow.isDestroyed() ? overlayWindow : null;
 }
 
+/** Channels that carry complete-state snapshots (not incremental events), so a
+ *  newer queued message fully supersedes an older one. Coalescing these keeps a
+ *  reloading/HMR overlay from filling the 200-cap queue with stale snapshots and
+ *  starving the event/card channels, and makes the ready-flush cheaper. */
+const COALESCING_OVERLAY_CHANNELS = new Set(["cornerman:live-stats"]);
+
 /** Send to the overlay renderer, queueing while it hasn't mounted listeners yet. */
 export function sendToOverlay(channel: string, ...args: unknown[]): void {
   const win = getOverlayWindow();
   if (!win) return;
   if (!overlayRendererReady) {
+    if (COALESCING_OVERLAY_CHANNELS.has(channel)) {
+      const existing = pendingOverlaySends.find((p) => p.channel === channel);
+      if (existing) {
+        existing.args = args; // latest-wins: replace in place, don't grow the queue
+        return;
+      }
+    }
     if (pendingOverlaySends.length < MAX_PENDING_OVERLAY_SENDS) {
       pendingOverlaySends.push({ channel, args });
     }

@@ -33,6 +33,8 @@ export interface Config {
   cornermanPopupErrors: boolean | null;
   cornermanDesktopNotifications: boolean | null;
   cornermanPopupAutoHideSeconds: number | null;
+  cornermanLiveStatsEnabled: boolean | null;
+  cornermanOverlayStatIds: string[] | null;
 }
 
 const DEFAULTS: Config = {
@@ -60,6 +62,8 @@ const DEFAULTS: Config = {
   cornermanPopupErrors: null,
   cornermanDesktopNotifications: null,
   cornermanPopupAutoHideSeconds: null,
+  cornermanLiveStatsEnabled: null,
+  cornermanOverlayStatIds: null,
 };
 
 const LEGACY_KEY_FIELDS: Array<{ field: string; provider: ProviderId }> = [

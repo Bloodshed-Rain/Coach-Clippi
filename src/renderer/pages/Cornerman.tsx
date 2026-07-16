@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { CoachingCards } from "../components/CoachingCards";
 import { CornermanLiveAlerts } from "../components/CornermanLiveAlerts";
+import { CornermanLiveStatsTable } from "../components/CornermanLiveStats";
+import { useCornermanLiveStats } from "../hooks/useCornermanLiveStats";
 import { useGlobalStore } from "../stores/useGlobalStore";
 import "../styles/rivals.css";
 
@@ -13,6 +15,7 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
   const [liveEvents, setLiveEvents] = useState<CornermanLiveEvent[]>([]);
 
   const cornermanHistory = useGlobalStore((s) => s.cornermanHistory);
+  const liveStats = useCornermanLiveStats();
 
   useEffect(() => {
     window.clippi
@@ -126,6 +129,17 @@ export function Cornerman({ refreshKey: _refreshKey }: { refreshKey: number }) {
       {error && (
         <div className="card sessions-error" role="alert">
           {error}
+        </div>
+      )}
+
+      {active && liveStats.snapshot && (
+        <div className="card dossier-panel">
+          <div className="dossier-panel-head">
+            <h3>Live game</h3>
+          </div>
+          <div className="dossier-panel-body">
+            <CornermanLiveStatsTable snapshot={liveStats.snapshot} />
+          </div>
         </div>
       )}
 
