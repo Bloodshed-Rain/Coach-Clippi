@@ -1,7 +1,7 @@
 import chokidar, { type FSWatcher } from "chokidar";
 import fs from "fs";
 import path from "path";
-import { Frames, SlippiGame, type GameStartType } from "@slippi/slippi-js/node";
+import { Frames, SlippiGame, type GameStartType, type StatsType } from "@slippi/slippi-js/node";
 
 import { getCharacterName, getPlayerTag } from "./pipeline/helpers";
 import {
@@ -12,8 +12,12 @@ import {
   type CornermanLiveEvent,
   type CornermanLivePlayer,
 } from "./cornermanLiveEvents";
+import { buildLiveStatsSnapshot, type CornermanLiveSnapshot } from "./cornermanLiveStats";
 
 const POLL_INTERVAL_MS = 500;
+/** Max cadence at which running-stat snapshots are pushed per owner tracker.
+ *  Polls stay at 500ms; stats only need to be glanceable, not real-time. */
+const LIVE_STATS_EMIT_MS = 2000;
 const INITIAL_FILE_WINDOW_MS = 10 * 60 * 1000;
 /** Polls where the file grew but no new frames parsed before we assume the
  *  incremental parser is wedged and rebuild it (see poll()). */
@@ -23,6 +27,11 @@ interface CornermanLiveMonitorOptions {
   replayFolder: string;
   targetPlayer: string;
   onEvents: (events: CornermanLiveEvent[]) => void;
+  /** Fires with a running-stats snapshot for the game currently being played,
+   *  throttled to one per LIVE_STATS_EMIT_MS per owner tracker (plus an immediate
+   *  first paint and an immediate final emit at game end). Only one tracker owns
+   *  the stream at a time, so this never interleaves two games. */
+  onSnapshot?: (snapshot: CornermanLiveSnapshot) => void;
   /** Fires when the game that was already in progress at monitor start ends —
    *  the one file the folder watcher's ignoreInitial suppresses, so nothing
    *  else imports it. Files created during the session are the watcher's job
@@ -206,14 +215,23 @@ class LiveReplayTracker {
     }
   }
 
-  poll(): CornermanLiveEvent[] {
+  /** Build a running-stats snapshot from the current parse. Null unless we have
+   *  stats and a resolved 1v1 roster — doubles yields an empty actionCounts
+   *  array (getSinglesPlayerPermutations returns none), so a stats strip there
+   *  would be all dashes; suppress it entirely. */
+  private buildSnapshot(stats: StatsType | null | undefined, latestFrame: number): CornermanLiveSnapshot | null {
+    if (!stats || !this.players || this.players.length !== 2) return null;
+    return buildLiveStatsSnapshot(stats, this.players, latestFrame, this.filePath, this.ended);
+  }
+
+  poll(): PollResult {
     const fileSize = this.statFileSize();
     const settings = this.game.getSettings();
     if (!settings) {
       // Even the header can wedge on a declared-length file; track progress so
       // the stalled-parser rebuild above can kick in.
       this.noteProgress(fileSize, Frames.FIRST_PLAYABLE - 1);
-      return [];
+      return { events: [], snapshot: null };
     }
 
     if (!this.players) {
@@ -241,7 +259,10 @@ class LiveReplayTracker {
       this.baselineFrame = latestFrame;
       this.lastItemFrame = latestFrame;
       this.lastFrameEventFrame = latestFrame;
-      return [];
+      // Events are suppressed on a mid-game attach, but running stats deliberately
+      // cover the whole game — and returning the snapshot here (not []) lets the
+      // owner's first-paint fire on this very poll instead of 500ms later.
+      return { events: [], snapshot: this.buildSnapshot(stats, latestFrame) };
     }
 
     const minEventFrame = (this.baselineFrame ?? Frames.FIRST_PLAYABLE - 1) + 1;
@@ -296,8 +317,37 @@ class LiveReplayTracker {
       this.completedPolls++;
     }
 
-    return events.sort((a, b) => a.frame - b.frame);
+    return { events: events.sort((a, b) => a.frame - b.frame), snapshot: this.buildSnapshot(stats, latestFrame) };
   }
+}
+
+interface PollResult {
+  events: CornermanLiveEvent[];
+  snapshot: CornermanLiveSnapshot | null;
+}
+
+interface SnapshotEmitState {
+  lastEmitMs: number;
+  /** Phase of the last EMITTED snapshot; "" means this tracker has never emitted. */
+  lastPhase: "" | "live" | "ended";
+  lastFrame: number;
+}
+
+/** Pure emission gate (exported for tests): emit immediately on first paint and
+ *  on a live→ended phase change, otherwise only when the game advanced and the
+ *  throttle window has elapsed. A paused/wedged game stops advancing and thus
+ *  stops emitting — which the renderer surfaces as a STALE pill. */
+export function shouldEmitSnapshot(args: {
+  nowMs: number;
+  lastEmitMs: number;
+  isFirst: boolean;
+  phaseChanged: boolean;
+  advanced: boolean;
+}): boolean {
+  if (args.isFirst) return true;
+  if (args.phaseChanged) return true;
+  if (!args.advanced) return false;
+  return args.nowMs - args.lastEmitMs >= LIVE_STATS_EMIT_MS;
 }
 
 export function startCornermanLiveMonitor(options: CornermanLiveMonitorOptions): CornermanLiveMonitor {
@@ -323,15 +373,57 @@ export function startCornermanLiveMonitor(options: CornermanLiveMonitorOptions):
 
   watcher.on("add", (filePath) => addTracker(filePath, false));
 
+  // Exactly one tracker owns the stats stream at a time. A LIVE tracker that
+  // advances claims ownership; an ENDED tracker claims only when nobody owns it
+  // (so the just-finished game keeps showing its FINAL strip until the next game
+  // starts advancing). A finished replay copied into the folder parses as ENDED
+  // from its first poll, so it can never steal the stream from the live game.
+  const emitStates = new Map<string, SnapshotEmitState>();
+  let ownerKey: string | null = null;
+
+  const considerSnapshotEmit = (key: string, snapshot: CornermanLiveSnapshot, nowMs: number): void => {
+    const prev = emitStates.get(key) ?? { lastEmitMs: 0, lastPhase: "" as const, lastFrame: Number.NEGATIVE_INFINITY };
+    const advanced = snapshot.latestFrame > prev.lastFrame;
+
+    if (advanced) {
+      if (snapshot.phase === "live") ownerKey = key;
+      else if (ownerKey === null) ownerKey = key;
+    }
+
+    if (ownerKey !== key) {
+      // Track frame progress even for non-owners so ownership math stays correct.
+      emitStates.set(key, { ...prev, lastFrame: Math.max(prev.lastFrame, snapshot.latestFrame) });
+      return;
+    }
+
+    const isFirst = prev.lastPhase === "";
+    const phaseChanged = prev.lastPhase !== "" && prev.lastPhase !== snapshot.phase;
+    const emit = shouldEmitSnapshot({ nowMs, lastEmitMs: prev.lastEmitMs, isFirst, phaseChanged, advanced });
+    emitStates.set(key, {
+      lastEmitMs: emit ? nowMs : prev.lastEmitMs,
+      lastPhase: emit ? snapshot.phase : prev.lastPhase,
+      lastFrame: Math.max(prev.lastFrame, snapshot.latestFrame),
+    });
+    if (emit && options.onSnapshot) options.onSnapshot(snapshot);
+  };
+
   const pollTimer = setInterval(() => {
+    const nowMs = Date.now();
     for (const [filePath, tracker] of trackers) {
       try {
-        const events = tracker.poll();
+        const { events, snapshot } = tracker.poll();
         if (events.length > 0) {
           options.onEvents(events);
         }
+        if (snapshot) {
+          considerSnapshotEmit(filePath, snapshot, nowMs);
+        }
         if (tracker.isDone()) {
           trackers.delete(filePath);
+          emitStates.delete(filePath);
+          // Releasing ownership lets the next game's first advancing snapshot
+          // claim the stream (and re-paint immediately as its first emit).
+          if (ownerKey === filePath) ownerKey = null;
           // Only the seeded pre-watcher file: files added during the session
           // are imported by the folder watcher's own "add" event; reporting
           // them here too would race that import (double parse + spurious

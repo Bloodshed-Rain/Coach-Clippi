@@ -4,6 +4,11 @@ import { getDb, insertCoachingAnalysis } from "../../db.js";
 import { advanceLiveSet, type LiveSetState } from "../../cornerman.js";
 import { startCornermanLiveMonitor, type CornermanLiveMonitor } from "../../cornermanLiveMonitor.js";
 import { resolveCornermanPopupSettings, shouldShowCornermanLiveAlert } from "../../cornermanPopupSettings.js";
+import {
+  resolveCornermanLiveStatsSettings,
+  type CornermanLiveStatsSettings,
+} from "../../cornermanLiveStatsSettings.js";
+import type { CornermanLiveBaseline, CornermanLiveSnapshot } from "../../cornermanLiveStats.js";
 import { importReplay } from "../../importer.js";
 import { SYSTEM_PROMPT_CORNERMAN, assembleCornermanPrompt } from "../../pipeline/index.js";
 import { callLLMStream } from "../../llm.js";
@@ -30,10 +35,18 @@ const MAX_PROMPT_GAMES = 6;
 interface CornermanSession {
   targetTag: string;
   setState: LiveSetState | null;
+  /** Player's historical averages, computed once at session start; stamped onto
+   *  every live-stats snapshot so consumers get self-contained deltas. */
+  baseline: CornermanLiveBaseline | null;
+  /** Live-stats prefs resolved once at start — never re-read from disk in the tick. */
+  liveStats: CornermanLiveStatsSettings;
 }
 
 let session: CornermanSession | null = null;
 let liveMonitor: CornermanLiveMonitor | null = null;
+/** Most recent live-stats snapshot, so a page opened mid-game paints instantly
+ *  instead of waiting for the next emit. Nulled only on cornerman:stop. */
+let lastSnapshot: CornermanLiveSnapshot | null = null;
 
 export interface CornermanStatus {
   active: boolean;
@@ -69,6 +82,59 @@ function broadcast(channel: string, ...args: unknown[]): void {
 function stopLiveMonitor(): void {
   liveMonitor?.close();
   liveMonitor = null;
+}
+
+/** Player's recent per-game averages, for live-stats baseline deltas. Averages
+ *  the last 20 games in JS (SQLite applies LIMIT after aggregation, so a naive
+ *  SELECT AVG(...) LIMIT 20 would average all-time). openings_per_kill and
+ *  avg_damage_per_opening store 0 on 0-kill/0-opening games (post-game masks
+ *  undefined ratios to 0) — an impossible-best value for a lower-is-better stat
+ *  — so those zeros are excluded; genuine-zero rates (l-cancel, neutral) are kept.
+ *  Returns null until there are enough samples so deltas simply don't render for
+ *  new users. */
+function getLiveBaseline(targetTag: string): CornermanLiveBaseline | null {
+  try {
+    // Scope to the session's target player — game_stats rows are per-game TARGET
+    // stats, and imports without an explicit target can store the opponent as the
+    // target, so a global last-20 would mix in other players' history. Matches
+    // getPlayerHistory's tag/connect-code predicate (db.ts).
+    const rows = getDb()
+      .prepare(
+        `SELECT gs.l_cancel_rate AS lCancelRate,
+                gs.openings_per_kill AS openingsPerKill,
+                gs.avg_damage_per_opening AS avgDamagePerOpening,
+                gs.neutral_win_rate AS neutralWinRate
+         FROM game_stats gs
+         JOIN games g ON g.id = gs.game_id
+         WHERE g.player_tag = ? OR g.player_connect_code = ?
+         ORDER BY g.played_at DESC
+         LIMIT 20`,
+      )
+      .all(targetTag, targetTag) as Array<{
+      lCancelRate: number;
+      openingsPerKill: number;
+      avgDamagePerOpening: number;
+      neutralWinRate: number;
+    }>;
+    if (rows.length < 5) return null;
+
+    const avg = (pick: (r: (typeof rows)[number]) => number, excludeZero: boolean): number | null => {
+      const values = rows.map(pick).filter((v) => typeof v === "number" && Number.isFinite(v) && (!excludeZero || v > 0));
+      if (values.length < 5) return null;
+      return values.reduce((sum, v) => sum + v, 0) / values.length;
+    };
+
+    return {
+      gamesSampled: rows.length,
+      lCancelRate: avg((r) => r.lCancelRate, false),
+      openingsPerKill: avg((r) => r.openingsPerKill, true),
+      avgDamagePerOpening: avg((r) => r.avgDamagePerOpening, true),
+      neutralWinRate: avg((r) => r.neutralWinRate, false),
+    };
+  } catch (err) {
+    console.warn("[cornerman] baseline query failed:", err);
+    return null;
+  }
 }
 
 /** Latest cached dossier text for an opponent, if the user ever generated one */
@@ -214,6 +280,16 @@ async function importCompletedLiveGame(filePath: string, targetPlayer: string): 
 export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
   safeHandle("cornerman:start", (_e, replayFolder: string, targetPlayer: string) => {
     const safeFolder = validatePath(replayFolder);
+    // Resolve baseline + live-stats prefs once, up front — never in the 500ms tick.
+    const startConfig = loadConfig();
+    const mySession: CornermanSession = {
+      targetTag: targetPlayer,
+      setState: null,
+      baseline: getLiveBaseline(targetPlayer),
+      liveStats: resolveCornermanLiveStatsSettings(startConfig),
+    };
+    session = mySession;
+    lastSnapshot = null;
     startReplayWatcher(safeFolder, targetPlayer);
     ensureOverlayWindow();
     stopLiveMonitor();
@@ -231,6 +307,18 @@ export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
           broadcast("cornerman:live-event", liveEvent);
         }
       },
+      onSnapshot: (snapshot) => {
+        // AMBIENT CONTENT — never an attention event. This path must contain NO
+        // ensureOverlayWindow/showOverlayWindow/loadConfig calls: coupling live
+        // stats to window visibility can re-trigger the Win11 invisible-overlay
+        // state, and disk reads don't belong in the tick. It rides the existing
+        // broadcast() (which queues to the overlay), never showing the window.
+        if (session !== mySession) return; // stale session after stop/restart
+        if (!mySession.liveStats.enabled) return;
+        const stamped: CornermanLiveSnapshot = { ...snapshot, baseline: mySession.baseline };
+        lastSnapshot = stamped;
+        broadcast("cornerman:live-stats", stamped);
+      },
       onGameComplete: (filePath) => {
         void importCompletedLiveGame(filePath, targetPlayer).catch((err) => {
           console.error("[cornerman] live-game import failed:", err);
@@ -240,7 +328,6 @@ export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
         console.warn(`[cornerman] live monitor skipped ${filePath}: ${err.message}`);
       },
     });
-    session = { targetTag: targetPlayer, setState: null };
     setImportListener((event) => {
       // Fire-and-forget; failures are logged so they're not silently invisible
       void handleCornermanImport(event).catch((err) => {
@@ -253,6 +340,7 @@ export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
 
   safeHandle("cornerman:stop", () => {
     session = null;
+    lastSnapshot = null;
     stopLiveMonitor();
     setImportListener(null);
     destroyOverlayWindow();
@@ -262,6 +350,10 @@ export function registerCornermanHandlers(safeHandle: SafeHandleFn): void {
   });
 
   safeHandle("cornerman:status", () => currentStatus());
+
+  // Seed for a late-mounting page/overlay: returns the last snapshot (FINAL
+  // between games) so it paints instantly rather than waiting for the next emit.
+  safeHandle("cornerman:live-stats-latest", () => lastSnapshot);
 
   safeHandle("cornerman:overlay-show", () => {
     ensureOverlayWindow();

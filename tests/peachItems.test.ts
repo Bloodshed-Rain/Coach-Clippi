@@ -11,7 +11,7 @@ describe("collectPeachTurnipPullStats", () => {
         start: undefined,
         players: {},
         followers: {},
-        items: [{ frame: 100, typeId: 104, owner: -1, spawnId: 1 }],
+        items: [{ frame: 100, typeId: 6, owner: -1, spawnId: 1 }],
         stageEvents: undefined,
       },
       101: {
@@ -19,7 +19,7 @@ describe("collectPeachTurnipPullStats", () => {
         start: undefined,
         players: {},
         followers: {},
-        items: [{ frame: 101, typeId: 104, owner: 0, spawnId: 1 }],
+        items: [{ frame: 101, typeId: 6, owner: 0, spawnId: 1 }],
         stageEvents: undefined,
       },
       120: {
@@ -43,7 +43,7 @@ describe("collectPeachTurnipPullStats", () => {
         start: undefined,
         players: {},
         followers: {},
-        items: [{ frame: 140, typeId: 103, owner: 0, spawnId: 3 }],
+        items: [{ frame: 140, typeId: 7, owner: 0, spawnId: 3 }],
         stageEvents: undefined,
       },
     } as FramesType;

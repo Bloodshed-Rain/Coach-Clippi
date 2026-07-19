@@ -19,7 +19,6 @@ import {
   MOVE_USMASH,
   MOVE_UTHROW,
 } from "../src/pipeline/signatureStats";
-import { GUARD, GUARD_ON, GUARD_REFLECT, GUARD_SET_OFF } from "../src/pipeline/helpers";
 
 const players: CornermanLivePlayer[] = [
   {
@@ -503,7 +502,7 @@ describe("detectLiveItemEvents", () => {
         start: undefined,
         players: {},
         followers: {},
-        items: [{ frame: 240, typeId: 104, owner: 0, spawnId: 43 }],
+        items: [{ frame: 240, typeId: 6, owner: 0, spawnId: 43 }],
         stageEvents: undefined,
       },
     } as FramesType;
@@ -528,7 +527,7 @@ describe("detectLiveItemEvents", () => {
         start: undefined,
         players: {},
         followers: {},
-        items: [{ frame: 220, typeId: 104, owner: -1, spawnId: 43 }],
+        items: [{ frame: 220, typeId: 6, owner: -1, spawnId: 43 }],
         stageEvents: undefined,
       },
       240: {
@@ -536,7 +535,7 @@ describe("detectLiveItemEvents", () => {
         start: undefined,
         players: {},
         followers: {},
-        items: [{ frame: 240, typeId: 104, owner: 0, spawnId: 43 }],
+        items: [{ frame: 240, typeId: 6, owner: 0, spawnId: 43 }],
         stageEvents: undefined,
       },
     } as FramesType;
@@ -559,7 +558,7 @@ describe("detectLiveItemEvents", () => {
         start: undefined,
         players: {},
         followers: {},
-        items: [{ frame: 220, typeId: 103, owner: 0, spawnId: 44 }],
+        items: [{ frame: 220, typeId: 7, owner: 0, spawnId: 44 }],
         stageEvents: undefined,
       },
       240: {
@@ -567,7 +566,7 @@ describe("detectLiveItemEvents", () => {
         start: undefined,
         players: {},
         followers: {},
-        items: [{ frame: 240, typeId: 103, owner: 0, spawnId: 44 }],
+        items: [{ frame: 240, typeId: 7, owner: 0, spawnId: 44 }],
         stageEvents: undefined,
       },
     } as FramesType;
@@ -587,76 +586,6 @@ describe("detectLiveItemEvents", () => {
 });
 
 describe("detectLiveFrameEvents", () => {
-  it("alerts on projectile power shields", () => {
-    const seenKeys = new Set<string>();
-    const events = detectLiveFrameEvents({
-      frames: framesWithPosts({
-        280: { 0: { actionStateId: GUARD, stocksRemaining: 3 } },
-        281: { 0: { actionStateId: GUARD_REFLECT, stocksRemaining: 3 } },
-        282: { 0: { actionStateId: GUARD_REFLECT, stocksRemaining: 3 } },
-      }),
-      conversions: [],
-      players,
-      seenKeys,
-      fromFrame: 280,
-      toFrame: 282,
-    });
-
-    expect(events).toHaveLength(1);
-    expect(events[0].type).toBe("power-shield");
-    expect(events[0].body).toContain("projectile");
-
-    const duplicate = detectLiveFrameEvents({
-      frames: framesWithPosts({
-        280: { 0: { actionStateId: GUARD, stocksRemaining: 3 } },
-        281: { 0: { actionStateId: GUARD_REFLECT, stocksRemaining: 3 } },
-      }),
-      conversions: [],
-      players,
-      seenKeys,
-      fromFrame: 281,
-      toFrame: 281,
-    });
-    expect(duplicate).toHaveLength(0);
-  });
-
-  it("alerts on physical power shields inside the early shield window", () => {
-    const events = detectLiveFrameEvents({
-      frames: framesWithPosts({
-        290: { 0: { actionStateId: GUARD_ON, stocksRemaining: 3 } },
-        291: { 0: { actionStateId: GUARD, stocksRemaining: 3 } },
-        292: { 0: { actionStateId: GUARD_SET_OFF, stocksRemaining: 3 } },
-      }),
-      conversions: [],
-      players,
-      seenKeys: new Set(),
-      fromFrame: 292,
-      toFrame: 292,
-    });
-
-    expect(events).toHaveLength(1);
-    expect(events[0].type).toBe("power-shield");
-    expect(events[0].body).toContain("hit");
-  });
-
-  it("does not treat late shield stun as a power shield", () => {
-    const events = detectLiveFrameEvents({
-      frames: framesWithPosts({
-        290: { 0: { actionStateId: GUARD_ON, stocksRemaining: 3 } },
-        291: { 0: { actionStateId: GUARD, stocksRemaining: 3 } },
-        292: { 0: { actionStateId: GUARD, stocksRemaining: 3 } },
-        293: { 0: { actionStateId: GUARD_SET_OFF, stocksRemaining: 3 } },
-      }),
-      conversions: [],
-      players,
-      seenKeys: new Set(),
-      fromFrame: 293,
-      toFrame: 293,
-    });
-
-    expect(events).toHaveLength(0);
-  });
-
   it("alerts on shield breaks", () => {
     const events = detectLiveFrameEvents({
       frames: framesWithPosts({

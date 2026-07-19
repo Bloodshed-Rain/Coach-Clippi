@@ -158,6 +158,127 @@ body.overlay-mode #root {
   padding: 12px;
 }
 
+/* ── Live running stats strip ──────────────────────────────────────────
+   Ambient content inside the already-shown overlay — updates in place, never
+   triggers a window show/hide. Fallbacks on every var because the overlay
+   renders without the app's theme scaffolding. */
+.overlay-stats {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(20, 23, 29, var(--cornerman-card-alpha, 0.48));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .overlay-stats {
+    animation: overlay-stats-in 0.16s ease;
+  }
+}
+
+@keyframes overlay-stats-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.overlay-stats-stale {
+  opacity: 0.55;
+}
+
+.overlay-stats-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.overlay-stats-pill {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
+.overlay-stats-pill-live {
+  color: var(--green, #4ade80);
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+.overlay-stats-pill-final {
+  color: var(--text-secondary, #cfd4dc);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.overlay-stats-pill-stale {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.overlay-stats-clock {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--text-muted, #9aa1ac);
+}
+
+.overlay-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+.overlay-stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.overlay-stat-value {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #eef1f5);
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+/* Only the glyph is colored — the value stays neutral so nothing pulls the eye
+   mid-combo. Amber (not red) for "worse than usual": red reads as an alarm. */
+.overlay-stat-delta {
+  font-size: 10px;
+}
+
+.overlay-stat-delta.is-better {
+  color: var(--green, #4ade80);
+}
+
+.overlay-stat-delta.is-worse {
+  color: #f59e0b;
+}
+
+.overlay-stat-label {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted, #9aa1ac);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .overlay-resize-grip {
   position: absolute;
   z-index: 20;

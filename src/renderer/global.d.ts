@@ -11,7 +11,21 @@ declare module "*.webp" {
   export default src;
 }
 
+import type {
+  CornermanLiveSnapshot as LiveSnapshot,
+  CornermanLivePlayerStats as LivePlayerStats,
+  CornermanLiveStatValue as LiveStatValue,
+  CornermanLiveBaseline as LiveBaseline,
+} from "../cornermanLiveStats";
+
 declare global {
+  // Re-exported from the single source of truth (src/cornermanLiveStats.ts) so
+  // the payload shape isn't duplicated across the IPC boundary.
+  type CornermanLiveSnapshot = LiveSnapshot;
+  type CornermanLivePlayerStats = LivePlayerStats;
+  type CornermanLiveStatValue = LiveStatValue;
+  type CornermanLiveBaseline = LiveBaseline;
+
   interface CornermanStatus {
     active: boolean;
     opponentTag: string | null;
@@ -188,6 +202,8 @@ declare global {
       cornermanOverlayResize: (handle: string, deltaX: number, deltaY: number) => Promise<boolean>;
       cornermanOverlayResizeEnd: () => Promise<boolean>;
       cornermanOverlayReady: () => Promise<boolean>;
+      cornermanLiveStatsLatest: () => Promise<CornermanLiveSnapshot | null>;
+      onCornermanLiveStats: (callback: (snapshot: CornermanLiveSnapshot) => void) => () => void;
       onCornermanStream: (callback: (chunk: string) => void) => () => void;
       onCornermanCard: (callback: (card: CornermanCard) => void) => () => void;
       onCornermanSetUpdate: (callback: (status: CornermanStatus) => void) => () => void;

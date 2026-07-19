@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { CoachingCards } from "../components/CoachingCards";
 import { CornermanLiveAlerts } from "../components/CornermanLiveAlerts";
+import { CornermanLiveStatsStrip } from "../components/CornermanLiveStats";
+import { useCornermanLiveStats } from "../hooks/useCornermanLiveStats";
 import {
   clampCornermanOverlayTransparency,
   DEFAULT_CORNERMAN_OVERLAY_TRANSPARENCY,
@@ -11,6 +13,10 @@ import {
   resolveCornermanPopupSettings,
   shouldShowCornermanLiveAlert,
 } from "../../cornermanPopupSettings";
+import {
+  DEFAULT_CORNERMAN_LIVE_STATS_SETTINGS,
+  resolveCornermanLiveStatsSettings,
+} from "../../cornermanLiveStatsSettings";
 import "../styles/overlay.css";
 
 type OverlayResizeHandle = "top-left" | "top-right" | "bottom-left" | "bottom-right";
@@ -32,6 +38,12 @@ export function CornermanOverlay() {
   const liveEventTimers = useRef<number[]>([]);
   const autoHideTimer = useRef<number | null>(null);
   const popupSettings = useRef(DEFAULT_CORNERMAN_POPUP_SETTINGS);
+  const liveStatsSettings = useRef(DEFAULT_CORNERMAN_LIVE_STATS_SETTINGS);
+  // Called before the main useEffect below so its onCornermanLiveStats listener
+  // is registered before cornermanOverlayReady() flushes the main-process queue.
+  // This is AMBIENT content only — it must never touch the auto-hide timer or
+  // window visibility (see the Win11 overlay note in overlayWindow.ts).
+  const liveStats = useCornermanLiveStats();
 
   const clearAutoHideTimer = useCallback(() => {
     if (autoHideTimer.current === null) return;
@@ -61,6 +73,7 @@ export function CornermanOverlay() {
       .then((config) => {
         setTransparency(clampCornermanOverlayTransparency(config?.cornermanOverlayTransparency));
         popupSettings.current = resolveCornermanPopupSettings(config ?? {});
+        liveStatsSettings.current = resolveCornermanLiveStatsSettings(config ?? {});
       })
       .catch(() => {})
       .finally(() => setHasLoadedTransparency(true));
@@ -201,6 +214,13 @@ export function CornermanOverlay() {
         </label>
       </div>
       <div className="overlay-toast-body">
+        {liveStats.snapshot && status?.active !== false && liveStatsSettings.current.enabled && (
+          <CornermanLiveStatsStrip
+            snapshot={liveStats.snapshot}
+            receivedAt={liveStats.receivedAt}
+            statIds={liveStatsSettings.current.overlayStatIds}
+          />
+        )}
         <CornermanLiveAlerts events={liveEvents} compact />
         {error ? (
           <div className="overlay-toast-waiting" role="alert">

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { CornermanLiveSnapshot } from "../cornermanLiveStats";
 
 const api = {
   // Config
@@ -121,6 +122,7 @@ const api = {
     ipcRenderer.invoke("cornerman:overlay-resize", handle, deltaX, deltaY),
   cornermanOverlayResizeEnd: () => ipcRenderer.invoke("cornerman:overlay-resize-end"),
   cornermanOverlayReady: () => ipcRenderer.invoke("cornerman:overlay-ready"),
+  cornermanLiveStatsLatest: () => ipcRenderer.invoke("cornerman:live-stats-latest"),
 
   // Queue status
   getQueueStatus: () => ipcRenderer.invoke("queue:status"),
@@ -256,6 +258,11 @@ const api = {
     const listener = (_event: unknown, message: string) => callback(message);
     ipcRenderer.on("cornerman:error", listener);
     return () => ipcRenderer.removeListener("cornerman:error", listener);
+  },
+  onCornermanLiveStats: (callback: (snapshot: CornermanLiveSnapshot) => void) => {
+    const listener = (_event: unknown, snapshot: CornermanLiveSnapshot) => callback(snapshot);
+    ipcRenderer.on("cornerman:live-stats", listener);
+    return () => ipcRenderer.removeListener("cornerman:live-stats", listener);
   },
 };
 

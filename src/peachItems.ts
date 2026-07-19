@@ -5,10 +5,15 @@ import type { TurnipPullStats } from "./pipeline/types.js";
 export const PEACH_CHARACTER_ID = 12;
 export const TURNIP_TYPE_ID = 99;
 export const STITCH_FACE_ID = 7;
+// Runtime item type IDs (not the item-switch IDs). Verified against libmelee's
+// item enum: Bob-omb 0x06, Mr. Saturn 0x07, Beam Sword 0x0C, Turnip 0x63.
+// The old values (103/104/55) were wrong — 103 (0x67) is Peach's PARASOL and 55
+// (0x37) is Falco's Laser, which is why the parasol/up-B fired phantom "Mr.
+// Saturn" pulls.
 export const PEACH_RARE_ITEMS: Record<number, string> = {
-  103: "Mr. Saturn",
-  104: "Bob-omb",
-  55: "Beam Sword",
+  6: "Bob-omb",
+  7: "Mr. Saturn",
+  12: "Beam Sword",
 };
 
 const TURNIP_FACE_NAMES: Record<number, string> = {

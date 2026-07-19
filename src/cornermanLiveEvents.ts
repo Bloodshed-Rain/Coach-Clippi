@@ -3,10 +3,6 @@ import { State, type ConversionType, type FramesType, type ItemUpdateType } from
 import {
   frameToTimestamp,
   getMoveName,
-  GUARD,
-  GUARD_ON,
-  GUARD_REFLECT,
-  GUARD_SET_OFF,
   isOffstage,
   moveIdToName,
   SHIELD_BREAK_FLY,
@@ -55,7 +51,6 @@ export type CornermanLiveEventType =
   | "edgeguard-kill"
   | "spike-kill"
   | "shield-break"
-  | "power-shield"
   | "self-destruct"
   | "shine-spike"
   | "upthrow-upair"
@@ -173,16 +168,6 @@ function victimOffstageAtEnd(
   const victimPost = frames[conversion.endFrame]?.players[conversion.playerIndex]?.post;
   if (!victimPost) return false;
   return isOffstage(victimPost.positionX ?? 0, victimPost.positionY ?? 0, stageId);
-}
-
-function priorShieldActivationFrames(frames: FramesType, playerIndex: number, frame: number): number {
-  let shieldFrames = 0;
-  for (let f = frame - 1; f >= frame - 3; f--) {
-    const actionState = frames[f]?.players[playerIndex]?.post?.actionStateId;
-    if (actionState !== GUARD_ON && actionState !== GUARD) break;
-    shieldFrames++;
-  }
-  return shieldFrames;
 }
 
 function makeConversionEvent({
@@ -678,43 +663,12 @@ export function detectLiveFrameEvents({
 
       const curState = curPost.actionStateId ?? 0;
       const prevState = prevPost.actionStateId ?? 0;
-      if (curState === GUARD_REFLECT && prevState !== GUARD_REFLECT) {
-        pushOnce(events, seenKeys, {
-          id: `power-shield:${player.playerIndex}:${frame}:projectile`,
-          type: "power-shield",
-          title: "Power Shield",
-          body: `${shortActor(player)} power shielded a projectile at ${frameToTimestamp(frame)}.`,
-          timestamp: frameToTimestamp(frame),
-          frame,
-          actorTag: player.tag,
-          actorCharacter: player.character,
-          victimTag: null,
-          victimCharacter: null,
-          importance: "info",
-        });
-      }
 
-      const shieldActivationFrames = priorShieldActivationFrames(frames, player.playerIndex, frame);
-      if (
-        curState === GUARD_SET_OFF &&
-        prevState !== GUARD_SET_OFF &&
-        shieldActivationFrames > 0 &&
-        shieldActivationFrames <= 2
-      ) {
-        pushOnce(events, seenKeys, {
-          id: `power-shield:${player.playerIndex}:${frame}:physical`,
-          type: "power-shield",
-          title: "Power Shield",
-          body: `${shortActor(player)} power shielded a hit at ${frameToTimestamp(frame)}.`,
-          timestamp: frameToTimestamp(frame),
-          frame,
-          actorTag: player.tag,
-          actorCharacter: player.character,
-          victimTag: null,
-          victimCharacter: null,
-          importance: "info",
-        });
-      }
+      // NOTE: no power-shield alert. GuardReflect (182) is the initial animation
+      // of EVERY shield press (it only reflects on frames 1-2), so a state-only
+      // heuristic can't tell a real power-shield from a normal shield raise and
+      // fired on every shield. Reliable detection needs projectile-reflection
+      // tracking; until then, no alert beats a wrong one.
 
       if (curState === SHIELD_BREAK_FLY && prevState !== SHIELD_BREAK_FLY) {
         pushOnce(events, seenKeys, {

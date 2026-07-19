@@ -25,6 +25,11 @@ import {
   resolveCornermanPopupSettings,
   type CornermanPopupLiveAlertMode,
 } from "../../cornermanPopupSettings";
+import {
+  MAX_OVERLAY_STATS,
+  resolveCornermanLiveStatsSettings,
+} from "../../cornermanLiveStatsSettings";
+import { LIVE_STAT_DEFS, type CornermanLiveStatId } from "../../cornermanLiveStats";
 
 /** Config as returned by the main process — apiKeys are redacted to booleans */
 interface Config {
@@ -50,6 +55,8 @@ interface Config {
   cornermanPopupErrors: boolean | null;
   cornermanDesktopNotifications: boolean | null;
   cornermanPopupAutoHideSeconds: number | null;
+  cornermanLiveStatsEnabled: boolean | null;
+  cornermanOverlayStatIds: string[] | null;
 }
 
 interface FetchedModel {
@@ -162,6 +169,8 @@ export function Settings({ onImport }: SettingsProps) {
     cornermanPopupErrors: null,
     cornermanDesktopNotifications: null,
     cornermanPopupAutoHideSeconds: null,
+    cornermanLiveStatsEnabled: null,
+    cornermanOverlayStatIds: null,
   });
   // Write-only key inputs — never populated from main process
   const [keyEdits, setKeyEdits] = useState<Partial<Record<ProviderId, string>>>({});
@@ -192,6 +201,17 @@ export function Settings({ onImport }: SettingsProps) {
   const setDensity = useGlobalStore((state) => state.setDensity);
   const popupSettings = resolveCornermanPopupSettings(config);
   const popupTransparency = clampCornermanOverlayTransparency(config.cornermanOverlayTransparency);
+  const liveStatsSettings = resolveCornermanLiveStatsSettings(config);
+
+  const toggleOverlayStat = (id: CornermanLiveStatId) => {
+    const current = liveStatsSettings.overlayStatIds;
+    const next = current.includes(id)
+      ? current.filter((s) => s !== id)
+      : current.length < MAX_OVERLAY_STATS
+        ? [...current, id]
+        : current; // at the cap — ignore additional selections
+    setConfig({ ...config, cornermanOverlayStatIds: next });
+  };
   const activeSectionCopy = SETTINGS_SECTION_COPY[activeSection];
 
   // Load user config
@@ -624,6 +644,54 @@ export function Settings({ onImport }: SettingsProps) {
                     Default transparency is {DEFAULT_CORNERMAN_OVERLAY_TRANSPARENCY}%.
                   </p>
                 )}
+
+                <div className="settings-subsection">
+                  <h4 className="settings-subhead">Live stats</h4>
+                  <div className="settings-toggle-list">
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={liveStatsSettings.enabled}
+                        onChange={(e) => setConfig({ ...config, cornermanLiveStatsEnabled: e.target.checked })}
+                      />
+                      <span>
+                        <strong>Show live stats during games</strong>
+                        <small>Running L-cancel %, openings/kill and more, updated as you play.</small>
+                      </span>
+                    </label>
+                  </div>
+                  {liveStatsSettings.enabled && (
+                    <>
+                      <p className="settings-help" style={{ marginTop: 10 }}>
+                        Overlay shows up to {MAX_OVERLAY_STATS} ({liveStatsSettings.overlayStatIds.length}/
+                        {MAX_OVERLAY_STATS} chosen); the Cornerman page always shows everything.
+                      </p>
+                      <div className="settings-toggle-list">
+                        {LIVE_STAT_DEFS.map((def) => {
+                          const checked = liveStatsSettings.overlayStatIds.includes(def.id);
+                          const atCap = !checked && liveStatsSettings.overlayStatIds.length >= MAX_OVERLAY_STATS;
+                          return (
+                            <label
+                              className="settings-toggle"
+                              key={def.id}
+                              style={atCap ? { opacity: 0.5 } : undefined}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={atCap}
+                                onChange={() => toggleOverlayStat(def.id)}
+                              />
+                              <span>
+                                <strong>{def.label}</strong>
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
               </Card>
             )}
 
