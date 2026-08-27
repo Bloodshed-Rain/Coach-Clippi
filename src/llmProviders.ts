@@ -4,7 +4,7 @@
  * can import it without pulling in fs/crypto/etc.
  */
 
-export type ProviderId = "openai" | "openrouter" | "anthropic" | "gemini" | "local" | "pollinations";
+export type ProviderId = "openai" | "azure" | "openrouter" | "anthropic" | "gemini" | "local" | "pollinations";
 
 export interface ProviderInfo {
   id: ProviderId;
@@ -22,6 +22,14 @@ export const PROVIDERS: ProviderInfo[] = [
     envVar: "OPENAI_API_KEY",
     keyPlaceholder: "sk-...",
     signupUrl: "https://platform.openai.com/api-keys",
+    needsKey: true,
+  },
+  {
+    id: "azure",
+    label: "Azure OpenAI",
+    envVar: "AZURE_OPENAI_API_KEY",
+    keyPlaceholder: "Azure OpenAI key",
+    signupUrl: "https://ai.azure.com/",
     needsKey: true,
   },
   {

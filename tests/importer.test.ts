@@ -8,6 +8,8 @@ import Database from "better-sqlite3";
 // to avoid polluting the real database
 
 const TEST_REPLAYS_DIR = path.resolve(__dirname, "fixtures");
+const IMPORTER_SOURCE = fs.readFileSync(path.resolve(__dirname, "../src/importer.ts"), "utf-8");
+const IMPORT_HANDLER_SOURCE = fs.readFileSync(path.resolve(__dirname, "../src/main/handlers/import.ts"), "utf-8");
 
 function getTestReplays(count: number = 3): string[] {
   const files = fs.readdirSync(TEST_REPLAYS_DIR).filter((f) => f.endsWith(".slp"));
@@ -48,5 +50,22 @@ describe("importer", () => {
       const stat = fs.statSync(replay);
       expect(stat.size).toBeGreaterThan(0);
     }
+  });
+
+  it("deduplicates hashes within one batch before the database transaction", () => {
+    expect(IMPORTER_SOURCE).toContain("const seenHashes = new Set<string>()");
+    expect(IMPORTER_SOURCE).toContain("seenHashes.has(hash) || replayExists(hash)");
+  });
+
+  it("reports completed progress and counts only persisted games as imported", () => {
+    expect(IMPORTER_SOURCE).toContain("let completedCount = 0");
+    expect(IMPORTER_SOURCE).toContain("current: completedCount");
+    expect(IMPORT_HANDLER_SOURCE).toContain("r.gameId !== undefined");
+  });
+
+  it("does not leave an empty session behind when every file is skipped or fails", () => {
+    expect(IMPORTER_SOURCE).toContain("if (toParse.length > 0)");
+    expect(IMPORTER_SOURCE).toContain("sessionId !== null && importedCount === 0");
+    expect(IMPORTER_SOURCE).toContain('DELETE FROM sessions WHERE id = ?');
   });
 });

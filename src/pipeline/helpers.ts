@@ -193,6 +193,18 @@ export function stageBounds(stageId: number): {
   return map[stageId] ?? { x: 80, yMin: -10 };
 }
 
+// Exact ledge X coordinate per legal stage (edge of the main platform).
+// Unlike stageBounds (rough blast-zone-ish mix), these are the real ledge
+// positions — use for corner/positioning math, not for offstage detection.
+export const STAGE_LEDGE_X: Record<number, number> = {
+  2: 63.35, // Fountain of Dreams
+  3: 87.75, // Pokemon Stadium
+  8: 56.0, // Yoshi's Story
+  28: 77.27, // Dreamland
+  31: 68.4, // Battlefield
+  32: 85.57, // Final Destination
+};
+
 // Detect "knockdown" — player is in a downed/missed-tech state
 export function isKnockdown(actionState: number): boolean {
   return actionState >= State.DOWN_START && actionState <= State.DOWN_END;

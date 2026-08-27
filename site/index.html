@@ -13,6 +13,31 @@
     <link rel="icon" type="image/png" sizes="16x16" href="favicon_io/favicon-16x16.png" />
     <link rel="apple-touch-icon" href="favicon_io/apple-touch-icon.png" />
     <link rel="manifest" href="favicon_io/site.webmanifest" />
+    <script>
+      // Effect switch. Resolved before first paint so the CSS-driven effects
+      // (scroll ledger, signal beam, interference) apply without a flash.
+      //   ?fx=all             every effect (cloud takes the hero over flow)
+      //   ?fx=none            plain page
+      //   ?fx=flow            the other hero option, effect 01
+      //   ?fx=cloud,etch,beam the effects study's recommended production set
+      // Behaviour lives in magi-effects.js, which reads the resolved list back
+      // off <html data-fx>. `cloud` and `flow` both target the hero stage, so
+      // naming both just picks cloud — everything else composes freely.
+      (() => {
+        const NAMES = ["cloud", "flow", "plasma", "warp", "etch", "ledger", "beam", "interfere"];
+        const DEFAULT = ["cloud", "plasma", "warp", "etch", "ledger", "beam", "interfere"];
+        const raw = new URLSearchParams(location.search).get("fx");
+        let set;
+        if (raw === null) set = DEFAULT;
+        else if (raw.trim() === "all") set = NAMES;
+        else
+          set = raw
+            .split(",")
+            .map((name) => name.trim().toLowerCase())
+            .filter((name) => NAMES.includes(name));
+        document.documentElement.dataset.fx = set.join(" ");
+      })();
+    </script>
     <style>
       :root {
         --bg: #090b12;
@@ -38,6 +63,88 @@
           sans-serif;
         color: var(--text);
         background: var(--bg);
+      }
+
+      /*
+       * Registered custom properties for the procedural effects.
+       * --magi-beam must be an <angle> for the conic-gradient border light to
+       * interpolate; without registration it is an unanimatable token string.
+       * The --magi-* trio below feeds the magi-etch paint worklet.
+       */
+      @property --magi-beam {
+        syntax: "<angle>";
+        inherits: false;
+        initial-value: 0deg;
+      }
+
+      @property --magi-scan {
+        syntax: "<number>";
+        inherits: true;
+        initial-value: 0;
+      }
+
+      @property --magi-density {
+        syntax: "<number>";
+        inherits: true;
+        initial-value: 22;
+      }
+
+      @property --magi-tint {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: #7ee8c5;
+      }
+
+      @keyframes magi-beam {
+        to {
+          --magi-beam: 360deg;
+        }
+      }
+
+      @keyframes magi-scan {
+        to {
+          --magi-scan: 1;
+        }
+      }
+
+      @keyframes magi-row {
+        from {
+          opacity: 0;
+          transform: translateY(18px);
+          filter: blur(7px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+          filter: blur(0);
+        }
+      }
+
+      @keyframes magi-fill {
+        from {
+          transform: scaleX(0.02);
+        }
+
+        to {
+          transform: scaleX(1);
+        }
+      }
+
+      @keyframes magi-etchscan {
+        from {
+          background-position:
+            0 -150px,
+            0 0,
+            0 0;
+        }
+
+        to {
+          background-position:
+            0 460px,
+            0 0,
+            0 0;
+        }
       }
 
       * {
@@ -282,6 +389,68 @@
         transform: translate3d(var(--glint-x, 0px), var(--glint-y, 0px), 0);
         transition: opacity 180ms ease-out;
         will-change: transform;
+      }
+
+      /*
+       * Hero canvas stage. Holds effect 01 ("Neutral Flow", the curl-noise flow
+       * field) or effect 02 ("Frame Cloud", the GPU particle system) — the
+       * effects study recommends one or the other, never both. The canvas is
+       * created by magi-effects.js, so nothing is allocated when fx is off.
+       */
+      .hero-fx {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+
+      [data-fx~="cloud"] .hero-fx {
+        background: radial-gradient(circle at 50% 55%, rgba(126, 232, 197, 0.05), rgba(7, 9, 16, 0) 60%);
+      }
+
+      .hero-fx-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Scrim between the stage and the hero copy, so text stays legible. */
+      .hero-fx::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          rgba(9, 11, 18, 0.92) 0%,
+          rgba(9, 11, 18, 0.6) 46%,
+          rgba(9, 11, 18, 0.08) 100%
+        );
+      }
+
+      /*
+       * Effect 03 - "Wordmark Plasma": iridescence flows through the four
+       * acrostic initials instead of a gradient sliding behind them. The <h1>
+       * keeps its real text; the canvas only supplies the glyph fill, which the
+       * letters were already transparent for.
+       */
+      .hero-title {
+        position: relative;
+      }
+
+      .hero-plasma {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        filter: drop-shadow(0 0 18px rgba(126, 232, 197, 0.42));
+      }
+
+      [data-fx~="plasma"] .hero-initial {
+        background: none;
+        animation: none;
+        filter: none;
       }
 
       main,
@@ -720,12 +889,38 @@
       }
 
       .feature-shot {
+        position: relative;
         margin: 0;
         border: 1px solid var(--line);
         border-radius: var(--radius);
         background: rgba(7, 9, 16, 0.72);
         overflow: hidden;
         box-shadow: var(--shadow);
+      }
+
+      /*
+       * Effect 04 - "Replay Warp": the canvas renders the screenshot with
+       * hover-driven displacement and chromatic aberration. The <img> stays put
+       * underneath, transparent but still the lightbox trigger, so click,
+       * keyboard and alt text are untouched.
+       */
+      .feature-warp {
+        position: absolute;
+        inset: 0 0 auto;
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border-bottom: 1px solid var(--line);
+        pointer-events: none;
+      }
+
+      .feature-shot.is-warped img {
+        opacity: 0;
+      }
+
+      .feature-shot.is-warped:focus-within {
+        outline: 2px solid var(--focus);
+        outline-offset: -2px;
       }
 
       .feature-shot img {
@@ -751,6 +946,42 @@
         padding: 14px 16px;
         color: var(--text-soft);
         font-weight: 700;
+      }
+
+      /*
+       * Effect 07 - "Signal Beam": a light runs the border of a live panel.
+       * A 1px-padded wrapper carries an animated conic gradient; the child keeps
+       * its own radius and drops its hairline so the two do not double up.
+       */
+      [data-fx~="beam"] .beam-frame {
+        padding: 1px;
+        border-radius: 9px;
+        background: conic-gradient(
+          from var(--magi-beam, 0deg),
+          rgba(232, 237, 246, 0.14) 0deg,
+          rgba(232, 237, 246, 0.14) 250deg,
+          rgba(126, 232, 197, 0.95) 322deg,
+          rgba(160, 168, 255, 0.85) 350deg,
+          rgba(232, 237, 246, 0.14) 360deg
+        );
+        animation: magi-beam 4.4s linear infinite;
+        box-shadow: var(--shadow);
+      }
+
+      [data-fx~="beam"] .beam-frame.warn {
+        background: conic-gradient(
+          from var(--magi-beam, 0deg),
+          rgba(232, 237, 246, 0.14) 0deg,
+          rgba(232, 237, 246, 0.14) 250deg,
+          rgba(255, 138, 158, 0.95) 322deg,
+          rgba(232, 163, 212, 0.85) 350deg,
+          rgba(232, 237, 246, 0.14) 360deg
+        );
+      }
+
+      [data-fx~="beam"] .beam-frame > * {
+        border-color: transparent;
+        box-shadow: none;
       }
 
       body.lightbox-open {
@@ -981,6 +1212,156 @@
         color: var(--text-soft);
       }
 
+      /*
+       * Effect 05 - "Etched Panels": procedural instrument texture on panel
+       * surfaces. The worklet path is Chromium-only; the fallback reproduces the
+       * hatch, dot grid and scan band with layered CSS gradients (corner
+       * brackets are the only element lost). One of the two classes is set on
+       * <html> at runtime, so panels never render both.
+       */
+      .fx-etch [data-etch] {
+        background-image: paint(magi-etch);
+        animation: magi-scan var(--etch-dur, 9s) linear infinite;
+        animation-delay: var(--etch-delay, 0s);
+      }
+
+      .fx-etch-fallback [data-etch] {
+        background-image:
+          linear-gradient(180deg, transparent 0%, rgba(126, 232, 197, 0.08) 48%, transparent 100%),
+          repeating-linear-gradient(45deg, rgba(232, 237, 246, 0.055) 0 1px, transparent 1px 22px),
+          radial-gradient(circle at 1px 1px, rgba(232, 237, 246, 0.1) 1px, transparent 1.4px);
+        background-size:
+          100% 150px,
+          auto,
+          22px 22px;
+        background-repeat: no-repeat, repeat, repeat;
+        background-position:
+          0 -150px,
+          0 0,
+          0 0;
+        animation: magi-etchscan var(--etch-dur, 9s) linear infinite;
+        animation-delay: var(--etch-delay, 0s);
+      }
+
+      /*
+       * Effect 06 - "Scroll Ledger": reveal-on-scroll with no observers, no
+       * listeners and no scroll handler — it runs off the compositor. Guarded by
+       * @supports rather than relying on the keyframes' `both` fill, so browsers
+       * without scroll-driven animations simply get plain, visible content.
+       */
+      @supports (animation-timeline: view()) {
+        [data-fx~="ledger"] .feature-layout > *,
+        [data-fx~="ledger"] .section-head > *,
+        [data-fx~="ledger"] [data-etch] {
+          animation: magi-row linear both;
+          animation-timeline: view(block);
+          animation-range: entry 4% cover 34%;
+        }
+
+        /* Etched panels carry both: the scan band on the document timeline, the
+           reveal on their own view timeline. */
+        [data-fx~="ledger"].fx-etch [data-etch] {
+          animation:
+            magi-scan var(--etch-dur, 9s) linear infinite,
+            magi-row linear both;
+          animation-delay: var(--etch-delay, 0s), 0s;
+          animation-timeline: auto, view(block);
+          animation-range:
+            normal,
+            entry 4% cover 34%;
+        }
+
+        [data-fx~="ledger"].fx-etch-fallback [data-etch] {
+          animation:
+            magi-etchscan var(--etch-dur, 9s) linear infinite,
+            magi-row linear both;
+          animation-delay: var(--etch-delay, 0s), 0s;
+          animation-timeline: auto, view(block);
+          animation-range:
+            normal,
+            entry 4% cover 34%;
+        }
+
+        /* Same collision for the beamed panel — it is a direct child of a
+           feature layout, so the reveal would otherwise replace its border
+           sweep outright. */
+        [data-fx~="ledger"][data-fx~="beam"] .beam-frame {
+          animation:
+            magi-beam 4.4s linear infinite,
+            magi-row linear both;
+          animation-timeline: auto, view(block);
+          animation-range:
+            normal,
+            entry 4% cover 34%;
+        }
+      }
+
+      /* Reading-progress hairline, driven by scroll() rather than a listener. */
+      .scroll-progress {
+        display: none;
+      }
+
+      @supports (animation-timeline: scroll()) {
+        [data-fx~="ledger"] .scroll-progress {
+          position: fixed;
+          inset: 68px 0 auto;
+          z-index: 9;
+          display: block;
+          height: 3px;
+          background: rgba(232, 237, 246, 0.12);
+          pointer-events: none;
+        }
+
+        [data-fx~="ledger"] .scroll-progress span {
+          display: block;
+          height: 100%;
+          background: linear-gradient(90deg, #7ee8c5, #a0a8ff);
+          transform-origin: 0 50%;
+          animation: magi-fill linear both;
+          animation-timeline: scroll(root block);
+        }
+      }
+
+      /*
+       * Effect 08 - "Interference": SVG feTurbulence + feDisplacementMap on the
+       * Cornerman heading. The text stays selectable and accessible. The class
+       * is only added once the filter defs exist — a dangling filter reference
+       * makes the element render as nothing at all.
+       */
+      .fx-interfere-on[data-fx~="interfere"] #cornerman h2 {
+        filter: url(#magi-interfere);
+      }
+
+      /*
+       * Effect still frames. This block sits after the effect rules above so it
+       * wins the cascade on equal specificity: the beam parks at 0deg, the etch
+       * keeps its texture with the scan band held, and the flow field is never
+       * initialized (the script bails on the same media query).
+       */
+      @media (prefers-reduced-motion: reduce) {
+        [data-fx~="beam"] .beam-frame,
+        .fx-etch [data-etch],
+        .fx-etch-fallback [data-etch],
+        [data-fx~="ledger"] .feature-layout > *,
+        [data-fx~="ledger"] .section-head > *,
+        [data-fx~="ledger"] [data-etch],
+        [data-fx~="ledger"] .scroll-progress span,
+        [data-fx~="ledger"].fx-etch [data-etch],
+        [data-fx~="ledger"].fx-etch-fallback [data-etch],
+        [data-fx~="ledger"][data-fx~="beam"] .beam-frame {
+          animation: none;
+        }
+
+        .fx-interfere-on[data-fx~="interfere"] #cornerman h2 {
+          filter: none;
+        }
+
+        /* The hero stage and the screenshot warp are never initialized at all. */
+        .hero-fx {
+          display: none;
+        }
+      }
+
       footer {
         padding: 32px;
         border-top: 1px solid var(--line);
@@ -1058,8 +1439,11 @@
       </div>
     </nav>
 
+    <div class="scroll-progress" aria-hidden="true"><span></span></div>
+
     <main id="top">
       <header class="hero">
+        <div class="hero-fx" aria-hidden="true"></div>
         <div class="hero-inner parallax-layer">
           <div class="eyebrow">Shatter Your Glass Ceiling</div>
           <h1 class="hero-title" aria-label="Melee Analysis Thru Generative Intelligence">
@@ -1216,10 +1600,15 @@
                 <span>Character confirms</span>
               </div>
             </div>
-            <figure class="feature-shot">
-              <img src="screenshots/app-cornerman-live-overlay.png" alt="MAGI Cornerman live overlay during a match" />
-              <figcaption>Transparent live popups surface major events the moment they happen.</figcaption>
-            </figure>
+            <div class="beam-frame">
+              <figure class="feature-shot">
+                <img
+                  src="screenshots/app-cornerman-live-overlay.png"
+                  alt="MAGI Cornerman live overlay during a match"
+                />
+                <figcaption>Transparent live popups surface major events the moment they happen.</figcaption>
+              </figure>
+            </div>
           </div>
         </div>
       </section>
@@ -1291,7 +1680,7 @@
             </p>
           </div>
           <div class="faq-list">
-            <details class="faq-item" open>
+            <details class="faq-item" data-etch open>
               <summary>Isn't this just AI slop?</summary>
               <div class="faq-body">
                 <p>
@@ -1305,7 +1694,7 @@
                 </p>
               </div>
             </details>
-            <details class="faq-item">
+            <details class="faq-item" data-etch>
               <summary>Where does my data go?</summary>
               <div class="faq-body">
                 <p>
@@ -1319,7 +1708,7 @@
                 </p>
               </div>
             </details>
-            <details class="faq-item">
+            <details class="faq-item" data-etch>
               <summary>What does it cost?</summary>
               <div class="faq-body">
                 <p>
@@ -1329,7 +1718,7 @@
                 </p>
               </div>
             </details>
-            <details class="faq-item">
+            <details class="faq-item" data-etch>
               <summary>Slippi already shows me stats.</summary>
               <div class="faq-body">
                 <p>
@@ -1340,7 +1729,7 @@
                 </p>
               </div>
             </details>
-            <details class="faq-item">
+            <details class="faq-item" data-etch>
               <summary>Does it touch my game? Is this fine on netplay?</summary>
               <div class="faq-body">
                 <p>
@@ -1350,12 +1739,12 @@
                 </p>
               </div>
             </details>
-            <details class="faq-item">
+            <details class="faq-item" data-etch>
               <summary>A real coach would smoke this thing.</summary>
               <div class="faq-body">
                 <p>
-                  At reading the player in front of them, sure — mindset, mid-set adaptation, the feel of a matchup.
-                  But they are not doing the same job. A human coach samples: a few VODs, one week, human memory. MAGI
+                  At reading the player in front of them, sure — mindset, mid-set adaptation, the feel of a matchup. But
+                  they are not doing the same job. A human coach samples: a few VODs, one week, human memory. MAGI
                   measures every game you play at frame precision and remembers all of it — your L-cancel rate across a
                   thousand games, how your neutral shifts against Marth on Final Destination, the knockdown habit that
                   only becomes visible as a pattern across three months. No human coach is counting that. Ever.
@@ -1367,7 +1756,7 @@
                 </p>
               </div>
             </details>
-            <details class="faq-item">
+            <details class="faq-item" data-etch>
               <summary>What about the water and energy AI burns?</summary>
               <div class="faq-body">
                 <p>
@@ -1385,7 +1774,7 @@
                 </p>
               </div>
             </details>
-            <details class="faq-item">
+            <details class="faq-item" data-etch>
               <summary>I'm not good enough to need this.</summary>
               <div class="faq-body">
                 <p>
@@ -1395,7 +1784,7 @@
                 </p>
               </div>
             </details>
-            <details class="faq-item">
+            <details class="faq-item" data-etch>
               <summary>Windows only?</summary>
               <div class="faq-body">
                 <p>
@@ -1411,7 +1800,7 @@
 
       <section>
         <div class="wrap">
-          <div class="install">
+          <div class="install" data-etch>
             <div>
               <div class="eyebrow">Build from source</div>
               <h2>Electron, Vite, React, SQLite, and Slippi parsing.</h2>
@@ -1744,5 +2133,6 @@
         spawn();
       })();
     </script>
+    <script defer src="magi-effects.js"></script>
   </body>
 </html>

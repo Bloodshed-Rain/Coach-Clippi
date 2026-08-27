@@ -57,9 +57,7 @@ export function CornermanLiveStatsStrip({
 
   const stale = isLive && now - receivedAt > STALE_AFTER_MS;
   const pill = snapshot.phase === "ended" ? "FINAL" : stale ? "STALE" : "LIVE";
-  const defs = statIds
-    .map((id) => LIVE_STAT_DEF_BY_ID[id])
-    .filter((d): d is CornermanLiveStatDef => Boolean(d));
+  const defs = statIds.map((id) => LIVE_STAT_DEF_BY_ID[id]).filter((d): d is CornermanLiveStatDef => Boolean(d));
 
   return (
     <div className={`overlay-stats${stale ? " overlay-stats-stale" : ""}`}>
@@ -76,7 +74,9 @@ export function CornermanLiveStatsStrip({
               <div className="overlay-stat-value">
                 {value ? formatLiveStatValue(def, value) : "—"}
                 {delta && (
-                  <span className={`overlay-stat-delta ${delta.isBetter ? "is-better" : "is-worse"}`}>{delta.glyph}</span>
+                  <span className={`overlay-stat-delta ${delta.isBetter ? "is-better" : "is-worse"}`}>
+                    {delta.glyph}
+                  </span>
                 )}
               </div>
               <div className="overlay-stat-label">{def.shortLabel}</div>

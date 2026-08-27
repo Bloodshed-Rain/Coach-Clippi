@@ -1,10 +1,11 @@
 import { SlippiGame, stages as stageUtils, Frames } from "@slippi/slippi-js/node";
 
-import type { GameSummary, DerivedInsights, GameHighlight } from "./types.js";
+import type { GameSummary, DerivedInsights, GameHighlight, GameFrameEvents } from "./types.js";
 import { getPlayerTag, framesToSeconds, endMethodString } from "./helpers.js";
 import { buildPlayerSummary } from "./playerSummary.js";
 import { buildDerivedInsights } from "./derivedInsights.js";
 import { detectHighlights } from "./highlights.js";
+import { extractFrameEvents } from "./frameEvents.js";
 
 // ── Main ──────────────────────────────────────────────────────────────
 
@@ -15,6 +16,7 @@ export function processGame(
   gameSummary: GameSummary;
   derivedInsights: [DerivedInsights, DerivedInsights];
   highlights: [GameHighlight[], GameHighlight[]];
+  frameEvents: GameFrameEvents;
   startAt: string | null;
 } {
   let game: SlippiGame;
@@ -138,8 +140,10 @@ export function processGame(
     players: [p0Summary, p1Summary],
   };
 
-  const p0Insights = buildDerivedInsights(p0Index, p1Index, stats, frames, lastFrame, stageId);
-  const p1Insights = buildDerivedInsights(p1Index, p0Index, stats, frames, lastFrame, stageId);
+  const frameEvents = extractFrameEvents(stats.conversions, stats.stocks, frames, lastFrame, stageId, p0Index, p1Index);
+
+  const p0Insights = buildDerivedInsights(p0Index, p1Index, stats, frames, lastFrame, stageId, frameEvents, 0);
+  const p1Insights = buildDerivedInsights(p1Index, p0Index, stats, frames, lastFrame, stageId, frameEvents, 1);
 
   const p0Highlights = detectHighlights(gameSummary, stats.conversions, frames, stageId, 0, p0Index, p1Index);
   const p1Highlights = detectHighlights(gameSummary, stats.conversions, frames, stageId, 1, p1Index, p0Index);
@@ -148,6 +152,7 @@ export function processGame(
     gameSummary,
     derivedInsights: [p0Insights, p1Insights],
     highlights: [p0Highlights, p1Highlights],
+    frameEvents,
     startAt,
   };
 }

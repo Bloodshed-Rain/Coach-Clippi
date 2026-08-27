@@ -8,7 +8,7 @@ import {
   setDrillCompletion,
   deletePracticePlan,
   listOracleMessages,
-  appendOracleMessage,
+  appendOracleExchange,
   clearOracleMessages,
   getRecentGames,
 } from "../../db.js";
@@ -52,9 +52,9 @@ async function fetchOpenRouterModels(): Promise<FetchedModel[]> {
 
 async function fetchGeminiModels(apiKey: string): Promise<FetchedModel[]> {
   try {
-    const res = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
-    );
+    const res = await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models", {
+      headers: { "x-goog-api-key": apiKey },
+    });
     if (!res.ok) return [];
     const json = (await res.json()) as {
       models: { name: string; displayName: string; supportedGenerationMethods: string[] }[];
@@ -163,10 +163,12 @@ export function registerLlmHandlers(safeHandle: SafeHandleFn): void {
     const results = await Promise.all(fetches);
     const byProvider: Record<string, FetchedModel[]> = {
       openai: [],
+      azure: [],
       openrouter: [],
       anthropic: [],
       gemini: [],
       local: [{ id: "local", label: "Local Model (Ollama / LM Studio)", provider: "local" }],
+      pollinations: [{ id: "pollinations", label: "Pollinations Free AI", provider: "pollinations" }],
     };
     for (let i = 0; i < providers.length; i++) {
       byProvider[providers[i]!] = results[i]!;
@@ -191,9 +193,11 @@ export function registerLlmHandlers(safeHandle: SafeHandleFn): void {
 
   // Per-day session report — cached in session_reports table so repeat calls
   // for the same date return instantly without re-spending LLM tokens.
-  safeHandle("llm:analyzeSession", async (_e, date: string) => {
-    const cached = getSessionReport(date);
-    if (cached) return cached;
+  safeHandle("llm:analyzeSession", async (_e, date: string, force: boolean = false) => {
+    if (!force) {
+      const cached = getSessionReport(date);
+      if (cached) return cached;
+    }
 
     const games = getGamesOnDate(date);
     if (games.length === 0) return "No games found for that day.";
@@ -224,7 +228,7 @@ export function registerLlmHandlers(safeHandle: SafeHandleFn): void {
     const raw = await llmQueue.enqueue(() =>
       callLLM({ systemPrompt: SYSTEM_PROMPT_PRACTICE, userPrompt: weaknessSummary, config: llmConfig }),
     );
-    let parsed: { name: string; drills: Array<{ name: string; target: string }> };
+    let parsed: unknown;
     try {
       const cleaned = raw
         .trim()
@@ -234,10 +238,29 @@ export function registerLlmHandlers(safeHandle: SafeHandleFn): void {
     } catch {
       throw new Error(`LLM returned non-JSON response: ${raw.slice(0, 140)}…`);
     }
-    if (!parsed.name || !Array.isArray(parsed.drills) || parsed.drills.length === 0) {
+    if (!parsed || typeof parsed !== "object") {
       throw new Error("LLM response missing required fields (name, drills[]).");
     }
-    return insertPracticePlan(parsed.name, weaknessSummary, parsed.drills);
+    const candidate = parsed as { name?: unknown; drills?: unknown };
+    const name = typeof candidate.name === "string" ? candidate.name.trim().slice(0, 120) : "";
+    const drills = Array.isArray(candidate.drills)
+      ? candidate.drills
+          .filter(
+            (drill): drill is { name: string; target: string } =>
+              !!drill &&
+              typeof drill === "object" &&
+              typeof (drill as { name?: unknown }).name === "string" &&
+              typeof (drill as { target?: unknown }).target === "string",
+          )
+          .map((drill) => ({ name: drill.name.trim().slice(0, 120), target: drill.target.trim().slice(0, 500) }))
+          .filter((drill) => drill.name.length > 0 && drill.target.length > 0)
+          .slice(0, 12)
+      : [];
+    if (!name || drills.length === 0) {
+      throw new Error("LLM response missing required fields (name, drills[]).");
+    }
+    const cleanSummary = weaknessSummary.trim().slice(0, 4000);
+    return insertPracticePlan(name, cleanSummary || null, drills);
   });
 
   safeHandle("llm:listPracticePlans", () => listPracticePlans());
@@ -255,9 +278,10 @@ export function registerLlmHandlers(safeHandle: SafeHandleFn): void {
   safeHandle("llm:oracleListMessages", () => listOracleMessages());
 
   safeHandle("llm:oracleAsk", async (_e, text: string) => {
-    const userMsg = appendOracleMessage("user", text);
+    const cleanText = text.trim().slice(0, 4000);
+    if (!cleanText) throw new Error("Ask the Oracle a non-empty question.");
     const history = listOracleMessages();
-    const dialog = history
+    const dialog = [...history, { role: "user" as const, content: cleanText }]
       .slice(-20)
       .map((m) => `${m.role === "user" ? "User" : "Oracle"}: ${m.content}`)
       .join("\n\n");
@@ -267,8 +291,7 @@ export function registerLlmHandlers(safeHandle: SafeHandleFn): void {
     const response = await llmQueue.enqueue(() =>
       callLLM({ systemPrompt: SYSTEM_PROMPT_ORACLE, userPrompt, config: llmConfig }),
     );
-    const assistantMsg = appendOracleMessage("assistant", response);
-    return { user: userMsg, assistant: assistantMsg };
+    return appendOracleExchange(cleanText, response);
   });
 
   safeHandle("llm:oracleClear", () => {

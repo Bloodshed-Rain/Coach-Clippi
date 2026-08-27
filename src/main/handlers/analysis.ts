@@ -2,6 +2,7 @@ import crypto from "crypto";
 import fs from "fs";
 import { pipeline } from "stream/promises";
 import { loadConfig } from "../../config.js";
+import { EVENT_SAMPLE_GUARDS, type CharacterBlurbResult } from "../../characterEventProfile.js";
 import {
   getDb,
   insertCoachingAnalysis,
@@ -9,6 +10,7 @@ import {
   getGamesBySession,
   getGameById,
   getAggregateStats,
+  getCharacterEventProfile,
   getOpponentDetail,
   getDeepInsightsData,
   insertGame,
@@ -23,13 +25,15 @@ import {
   SYSTEM_PROMPT,
   assembleAggregatePrompt,
   SYSTEM_PROMPT_AGGREGATE,
+  SYSTEM_PROMPT_CHARACTER_BLURB,
   assembleDiscoveryPrompt,
   SYSTEM_PROMPT_DISCOVERY,
   SYSTEM_PROMPT_SCOUT,
   assembleOpponentDossierPrompt,
+  stripNulls,
   type GameResult,
 } from "../../pipeline/index.js";
-import { callLLM, callLLMStream, getActiveModelId, type LLMConfig } from "../../llm.js";
+import { callLLM, callLLMStream, getActiveModelId, isUsableLLMResponse, type LLMConfig } from "../../llm.js";
 import { llmQueue } from "../../llmQueue.js";
 import { parsePool } from "../../parsePool.js";
 import { buildInsertGameParams, buildInsertGameStatsParams } from "../../replayAnalyzer.js";
@@ -50,8 +54,10 @@ export function resolveLLMConfig(): LLMConfig {
   const config = loadConfig();
   return {
     modelId: getActiveModelId(config),
+    activeProvider: config.activeProvider,
     apiKeys: config.apiKeys,
     localEndpoint: config.localEndpoint ?? null,
+    azureEndpoint: config.azureEndpoint ?? null,
   };
 }
 
@@ -181,24 +187,25 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
     const db = getDb();
 
     // Check cache for ALL scopes (ignore model_used to reuse any past analysis)
-    let cached: { analysis_text: string } | undefined;
+    let cachedCandidates: { analysis_text: string }[];
     if (scope === "game") {
-      cached = db
+      cachedCandidates = db
         .prepare(
-          "SELECT analysis_text FROM coaching_analyses WHERE game_id = ? AND scope = 'game' ORDER BY created_at DESC LIMIT 1",
+          "SELECT analysis_text FROM coaching_analyses WHERE game_id = ? AND scope = 'game' ORDER BY created_at DESC LIMIT 10",
         )
-        .get(Number(id)) as any;
+        .all(Number(id)) as { analysis_text: string }[];
     } else if (scope === "session") {
-      cached = db
-        .prepare("SELECT analysis_text FROM coaching_analyses WHERE session_id = ? ORDER BY created_at DESC LIMIT 1")
-        .get(Number(id)) as any;
+      cachedCandidates = db
+        .prepare("SELECT analysis_text FROM coaching_analyses WHERE session_id = ? ORDER BY created_at DESC LIMIT 10")
+        .all(Number(id)) as { analysis_text: string }[];
     } else {
-      cached = db
+      cachedCandidates = db
         .prepare(
-          "SELECT analysis_text FROM coaching_analyses WHERE scope = ? AND scope_identifier = ? ORDER BY created_at DESC LIMIT 1",
+          "SELECT analysis_text FROM coaching_analyses WHERE scope = ? AND scope_identifier = ? ORDER BY created_at DESC LIMIT 10",
         )
-        .get(scope, String(id)) as any;
+        .all(scope, String(id)) as { analysis_text: string }[];
     }
+    const cached = cachedCandidates.find((entry) => isUsableLLMResponse(entry.analysis_text));
     if (cached) return cached.analysis_text;
 
     let systemPrompt = SYSTEM_PROMPT;
@@ -243,15 +250,25 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
       throw new Error(`Invalid analysis scope: ${scope}`);
     }
 
-    const analysis = await llmQueue.enqueue(() =>
-      callLLMStream({ systemPrompt, userPrompt, config: llmConfig }, (chunk) => {
+    const analysis = await llmQueue.enqueue(() => {
+      // A character report is short enough to validate before showing it. Some
+      // automatic/free routers occasionally return only "User Safety: safe".
+      if (scope === "character") {
+        return callLLM({ systemPrompt, userPrompt, config: llmConfig });
+      }
+
+      return callLLMStream({ systemPrompt, userPrompt, config: llmConfig }, (chunk) => {
         try {
           win?.webContents.send("analyze:stream", chunk, streamId);
         } catch {
           // ignore
         }
-      }),
-    );
+      });
+    });
+
+    if (!isUsableLLMResponse(analysis)) {
+      throw new Error("The AI provider returned a status message instead of an analysis. Please try again.");
+    }
 
     try {
       win?.webContents.send("analyze:stream-end", streamId);
@@ -336,6 +353,53 @@ export function registerAnalysisHandlers(safeHandle: SafeHandleFn): void {
     );
     return analysis;
   });
+
+  // Character identity blurb — short scouting-report summary of how the player
+  // pilots one character, grounded in the v10-v14 per-instance event profile.
+  // Non-streaming; cached under scope='character-blurb' until force-refreshed.
+  safeHandle(
+    "analyze:characterBlurb",
+    async (_e, character: string, force?: boolean): Promise<CharacterBlurbResult> => {
+      const stats = getAggregateStats({ character });
+      const gamesPlayed = stats?.gamesPlayed ?? 0;
+      if (!stats || gamesPlayed < EVENT_SAMPLE_GUARDS.blurbGamesMin) {
+        return { insufficient: true, gamesPlayed };
+      }
+
+      const db = getDb();
+      if (!force) {
+        const cached = db
+          .prepare(
+            "SELECT analysis_text, model_used, created_at FROM coaching_analyses WHERE scope = 'character-blurb' AND scope_identifier = ? ORDER BY created_at DESC LIMIT 1",
+          )
+          .get(character) as { analysis_text: string; model_used: string; created_at: string } | undefined;
+        if (cached) {
+          return {
+            text: cached.analysis_text,
+            modelUsed: cached.model_used,
+            createdAt: cached.created_at,
+            cached: true,
+          };
+        }
+      }
+
+      const llmConfig = resolveLLMConfig();
+      const events = getCharacterEventProfile(character);
+      const playerHistory = getPlayerHistory("") ?? undefined;
+      const userPrompt =
+        assembleAggregatePrompt(stats, "character", character, playerHistory) +
+        "\n\nPER-INSTANCE EVENT PROFILE (measured, with sample sizes):\n" +
+        JSON.stringify(stripNulls(events));
+
+      const text = await llmQueue.enqueue(() =>
+        callLLM({ systemPrompt: SYSTEM_PROMPT_CHARACTER_BLURB, userPrompt, config: llmConfig }),
+      );
+
+      const modelUsed = llmConfig.modelId || "pollinations";
+      insertCoachingAnalysis(null, null, modelUsed, text, "character-blurb", character);
+      return { text, modelUsed, createdAt: new Date().toISOString(), cached: false };
+    },
+  );
 
   // Deep Pattern Discovery — MAGI finds hidden correlations across your whole career
   safeHandle("analyze:discovery", async (_e, streamId?: string) => {

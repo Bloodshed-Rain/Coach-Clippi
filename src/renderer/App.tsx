@@ -2,6 +2,7 @@ import { useCallback, useEffect, lazy, Suspense, useMemo, useState } from "react
 import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
 
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+const PerformanceLab = lazy(() => import("./pages/PerformanceLab").then((m) => ({ default: m.PerformanceLab })));
 const Sessions = lazy(() => import("./pages/Sessions").then((m) => ({ default: m.Sessions })));
 const Library = lazy(() => import("./pages/Library").then((m) => ({ default: m.Library })));
 const Trends = lazy(() => import("./pages/Trends").then((m) => ({ default: m.Trends })));
@@ -28,6 +29,7 @@ import {
   OracleIcon,
   RivalsIcon,
   CornermanIcon,
+  PerformanceIcon,
 } from "./components/NavIcons";
 import { LiquidShell, type NavItem as LiquidNavItem } from "./components/LiquidShell";
 import { TweaksPanel } from "./components/TweaksPanel";
@@ -38,6 +40,7 @@ import { resolveLiquidAppearanceSettings } from "../liquidAppearance";
 
 type Page =
   | "dashboard"
+  | "performance"
   | "sessions"
   | "library"
   | "trends"
@@ -54,6 +57,7 @@ interface NavItem extends LiquidNavItem {
 
 const ANALYZE_ITEMS: NavItem[] = [
   { id: "dashboard", label: "Dashboard", path: "/dashboard", Icon: DashboardIcon },
+  { id: "performance", label: "Performance Lab", path: "/performance", Icon: PerformanceIcon },
   { id: "sessions", label: "Sessions", path: "/sessions", Icon: SessionsIcon },
   { id: "library", label: "Library", path: "/library", Icon: LibraryIcon },
   { id: "trends", label: "Trends", path: "/trends", Icon: TrendsIcon },
@@ -166,6 +170,7 @@ export function App() {
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard refreshKey={refreshKey} />} />
+          <Route path="/performance" element={<PerformanceLab refreshKey={refreshKey} />} />
           <Route path="/sessions" element={<Sessions refreshKey={refreshKey} />} />
           <Route path="/library" element={<Library refreshKey={refreshKey} />} />
           <Route path="/trends" element={<Trends refreshKey={refreshKey} />} />
@@ -260,6 +265,7 @@ function CommandPaletteHost({ navigateTo, onImport }: { navigateTo: (page: Page)
           "practice",
           "oracle",
           "settings",
+          "performance",
         ];
         let num = parseInt(e.key, 10);
         if (e.key === "0") num = 10;

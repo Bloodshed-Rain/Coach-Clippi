@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
   Database,
@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
   Trash2,
   UserCircle,
+  Volume2,
   Zap,
 } from "lucide-react";
 import { Card } from "../components/ui/Card";
@@ -25,11 +26,15 @@ import {
   resolveCornermanPopupSettings,
   type CornermanPopupLiveAlertMode,
 } from "../../cornermanPopupSettings";
-import {
-  MAX_OVERLAY_STATS,
-  resolveCornermanLiveStatsSettings,
-} from "../../cornermanLiveStatsSettings";
+import { MAX_OVERLAY_STATS, resolveCornermanLiveStatsSettings } from "../../cornermanLiveStatsSettings";
 import { LIVE_STAT_DEFS, type CornermanLiveStatId } from "../../cornermanLiveStats";
+import {
+  normalizeCornermanVoiceCooldownSeconds,
+  resolveCornermanVoiceSettings,
+  type CornermanVoiceLiveAlertMode,
+} from "../../cornermanVoiceSettings";
+import { PROVIDER_VOICE_OPTIONS, type CornermanVoiceBackend } from "../../providerVoice";
+import { createHybridCornermanSpeechAdapter, type CornermanSpeechAdapter } from "../utils/cornermanSpeech";
 
 /** Config as returned by the main process — apiKeys are redacted to booleans */
 interface Config {
@@ -42,6 +47,7 @@ interface Config {
   modelByProvider: Partial<Record<ProviderId, string>>;
   apiKeys: Partial<Record<ProviderId, true>>;
   localEndpoint: string | null;
+  azureEndpoint: string | null;
   theme: string | null;
   colorMode: string | null;
   liquidCharacterVisibility: number | null;
@@ -57,6 +63,17 @@ interface Config {
   cornermanPopupAutoHideSeconds: number | null;
   cornermanLiveStatsEnabled: boolean | null;
   cornermanOverlayStatIds: string[] | null;
+  cornermanVoiceEnabled: boolean | null;
+  cornermanVoiceBackend: CornermanVoiceBackend | null;
+  cornermanVoiceBetweenGameAdjustments: boolean | null;
+  cornermanVoiceLiveAlerts: CornermanVoiceLiveAlertMode | null;
+  cornermanVoiceURI: string | null;
+  cornermanVoiceModel: string | null;
+  cornermanProviderVoice: string | null;
+  cornermanVoiceInstructions: string | null;
+  cornermanVoiceRate: number | null;
+  cornermanVoiceVolume: number | null;
+  cornermanVoiceCooldownSeconds: number | null;
 }
 
 interface FetchedModel {
@@ -126,6 +143,7 @@ const FALLBACK_MODELS: Record<ProviderId, FetchedModel[]> = {
     { id: "gpt-4o-mini", label: "GPT-4o Mini", provider: "openai" },
     { id: "gpt-4o", label: "GPT-4o", provider: "openai" },
   ],
+  azure: [],
   openrouter: [
     { id: "deepseek/deepseek-chat", label: "DeepSeek V3", provider: "openrouter" },
     { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4 (via OpenRouter)", provider: "openrouter" },
@@ -156,6 +174,7 @@ export function Settings({ onImport }: SettingsProps) {
     modelByProvider: {},
     apiKeys: {},
     localEndpoint: null,
+    azureEndpoint: null,
     theme: null,
     colorMode: null,
     liquidCharacterVisibility: null,
@@ -171,6 +190,17 @@ export function Settings({ onImport }: SettingsProps) {
     cornermanPopupAutoHideSeconds: null,
     cornermanLiveStatsEnabled: null,
     cornermanOverlayStatIds: null,
+    cornermanVoiceEnabled: null,
+    cornermanVoiceBackend: null,
+    cornermanVoiceBetweenGameAdjustments: null,
+    cornermanVoiceLiveAlerts: null,
+    cornermanVoiceURI: null,
+    cornermanVoiceModel: null,
+    cornermanProviderVoice: null,
+    cornermanVoiceInstructions: null,
+    cornermanVoiceRate: null,
+    cornermanVoiceVolume: null,
+    cornermanVoiceCooldownSeconds: null,
   });
   // Write-only key inputs — never populated from main process
   const [keyEdits, setKeyEdits] = useState<Partial<Record<ProviderId, string>>>({});
@@ -193,6 +223,9 @@ export function Settings({ onImport }: SettingsProps) {
   const [dynamicModels, setDynamicModels] = useState<Record<string, FetchedModel[]> | null>(null);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [customModelInputs, setCustomModelInputs] = useState<Partial<Record<ProviderId, boolean>>>({});
+  const [speechVoices, setSpeechVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [voicePreviewStatus, setVoicePreviewStatus] = useState<string | null>(null);
+  const voicePreviewAdapter = useRef<CornermanSpeechAdapter | null>(null);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>("profile");
   const setWatcherActive = useGlobalStore((state) => state.setWatcherActive);
   const colorMode = useGlobalStore((state) => state.colorMode);
@@ -202,6 +235,7 @@ export function Settings({ onImport }: SettingsProps) {
   const popupSettings = resolveCornermanPopupSettings(config);
   const popupTransparency = clampCornermanOverlayTransparency(config.cornermanOverlayTransparency);
   const liveStatsSettings = resolveCornermanLiveStatsSettings(config);
+  const voiceSettings = resolveCornermanVoiceSettings(config);
 
   const toggleOverlayStat = (id: CornermanLiveStatId) => {
     const current = liveStatsSettings.overlayStatIds;
@@ -226,6 +260,22 @@ export function Settings({ onImport }: SettingsProps) {
     }
     load();
   }, []);
+
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+    const refreshVoices = () => setSpeechVoices(window.speechSynthesis.getVoices());
+    refreshVoices();
+    window.speechSynthesis.addEventListener("voiceschanged", refreshVoices);
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", refreshVoices);
+  }, []);
+
+  useEffect(
+    () => () => {
+      voicePreviewAdapter.current?.dispose?.();
+      voicePreviewAdapter.current = null;
+    },
+    [],
+  );
 
   // Fetch available models from configured providers
   const fetchModels = useCallback(async () => {
@@ -329,6 +379,31 @@ export function Settings({ onImport }: SettingsProps) {
   const onPickDensity = (d: Density) => {
     setDensity(d);
     window.clippi.saveConfig({ density: d }).catch(() => {});
+  };
+
+  const previewCornermanVoice = () => {
+    voicePreviewAdapter.current?.dispose?.();
+    let previewFailed = false;
+    const adapter = createHybridCornermanSpeechAdapter({
+      purpose: "preview",
+      onError: (message) => {
+        previewFailed = true;
+        setVoicePreviewStatus(message);
+      },
+    });
+    voicePreviewAdapter.current = adapter;
+    if (!adapter) {
+      setVoicePreviewStatus("Voice playback is unavailable.");
+      return;
+    }
+    setVoicePreviewStatus(voiceSettings.backend === "system" ? "Playing preview…" : "Generating preview…");
+    adapter.speak(
+      "Cornerman is ready. Stay patient, control center, and look for the same opening.",
+      voiceSettings,
+      () => {
+        if (!previewFailed) setVoicePreviewStatus("Preview finished.");
+      },
+    );
   };
 
   const handleBrowse = async () => {
@@ -646,6 +721,200 @@ export function Settings({ onImport }: SettingsProps) {
                 )}
 
                 <div className="settings-subsection">
+                  <h4 className="settings-subhead">Voice coaching</h4>
+                  <div className="settings-toggle-list">
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={voiceSettings.enabled}
+                        onChange={(e) => setConfig({ ...config, cornermanVoiceEnabled: e.target.checked })}
+                      />
+                      <span>
+                        <strong>Speak coaching tips</strong>
+                        <small>Hear short callouts without taking your eyes off the game.</small>
+                      </span>
+                    </label>
+                    {voiceSettings.enabled && (
+                      <label className="settings-toggle">
+                        <input
+                          type="checkbox"
+                          checked={voiceSettings.betweenGameAdjustments}
+                          onChange={(e) =>
+                            setConfig({ ...config, cornermanVoiceBetweenGameAdjustments: e.target.checked })
+                          }
+                        />
+                        <span>
+                          <strong>Read the between-game adjustment</strong>
+                          <small>Speak only the final “Adjustment” sentence, not the full coaching card.</small>
+                        </span>
+                      </label>
+                    )}
+                  </div>
+                  {voiceSettings.enabled && (
+                    <>
+                      <div className="settings-field" style={{ marginTop: 12 }}>
+                        <label htmlFor="setting-cornerman-voice-alerts">Live callouts</label>
+                        <select
+                          id="setting-cornerman-voice-alerts"
+                          className="model-select"
+                          value={voiceSettings.liveAlerts}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              cornermanVoiceLiveAlerts: e.target.value as CornermanVoiceLiveAlertMode,
+                            })
+                          }
+                        >
+                          <option value="high">Only high-impact tips</option>
+                          <option value="all">All detected tips</option>
+                          <option value="off">No in-game callouts</option>
+                        </select>
+                      </div>
+                      <div className="settings-field">
+                        <label htmlFor="setting-cornerman-voice-backend">Voice engine</label>
+                        <select
+                          id="setting-cornerman-voice-backend"
+                          className="model-select"
+                          value={voiceSettings.backend}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              cornermanVoiceBackend: e.target.value as CornermanVoiceBackend,
+                            })
+                          }
+                        >
+                          <option value="system">System voice</option>
+                          <option value="openai">OpenAI voice</option>
+                          <option value="azure">Azure OpenAI voice</option>
+                        </select>
+                      </div>
+                      {voiceSettings.backend === "system" ? (
+                        <div className="settings-field">
+                          <label htmlFor="setting-cornerman-voice">Voice</label>
+                          <select
+                            id="setting-cornerman-voice"
+                            className="model-select"
+                            value={voiceSettings.voiceURI ?? ""}
+                            onChange={(e) => setConfig({ ...config, cornermanVoiceURI: e.target.value || null })}
+                          >
+                            <option value="">System default</option>
+                            {speechVoices.map((voice) => (
+                              <option value={voice.voiceURI} key={voice.voiceURI}>
+                                {voice.name} ({voice.lang})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="settings-field">
+                            <label htmlFor="setting-cornerman-voice-model">
+                              {voiceSettings.backend === "azure" ? "Azure TTS deployment" : "Voice model"}
+                            </label>
+                            <input
+                              id="setting-cornerman-voice-model"
+                              className="model-select"
+                              value={voiceSettings.model}
+                              onChange={(e) => setConfig({ ...config, cornermanVoiceModel: e.target.value })}
+                              placeholder="gpt-4o-mini-tts"
+                            />
+                          </div>
+                          <div className="settings-field">
+                            <label htmlFor="setting-cornerman-provider-voice">Provider voice</label>
+                            <select
+                              id="setting-cornerman-provider-voice"
+                              className="model-select"
+                              value={voiceSettings.providerVoice}
+                              onChange={(e) => setConfig({ ...config, cornermanProviderVoice: e.target.value })}
+                            >
+                              {PROVIDER_VOICE_OPTIONS.map((voice) => (
+                                <option value={voice} key={voice}>
+                                  {voice.charAt(0).toUpperCase() + voice.slice(1)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="settings-field">
+                            <label htmlFor="setting-cornerman-voice-instructions">Speaking style</label>
+                            <textarea
+                              id="setting-cornerman-voice-instructions"
+                              className="model-select"
+                              rows={3}
+                              value={voiceSettings.instructions}
+                              onChange={(e) => setConfig({ ...config, cornermanVoiceInstructions: e.target.value })}
+                            />
+                          </div>
+                          <p className="settings-help">
+                            Provider voices are AI-generated. Save the{" "}
+                            {voiceSettings.backend === "azure" ? "Azure" : "OpenAI"} API key
+                            {voiceSettings.backend === "azure" ? " and endpoint" : ""} in AI settings before testing.
+                          </p>
+                        </>
+                      )}
+                      <div className="settings-field">
+                        <label htmlFor="setting-cornerman-voice-rate">Speech speed</label>
+                        <div className="settings-row settings-row-center">
+                          <input
+                            id="setting-cornerman-voice-rate"
+                            type="range"
+                            min="0.75"
+                            max="1.5"
+                            step="0.05"
+                            value={voiceSettings.rate}
+                            onChange={(e) => setConfig({ ...config, cornermanVoiceRate: Number(e.target.value) })}
+                          />
+                          <span className="settings-mono-value">{voiceSettings.rate.toFixed(2)}×</span>
+                        </div>
+                      </div>
+                      <div className="settings-field">
+                        <label htmlFor="setting-cornerman-voice-volume">Voice volume</label>
+                        <div className="settings-row settings-row-center">
+                          <input
+                            id="setting-cornerman-voice-volume"
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={voiceSettings.volume}
+                            onChange={(e) => setConfig({ ...config, cornermanVoiceVolume: Number(e.target.value) })}
+                          />
+                          <span className="settings-mono-value">{Math.round(voiceSettings.volume * 100)}%</span>
+                        </div>
+                      </div>
+                      <div className="settings-field">
+                        <label htmlFor="setting-cornerman-voice-cooldown">Minimum time between callouts</label>
+                        <div className="settings-row settings-row-center">
+                          <input
+                            id="setting-cornerman-voice-cooldown"
+                            type="number"
+                            min="5"
+                            max="30"
+                            value={voiceSettings.cooldownSeconds}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                cornermanVoiceCooldownSeconds: normalizeCornermanVoiceCooldownSeconds(
+                                  Number(e.target.value),
+                                ),
+                              })
+                            }
+                          />
+                          <span className="settings-mono-value">seconds</span>
+                        </div>
+                      </div>
+                      <button type="button" className="btn" onClick={previewCornermanVoice}>
+                        <Volume2 size={14} aria-hidden="true" />
+                        Test voice
+                      </button>
+                      {voicePreviewStatus && <p className="settings-help">{voicePreviewStatus}</p>}
+                      <p className="settings-help" style={{ marginTop: 10 }}>
+                        High-impact tips replace lower-priority queued tips. Repeated alerts are suppressed.
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                <div className="settings-subsection">
                   <h4 className="settings-subhead">Live stats</h4>
                   <div className="settings-toggle-list">
                     <label className="settings-toggle">
@@ -844,7 +1113,7 @@ export function Settings({ onImport }: SettingsProps) {
                     const fetched = dynamicModels?.[p.id] ?? [];
                     const models = fetched.length > 0 ? fetched : FALLBACK_MODELS[p.id];
                     const selectedModel = config.modelByProvider[p.id] ?? "";
-                    const customMode = customModelInputs[p.id] ?? false;
+                    const customMode = p.id === "azure" || (customModelInputs[p.id] ?? false);
                     const ready = !p.needsKey || isSet || !!keyEdit.trim();
 
                     return (
@@ -897,27 +1166,44 @@ export function Settings({ onImport }: SettingsProps) {
                           </div>
                         )}
 
+                        {p.id === "azure" && (
+                          <div className="settings-field" style={{ marginBottom: 8 }}>
+                            <label htmlFor="azure-endpoint" style={{ fontSize: 11 }}>
+                              Azure resource endpoint
+                            </label>
+                            <input
+                              id="azure-endpoint"
+                              type="url"
+                              value={config.azureEndpoint ?? ""}
+                              onChange={(e) => setConfig({ ...config, azureEndpoint: e.target.value || null })}
+                              placeholder="https://your-resource.openai.azure.com"
+                            />
+                          </div>
+                        )}
+
                         <div className="settings-field" style={{ marginBottom: 0 }}>
                           <div className="provider-model-head">
                             <label htmlFor={`model-${p.id}`} style={{ fontSize: 11 }}>
-                              Model
-                              {p.needsKey && !ready && (
+                              {p.id === "azure" ? "Deployment name" : "Model"}
+                              {p.id !== "azure" && p.needsKey && !ready && (
                                 <span className="provider-model-hint">(add a key to load live models)</span>
                               )}
                             </label>
-                            <button
-                              className="btn settings-small-button"
-                              onClick={() => setCustomModelInputs({ ...customModelInputs, [p.id]: !customMode })}
-                            >
-                              {customMode ? "Dropdown" : "Custom ID"}
-                            </button>
+                            {p.id !== "azure" && (
+                              <button
+                                className="btn settings-small-button"
+                                onClick={() => setCustomModelInputs({ ...customModelInputs, [p.id]: !customMode })}
+                              >
+                                {customMode ? "Dropdown" : "Custom ID"}
+                              </button>
+                            )}
                           </div>
                           {customMode ? (
                             <input
                               id={`model-${p.id}`}
                               value={selectedModel}
                               onChange={(e) => setProviderModel(p.id, e.target.value || null)}
-                              placeholder={models[0]?.id ?? "model-id"}
+                              placeholder={p.id === "azure" ? "your-deployment-name" : (models[0]?.id ?? "model-id")}
                             />
                           ) : (
                             <select

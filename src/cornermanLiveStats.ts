@@ -179,13 +179,76 @@ export const LIVE_STAT_DEFS: CornermanLiveStatDef[] = [
     minSample: 4,
     noiseBand: 0.05,
   },
-  { id: "wavedashes", label: "Wavedashes", shortLabel: "WAVEDASH", format: "count", direction: "higher", baselineKey: null, minSample: 0, noiseBand: 0 },
-  { id: "wavelands", label: "Wavelands", shortLabel: "WAVELAND", format: "count", direction: "higher", baselineKey: null, minSample: 0, noiseBand: 0 },
-  { id: "dashDances", label: "Dash dances", shortLabel: "DASHDANCE", format: "count", direction: "higher", baselineKey: null, minSample: 0, noiseBand: 0 },
-  { id: "rolls", label: "Rolls", shortLabel: "ROLLS", format: "count", direction: "lower", baselineKey: null, minSample: 0, noiseBand: 0 },
-  { id: "spotDodges", label: "Spot dodges", shortLabel: "SPOTDODGE", format: "count", direction: "lower", baselineKey: null, minSample: 0, noiseBand: 0 },
-  { id: "airDodges", label: "Air dodges", shortLabel: "AIRDODGE", format: "count", direction: "higher", baselineKey: null, minSample: 0, noiseBand: 0 },
-  { id: "ledgegrabs", label: "Ledge grabs", shortLabel: "LEDGE", format: "count", direction: "higher", baselineKey: null, minSample: 0, noiseBand: 0 },
+  {
+    id: "wavedashes",
+    label: "Wavedashes",
+    shortLabel: "WAVEDASH",
+    format: "count",
+    direction: "higher",
+    baselineKey: null,
+    minSample: 0,
+    noiseBand: 0,
+  },
+  {
+    id: "wavelands",
+    label: "Wavelands",
+    shortLabel: "WAVELAND",
+    format: "count",
+    direction: "higher",
+    baselineKey: null,
+    minSample: 0,
+    noiseBand: 0,
+  },
+  {
+    id: "dashDances",
+    label: "Dash dances",
+    shortLabel: "DASHDANCE",
+    format: "count",
+    direction: "higher",
+    baselineKey: null,
+    minSample: 0,
+    noiseBand: 0,
+  },
+  {
+    id: "rolls",
+    label: "Rolls",
+    shortLabel: "ROLLS",
+    format: "count",
+    direction: "lower",
+    baselineKey: null,
+    minSample: 0,
+    noiseBand: 0,
+  },
+  {
+    id: "spotDodges",
+    label: "Spot dodges",
+    shortLabel: "SPOTDODGE",
+    format: "count",
+    direction: "lower",
+    baselineKey: null,
+    minSample: 0,
+    noiseBand: 0,
+  },
+  {
+    id: "airDodges",
+    label: "Air dodges",
+    shortLabel: "AIRDODGE",
+    format: "count",
+    direction: "higher",
+    baselineKey: null,
+    minSample: 0,
+    noiseBand: 0,
+  },
+  {
+    id: "ledgegrabs",
+    label: "Ledge grabs",
+    shortLabel: "LEDGE",
+    format: "count",
+    direction: "higher",
+    baselineKey: null,
+    minSample: 0,
+    noiseBand: 0,
+  },
 ];
 
 export const LIVE_STAT_DEF_BY_ID: Record<CornermanLiveStatId, CornermanLiveStatDef> = LIVE_STAT_DEFS.reduce(
@@ -308,7 +371,12 @@ function buildPlayerStats(
   }
 
   const nw = computeNeutralWins(conversions, openingTypes, player.playerIndex, opponentIndices);
-  const neutral: CornermanLiveStatValue = { id: "neutralWins", value: safeRate(nw.count, nw.total), count: nw.count, total: nw.total };
+  const neutral: CornermanLiveStatValue = {
+    id: "neutralWins",
+    value: safeRate(nw.count, nw.total),
+    count: nw.count,
+    total: nw.total,
+  };
 
   if (actionCounts) {
     const lSuccess = actionCounts.lCancelCount.success;
@@ -329,7 +397,15 @@ function buildPlayerStats(
     stats.push({ id: "lCancelRate", value: null, count: 0, total: 0 });
     stats.push(neutral);
     stats.push({ id: "grabSuccess", value: null, count: 0, total: 0 });
-    for (const id of ["wavedashes", "wavelands", "dashDances", "rolls", "spotDodges", "airDodges", "ledgegrabs"] as const) {
+    for (const id of [
+      "wavedashes",
+      "wavelands",
+      "dashDances",
+      "rolls",
+      "spotDodges",
+      "airDodges",
+      "ledgegrabs",
+    ] as const) {
       stats.push(counterValue(id, 0));
     }
   }

@@ -10,6 +10,7 @@ import {
   SYSTEM_PROMPT,
   type GameResult,
   type GameSummary,
+  type GameFrameEvents,
 } from "./pipeline";
 import { callLLM, getActiveModelId, type LLMConfig } from "./llm";
 import { loadConfig } from "./config";
@@ -23,6 +24,13 @@ import {
   insertCoachingAnalysis,
   insertSignatureStats,
   insertHighlights,
+  insertConversionEvents,
+  insertStockDeaths,
+  insertThrowDIRows,
+  insertRecoverySpans,
+  insertShieldBlocks,
+  insertWhiffEvents,
+  insertHabitInstances,
   createSession,
   updateSession,
   getPlayerHistory,
@@ -43,6 +51,138 @@ async function hashFile(filePath: string): Promise<string> {
 /** Yield to the event loop so Electron stays responsive */
 function yieldToEventLoop(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
+}
+
+/**
+ * Persist per-instance frame events for a game, mapped from settings-order
+ * player slots to the target-player perspective. Must run inside the
+ * caller's import transaction.
+ */
+export function persistFrameEvents(gameId: number, frameEvents: GameFrameEvents, playerIdx: number): void {
+  insertConversionEvents(
+    gameId,
+    frameEvents.conversions.map((c) => ({
+      attackerIsPlayer: c.attackerSlot === playerIdx,
+      startFrame: c.startFrame,
+      endFrame: c.endFrame,
+      startPercent: c.startPercent,
+      endPercent: c.endPercent,
+      damage: c.damage,
+      moveCount: c.moveCount,
+      openerMoveId: c.openerMoveId,
+      lastMoveId: c.lastMoveId,
+      openingType: c.openingType,
+      didKill: c.didKill,
+      movesJson: JSON.stringify(c.moves),
+    })),
+  );
+
+  insertStockDeaths(
+    gameId,
+    frameEvents.stocks.map((s) => ({
+      victimIsPlayer: s.victimSlot === playerIdx,
+      stockNumber: s.stockNumber,
+      startFrame: s.startFrame,
+      endFrame: s.endFrame,
+      startPercent: s.startPercent,
+      deathPercent: s.deathPercent,
+      killerMoveId: s.killerMoveId,
+      deathDirection: s.deathDirection,
+      died: s.died,
+      verdict: s.verdict,
+      diScore: s.diScore,
+      stickX: s.diStickX,
+      stickY: s.diStickY,
+      launchAngleDeg: s.launchAngleDeg,
+      resourceFault: s.resourceFault,
+      finalHitFrame: s.finalHitFrame,
+    })),
+  );
+
+  insertThrowDIRows(
+    gameId,
+    frameEvents.throwDI.map((t) => ({
+      victimIsPlayer: t.victimSlot === playerIdx,
+      frame: t.frame,
+      throwDirection: t.throwDirection,
+      percent: t.percent,
+      stickX: t.stickX,
+      stickY: t.stickY,
+      sector: t.sector,
+      noDI: t.noDI,
+    })),
+  );
+
+  insertRecoverySpans(
+    gameId,
+    frameEvents.recoverySpans.map((r) => ({
+      recoveringIsPlayer: r.playerSlot === playerIdx,
+      startFrame: r.startFrame,
+      endFrame: r.endFrame,
+      startX: r.startX,
+      startY: r.startY,
+      launchQuadrant: r.launchQuadrant,
+      djFrame: r.djFrame,
+      djEarly: r.djEarly,
+      route: r.route,
+      upbDelay: r.upbDelay,
+      airdodgeUsed: r.airdodgeUsed,
+      landing: r.landing,
+      edgeguarderDepth: r.edgeguarderDepth,
+      edgeguarderInvincibleLedgeFrames: r.edgeguarderInvincibleLedgeFrames,
+      contested: r.contested,
+      hitDuringRecovery: r.hitDuringRecovery,
+    })),
+  );
+
+  insertShieldBlocks(
+    gameId,
+    frameEvents.shieldBlocks.map((b) => ({
+      defenderIsPlayer: b.defenderSlot === playerIdx,
+      blockFrame: b.blockFrame,
+      attackKind: b.attackKind,
+      attackLabel: b.attackLabel,
+      defenderActionableFrame: b.defenderActionableFrame,
+      attackerActionableFrame: b.attackerActionableFrame,
+      frameGap: b.frameGap,
+      inGrabRange: b.inGrabRange,
+      choice: b.choice,
+      grade: b.grade,
+      stringId: b.stringId,
+      stringFinal: b.stringFinal,
+      punishedAttacker: b.punishedAttacker,
+      gotHit: b.gotHit,
+    })),
+  );
+
+  insertWhiffEvents(
+    gameId,
+    frameEvents.whiffs.map((w) => ({
+      whifferIsPlayer: w.whifferSlot === playerIdx,
+      startFrame: w.startFrame,
+      vulnerableEndFrame: w.vulnerableEndFrame,
+      attackLabel: w.attackLabel,
+      attackKind: w.attackKind,
+      minDistance: w.minDistance,
+      opportunity: w.opportunity,
+      punished: w.punished,
+      reactionDelay: w.reactionDelay,
+    })),
+  );
+
+  insertHabitInstances(
+    gameId,
+    frameEvents.habits.map((h) => ({
+      isPlayer: h.playerSlot === playerIdx,
+      situation: h.situation,
+      option: h.option,
+      frame: h.frame,
+      percent: h.percent,
+      cornered: h.cornered,
+      pressured: h.pressured,
+      punished: h.punished,
+    })),
+  );
 }
 
 // ── Import result ────────────────────────────────────────────────────
@@ -199,6 +339,9 @@ async function importReplayInner(
       insertHighlights(gameId, playerHighlights);
     }
 
+    // Per-instance events (conversions, stock deaths, habit choices)
+    persistFrameEvents(gameId, gameResult.frameEvents, playerIdx);
+
     return gameId;
   });
 
@@ -288,19 +431,21 @@ export async function importReplays(
   }
 
   const now = new Date().toISOString();
-  const sessionId = createSession(now);
+  let sessionId: number | null = null;
 
   const finalResults: ImportResult[] = [];
   let skippedCount = 0;
   let winsCount = 0;
   let errorCount = 0;
   let importedCount = 0;
+  let completedCount = 0;
   const errorDetails: FileError[] = [];
   let earliestGameTime: string | null = null;
   let latestGameTime: string | null = null;
 
   // Step 1: Hash and filter duplicates in parallel (with limit)
   const toParse: { filePath: string; hash: string; gameNumber: number }[] = [];
+  const seenHashes = new Set<string>();
   const HASH_CONCURRENCY = 16;
 
   for (let i = 0; i < filePaths.length; i += HASH_CONCURRENCY) {
@@ -325,8 +470,9 @@ export async function importReplays(
           errorDetails.push({ filePath: fp, error: errorMsg });
         }
         finalResults.push({ filePath: fp, hash: "", skipped: false }); // Placeholder for failed hash
+        completedCount++;
         onProgress?.({
-          current: finalResults.length,
+          current: completedCount,
           total: filePaths.length,
           lastFile: fileName,
           importedSoFar: importedCount,
@@ -338,11 +484,12 @@ export async function importReplays(
         continue;
       }
 
-      if (replayExists(hash)) {
+      if (seenHashes.has(hash) || replayExists(hash)) {
         skippedCount++;
         finalResults.push({ filePath: fp, hash, skipped: true });
+        completedCount++;
         onProgress?.({
-          current: finalResults.length,
+          current: completedCount,
           total: filePaths.length,
           lastFile: fileName,
           importedSoFar: importedCount,
@@ -351,11 +498,16 @@ export async function importReplays(
           lastFileStatus: "skipped",
         });
       } else {
+        seenHashes.add(hash);
         toParse.push({ filePath: fp, hash, gameNumber: finalResults.length + 1 });
         finalResults.push({ filePath: fp, hash, skipped: false }); // Will be updated
       }
     }
     await yieldToEventLoop();
+  }
+
+  if (toParse.length > 0) {
+    sessionId = createSession(now);
   }
 
   // Step 2: Parse remaining replays in parallel via ParsePool
@@ -478,6 +630,9 @@ export async function importReplays(
           insertHighlights(gameId, playerHighlights);
         }
 
+        // Per-instance events (conversions, stock deaths, habit choices)
+        persistFrameEvents(gameId, gameResult.frameEvents, playerIdx);
+
         if (startAt) {
           if (!earliestGameTime || startAt < earliestGameTime) earliestGameTime = startAt;
           if (!latestGameTime || startAt > latestGameTime) latestGameTime = startAt;
@@ -505,10 +660,11 @@ export async function importReplays(
     // Update progress and error counts
     for (const res of parseResults) {
       const fileName = path.basename(res.item.filePath);
+      completedCount++;
       if (res.success) {
         importedCount++;
         onProgress?.({
-          current: finalResults.length, // approximation
+          current: completedCount,
           total: filePaths.length,
           lastFile: fileName,
           importedSoFar: importedCount,
@@ -523,7 +679,7 @@ export async function importReplays(
           errorDetails.push({ filePath: res.item.filePath, error: errorMsg });
         }
         onProgress?.({
-          current: finalResults.length,
+          current: completedCount,
           total: filePaths.length,
           lastFile: fileName,
           importedSoFar: importedCount,
@@ -550,11 +706,16 @@ export async function importReplays(
     await yieldToEventLoop();
   }
 
-  // Use actual game timestamps for the session; fall back to import time
-  if (earliestGameTime) {
-    getDb().prepare("UPDATE sessions SET started_at = ? WHERE id = ?").run(earliestGameTime, sessionId);
+  if (sessionId !== null && importedCount === 0) {
+    getDb().prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
+    sessionId = null;
+  } else if (sessionId !== null) {
+    // Use actual game timestamps for the session; fall back to import time
+    if (earliestGameTime) {
+      getDb().prepare("UPDATE sessions SET started_at = ? WHERE id = ?").run(earliestGameTime, sessionId);
+    }
+    updateSession(sessionId, latestGameTime ?? now, importedCount, winsCount);
   }
-  updateSession(sessionId, latestGameTime ?? now, importedCount, winsCount);
 
   return { imported: finalResults, skipped: skippedCount, errors: errorCount, errorDetails, sessionId };
 }
@@ -609,8 +770,10 @@ export async function importAndAnalyze(
   const userCfg = loadConfig();
   const llmConfig: LLMConfig = {
     modelId: getActiveModelId(userCfg),
+    activeProvider: userCfg.activeProvider,
     apiKeys: userCfg.apiKeys,
     localEndpoint: userCfg.localEndpoint,
+    azureEndpoint: userCfg.azureEndpoint,
   };
   const analysis = await callLLM({
     systemPrompt: SYSTEM_PROMPT,

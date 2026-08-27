@@ -3,6 +3,8 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
+const CONFIG_SOURCE = fs.readFileSync(path.resolve(__dirname, "../src/config.ts"), "utf-8");
+
 // Use a temp directory for test config to avoid touching real config
 const TEST_DIR = path.join(os.tmpdir(), "magi-test-config-" + Date.now());
 const TEST_CONFIG_PATH = path.join(TEST_DIR, "config.json");
@@ -76,5 +78,9 @@ describe("config logic", () => {
     expect(loaded.targetPlayer).toBe("Fox Main");
     expect(loaded.connectCode).toBe("FOX#123");
     expect(loaded.llmModelId).toBe("deepseek/deepseek-chat");
+  });
+
+  it("preserves Pollinations as its own provider during legacy migration", () => {
+    expect(CONFIG_SOURCE).toContain('if (modelId === "pollinations") return "pollinations";');
   });
 });

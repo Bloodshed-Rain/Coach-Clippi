@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion, type MotionStyle } from "framer-motion";
 import Markdown, { type Components } from "react-markdown";
 import {
   Eye,
@@ -68,7 +68,7 @@ function CoachingCard({
   index: number;
   defaultExpanded: boolean;
   forceExpanded?: boolean;
-  markdownComponents?: Components;
+  markdownComponents?: Components | undefined;
 }) {
   const [userExpanded, setUserExpanded] = useState(defaultExpanded);
   const reduceMotion = useReducedMotion();
@@ -97,7 +97,7 @@ function CoachingCard({
   return (
     <motion.div
       className="cc-card"
-      style={{ "--cc-accent": meta.color } as React.CSSProperties}
+      style={{ "--cc-accent": meta.color } as MotionStyle}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.05, 0.3), duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
@@ -150,7 +150,7 @@ export interface CoachingCardsProps {
   isStreaming?: boolean;
   expandShorthand?: boolean;
   /** Custom react-markdown components (e.g., for timestamp links) */
-  markdownComponents?: Components;
+  markdownComponents?: Components | undefined;
 }
 
 export function CoachingCards({ text, isStreaming, expandShorthand = false, markdownComponents }: CoachingCardsProps) {

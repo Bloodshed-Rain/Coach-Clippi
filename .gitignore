@@ -179,6 +179,10 @@ docs/superpowers/
 dogfood-output/
 .mcp.json
 
+# Local design handoff inspection artifacts
+.hermes/
+/Web effects enhancement ideas.zip
+
 # Accidental shell/npm leftovers
 magi-melee@*
 /node

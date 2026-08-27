@@ -1,252 +1,116 @@
 import { useEffect, useRef, useState } from "react";
-import { ExternalLink, Play, Pause, RotateCcw, HelpCircle } from "lucide-react";
-
-type Bounds = { x: number; y: number; width: number; height: number };
-
-const VK_SPACE = 0x20;
+import { ExternalLink } from "lucide-react";
+import {
+  buildReplayReviewClip,
+  formatReplayFrame,
+  type ReplayReviewClip,
+  type ReplayReviewMarker,
+  type ReplaySeekRequest,
+} from "../../replayReview";
+import { useEmbeddedReplaySession } from "../hooks/useEmbeddedReplaySession";
+import { ReplayReviewTimeline } from "./ReplayReviewTimeline";
+import { ReplayTransportControls } from "./ReplayTransportControls";
 
 export interface ReplayEmbedProps {
   replayPath: string;
-  startFrame?: number;
-  /** Bumped by the parent to force a fresh open of the same path. */
-  reopenKey?: number;
-  /** Called once when the user explicitly closes (Esc). Optional in inline use. */
+  seekRequest?: ReplaySeekRequest | undefined;
+  durationFrames: number;
+  markers?: ReplayReviewMarker[];
   onCloseRequest?: () => void;
 }
 
-function getStageBounds(el: HTMLElement): Bounds {
-  const r = el.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  return {
-    x: Math.round(r.left * dpr),
-    y: Math.round(r.top * dpr),
-    width: Math.round(r.width * dpr),
-    height: Math.round(r.height * dpr),
-  };
-}
+type ActiveReviewClip = ReplayReviewClip & { label: string };
 
-/**
- * Inline embedded-Dolphin surface. Owns its own IPC session keyed by
- * `replayPath` (and `reopenKey` when the parent wants to force a fresh open).
- *
- * Lifecycle is independent of any global store — the parent passes props,
- * this component opens/closes/repositions Dolphin to match.
- */
-export function ReplayEmbed({ replayPath, startFrame, reopenKey, onCloseRequest }: ReplayEmbedProps) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [status, setStatus] = useState<"opening" | "ready" | "error" | "fallback">("opening");
-  const [errMsg, setErrMsg] = useState<string | null>(null);
-  const [isPaused, setIsPaused] = useState(false);
+export function ReplayEmbed({
+  replayPath,
+  seekRequest,
+  durationFrames,
+  markers = [],
+  onCloseRequest,
+}: ReplayEmbedProps) {
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
+  const [activeClip, setActiveClip] = useState<ActiveReviewClip | null>(null);
+  const [loopEnabled, setLoopEnabled] = useState(false);
+  const loopSeekPendingRef = useRef(false);
 
-  const stageRef = useRef<HTMLDivElement>(null);
-  const sessionIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    sessionIdRef.current = sessionId;
-  }, [sessionId]);
-
-  useEffect(() => {
-    const offReady = window.clippi.onEmbedReplayReady((sid) => {
-      if (sid === sessionIdRef.current) setStatus("ready");
+  const { stageRef, status, errorMessage, isPaused, currentFrame, seek, seekRelative, togglePause, restart } =
+    useEmbeddedReplaySession({
+      enabled: true,
+      replayPath,
+      seekRequest,
+      durationFrames,
     });
-    const offErr = window.clippi.onEmbedReplayError((sid, message) => {
-      if (sid === sessionIdRef.current) {
-        setStatus("error");
-        setErrMsg(message);
-      }
+
+  useEffect(() => {
+    if (!seekRequest?.endFrame) return;
+    setSelectedMarkerId(null);
+    setActiveClip({
+      startFrame: seekRequest.frame,
+      endFrame: seekRequest.endFrame,
+      label: seekRequest.label ?? "Review clip",
     });
-    const offExited = window.clippi.onEmbedReplayExited((sid) => {
-      if (sid === sessionIdRef.current) {
-        sessionIdRef.current = null;
-        setSessionId(null);
-        setStatus("opening");
-      }
+  }, [seekRequest]);
+
+  useEffect(() => {
+    if (!loopEnabled || !activeClip || status !== "ready") return;
+    if (currentFrame < activeClip.endFrame || loopSeekPendingRef.current) return;
+    loopSeekPendingRef.current = true;
+    void seek(activeClip.startFrame).finally(() => {
+      window.setTimeout(() => {
+        loopSeekPendingRef.current = false;
+      }, 350);
     });
-    return () => {
-      offReady();
-      offErr();
-      offExited();
-    };
-  }, []);
+  }, [activeClip, currentFrame, loopEnabled, seek, status]);
 
-  // Open / re-open when path or reopenKey changes.
   useEffect(() => {
-    if (!replayPath || !stageRef.current) return;
-
-    let cancelled = false;
-    const stage = stageRef.current;
-
-    const timeout = setTimeout(async () => {
-      if (cancelled) return;
-
-      const bounds = getStageBounds(stage);
-
-      try {
-        if (sessionIdRef.current != null) {
-          await window.clippi.embedReplayClose(sessionIdRef.current).catch(() => {});
-          sessionIdRef.current = null;
-          setSessionId(null);
-        }
-
-        setStatus("opening");
-        setErrMsg(null);
-        setIsPaused(false);
-
-        const result = await window.clippi.embedReplayOpen(replayPath, bounds, startFrame ?? undefined);
-        if (cancelled) return;
-
-        if (!result.embedded) {
-          setStatus("fallback");
-          setErrMsg(result.reason ?? "Embedded playback unavailable on this OS");
-          if (startFrame != null) {
-            await window.clippi.openInDolphinAtFrame(replayPath, startFrame).catch(() => {});
-          } else {
-            await window.clippi.openInDolphin(replayPath).catch(() => {});
-          }
-          return;
-        }
-
-        if (result.sessionId) {
-          setSessionId(result.sessionId);
-          sessionIdRef.current = result.sessionId;
-        }
-      } catch (err) {
-        if (cancelled) return;
-        setStatus("error");
-        setErrMsg(err instanceof Error ? err.message : String(err));
-      }
-    }, 120);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timeout);
-    };
-  }, [replayPath, startFrame, reopenKey]);
-
-  // Tear down on unmount.
-  useEffect(() => {
-    return () => {
-      const sid = sessionIdRef.current;
-      if (sid != null) {
-        window.clippi.embedReplayClose(sid).catch(() => {});
-        sessionIdRef.current = null;
-      }
-    };
-  }, []);
-
-  // Reposition Dolphin to track the stage rect.
-  useEffect(() => {
-    if (status !== "ready" || !sessionId || !stageRef.current) return;
-    const stage = stageRef.current;
-    let raf: number | null = null;
-
-    const sync = () => {
-      raf = null;
-      if (!sessionIdRef.current) return;
-      const bounds = getStageBounds(stage);
-      window.clippi.embedReplaySetBounds(sessionIdRef.current, bounds).catch(() => {});
-    };
-    const schedule = () => {
-      if (raf != null) return;
-      raf = requestAnimationFrame(sync);
-    };
-
-    const ro = new ResizeObserver(schedule);
-    ro.observe(stage);
-    window.addEventListener("resize", schedule);
-    window.addEventListener("scroll", schedule, true);
-    schedule();
-
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", schedule);
-      window.removeEventListener("scroll", schedule, true);
-      if (raf != null) cancelAnimationFrame(raf);
-    };
-  }, [status, sessionId]);
-
-  // Keyboard shortcuts. Skip when typing in inputs / coaching textarea.
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target?.isContentEditable
-      ) {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable) {
         return;
       }
-      if (e.key === "Escape" && onCloseRequest) onCloseRequest();
-      if (e.key === " ") {
-        // Don't hijack Space when a button/link is focused — let it activate that control.
-        if (target?.closest("button, a, [role='button']")) return;
-        e.preventDefault();
-        onTogglePause();
+      if (event.key === "Escape" && onCloseRequest) onCloseRequest();
+      if (target?.closest("button, a, [role='button'], [role='slider']")) return;
+      if (event.key === " ") {
+        event.preventDefault();
+        void togglePause();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        void seekRelative(-2);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        void seekRelative(2);
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, isPaused, onCloseRequest]);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onCloseRequest, seekRelative, togglePause]);
 
-  const onTogglePause = () => {
-    if (!sessionId) return;
-    window.clippi.embedReplaySendKey(sessionId, VK_SPACE);
-    setIsPaused(!isPaused);
+  const onMarker = (marker: ReplayReviewMarker) => {
+    const clip = buildReplayReviewClip(marker.frame, durationFrames);
+    setSelectedMarkerId(marker.id);
+    setActiveClip({ ...clip, label: marker.label });
+    void seek(clip.startFrame);
   };
 
-  const [restartTick, setRestartTick] = useState(0);
+  const onScrub = (frame: number) => {
+    setSelectedMarkerId(null);
+    setActiveClip(null);
+    setLoopEnabled(false);
+    void seek(frame);
+  };
+
   const onRestart = () => {
-    // Force the open effect to re-fire by bumping a local counter.
-    setRestartTick((n) => n + 1);
+    setSelectedMarkerId(null);
+    setActiveClip(null);
+    setLoopEnabled(false);
+    void restart();
   };
-  useEffect(() => {
-    if (restartTick === 0) return;
-    let cancelled = false;
-    const stage = stageRef.current;
-    if (!stage) return;
-    (async () => {
-      if (sessionIdRef.current != null) {
-        await window.clippi.embedReplayClose(sessionIdRef.current).catch(() => {});
-        sessionIdRef.current = null;
-        setSessionId(null);
-      }
-      if (cancelled) return;
-      setStatus("opening");
-      setErrMsg(null);
-      setIsPaused(false);
-      const bounds = getStageBounds(stage);
-      const result = await window.clippi.embedReplayOpen(replayPath, bounds, 0).catch((e) => {
-        setStatus("error");
-        setErrMsg(e instanceof Error ? e.message : String(e));
-        return null;
-      });
-      if (cancelled || !result) return;
-      if (!result.embedded) {
-        setStatus("fallback");
-        setErrMsg(result.reason ?? "Embedded playback unavailable on this OS");
-        return;
-      }
-      if (result.sessionId) {
-        setSessionId(result.sessionId);
-        sessionIdRef.current = result.sessionId;
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [restartTick, replayPath]);
 
   const onOpenInDolphin = async () => {
-    if (!replayPath) return;
     try {
-      if (startFrame != null) {
-        await window.clippi.openInDolphinAtFrame(replayPath, startFrame);
-      } else {
-        await window.clippi.openInDolphin(replayPath);
-      }
-    } catch (e) {
-      console.error("Dolphin launch failed:", e);
+      await window.clippi.openInDolphinAtFrame(replayPath, currentFrame);
+    } catch (error) {
+      console.error("Dolphin launch failed:", error);
     }
   };
 
@@ -259,10 +123,15 @@ export function ReplayEmbed({ replayPath, startFrame, reopenKey, onCloseRequest 
             Launching Dolphin…
           </div>
         )}
+        {status === "ended" && (
+          <div className="replay-player-loading replay-player-ended">
+            Replay ended. Restart it or choose another review marker.
+          </div>
+        )}
         {status === "error" && (
           <div className="replay-player-error">
-            <div>{errMsg ?? "Embed failed"}</div>
-            <button className="replay-player-dolphin" onClick={onOpenInDolphin}>
+            <div>{errorMessage ?? "Embed failed"}</div>
+            <button className="replay-player-dolphin" type="button" onClick={onOpenInDolphin}>
               <ExternalLink size={13} />
               Open in Dolphin instead
             </button>
@@ -270,44 +139,39 @@ export function ReplayEmbed({ replayPath, startFrame, reopenKey, onCloseRequest 
         )}
         {status === "fallback" && (
           <div className="replay-player-error">
-            <div>{errMsg ?? "Embedded playback unavailable on this OS"}</div>
+            <div>{errorMessage ?? "Embedded playback unavailable on this OS"}</div>
             <div style={{ fontSize: 11, marginTop: 4 }}>Opened externally in Dolphin.</div>
           </div>
         )}
       </div>
 
+      <ReplayReviewTimeline
+        durationFrames={durationFrames}
+        currentFrame={currentFrame}
+        markers={markers}
+        selectedMarkerId={selectedMarkerId}
+        onScrub={onScrub}
+        onMarker={onMarker}
+      />
+
       <div className="replay-player-footer">
-        <div className="replay-player-controls">
-          <button
-            className="replay-control-btn"
-            onClick={onTogglePause}
-            disabled={status !== "ready"}
-            title="Pause/Play (Space)"
-          >
-            {isPaused ? <Play size={16} fill="currentColor" /> : <Pause size={16} fill="currentColor" />}
-          </button>
-          <button
-            className="replay-control-btn"
-            onClick={onRestart}
-            disabled={status !== "ready"}
-            title="Restart Replay"
-          >
-            <RotateCcw size={16} />
-          </button>
-          <div className="replay-hotkey-help" tabIndex={0} aria-label="Keyboard shortcuts">
-            <button className="replay-control-btn" type="button" aria-haspopup="true">
-              <HelpCircle size={14} />
-            </button>
-            <div className="replay-hotkey-help-tooltip" role="tooltip">
-              <div>
-                <kbd>Space</kbd> Pause / Play
-              </div>
-            </div>
-          </div>
-        </div>
+        <ReplayTransportControls
+          status={status}
+          isPaused={isPaused}
+          onTogglePause={() => void togglePause()}
+          onSeekRelative={(seconds) => void seekRelative(seconds)}
+          onRestart={onRestart}
+          loopEnabled={loopEnabled}
+          onToggleLoop={() => setLoopEnabled((current) => !current)}
+        />
 
         <div className="replay-player-footer-right">
-          <button className="replay-player-dolphin" onClick={onOpenInDolphin} disabled={!replayPath}>
+          {activeClip && (
+            <span className="replay-review-clip-label" title={activeClip.label}>
+              {activeClip.label} · {formatReplayFrame(activeClip.startFrame)}–{formatReplayFrame(activeClip.endFrame)}
+            </span>
+          )}
+          <button className="replay-player-dolphin" type="button" onClick={onOpenInDolphin}>
             <ExternalLink size={13} />
             Open Externally
           </button>

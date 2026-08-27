@@ -125,7 +125,9 @@ export function watchReplays(options: WatcherOptions): { close: () => void } {
   });
 
   watcher.on("error", (err: unknown) => {
-    console.error(`Watcher error: ${err instanceof Error ? err.message : String(err)}`);
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error(`Watcher error: ${error.message}`);
+    onError?.(error, replayFolder);
   });
 
   return {

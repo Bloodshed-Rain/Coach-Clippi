@@ -1,5 +1,254 @@
-import type { GameResult, PlayerHistory, HabitProfile } from "./types.js";
+import type { GameResult, PlayerHistory, HabitProfile, GameFrameEvents, PlayerSlot } from "./types.js";
 import { computeAdaptationSignals, findPlayerIdx } from "./adaptation.js";
+import { moveIdToName, getMoveName, frameToTimestamp } from "./helpers.js";
+
+// ── Measured DI prompt section ────────────────────────────────────────
+
+/** Throw-DI sector labels; +x is normalized to the thrower's facing. */
+const THROW_SECTOR_LABELS = [
+  "forward",
+  "forward-up",
+  "up",
+  "back-up",
+  "back",
+  "back-down",
+  "down",
+  "forward-down",
+] as const;
+
+/**
+ * Compact per-game measured-DI block: death verdicts read from actual stick
+ * inputs plus a throw-DI summary. Empty array when there is nothing to say.
+ */
+function formatMeasuredDISection(frameEvents: GameFrameEvents, tagBySlot: [string, string]): string[] {
+  const lines: string[] = [];
+
+  for (const slot of [0, 1] as PlayerSlot[]) {
+    const deaths = frameEvents.stocks.filter((s) => s.victimSlot === slot && s.died && s.verdict != null);
+    const deathParts = deaths.map((s) => {
+      const move = s.killerMoveId != null ? (moveIdToName[s.killerMoveId] ?? getMoveName(s.killerMoveId)) : "unknown";
+      const dir = s.deathDirection ? ` off the ${s.deathDirection === "up" ? "top" : s.deathDirection}` : "";
+      const verdict =
+        s.verdict === "NO_DI"
+          ? "NO DI input"
+          : s.verdict === "WRONG_DI"
+            ? `wrong DI (score ${s.diScore ?? 0})`
+            : s.verdict === "OK_DI"
+              ? `partial DI (score ${s.diScore ?? 0})`
+              : s.verdict === "GOOD_DI"
+                ? `good DI (score ${s.diScore ?? 0})`
+                : s.verdict === "SD"
+                  ? "self-destruct"
+                  : "unreadable";
+      const fault = s.resourceFault ? ", double jump unused" : "";
+      const ts = s.endFrame != null ? ` [${frameToTimestamp(s.endFrame)}]` : "";
+      return `${move} at ${Math.round(s.deathPercent ?? 0)}%${dir} — ${verdict}${fault}${ts}`;
+    });
+    if (deathParts.length > 0) {
+      lines.push(`${tagBySlot[slot]} deaths: ${deathParts.join("; ")}`);
+    }
+
+    const throws = frameEvents.throwDI.filter((t) => t.victimSlot === slot);
+    if (throws.length > 0) {
+      const byDirection = new Map<string, { total: number; noDI: number; sectors: Map<number, number> }>();
+      for (const t of throws) {
+        const entry = byDirection.get(t.throwDirection) ?? { total: 0, noDI: 0, sectors: new Map() };
+        entry.total++;
+        if (t.noDI) entry.noDI++;
+        else entry.sectors.set(t.sector, (entry.sectors.get(t.sector) ?? 0) + 1);
+        byDirection.set(t.throwDirection, entry);
+      }
+      const parts = [...byDirection.entries()].map(([direction, e]) => {
+        const topSector = [...e.sectors.entries()].sort((a, b) => b[1] - a[1])[0];
+        const sectorText = topSector ? `, mostly ${THROW_SECTOR_LABELS[topSector[0]] ?? "?"} (${topSector[1]})` : "";
+        const noDIText = e.noDI > 0 ? `, no-DI ${e.noDI}/${e.total}` : "";
+        return `${direction}-throw x${e.total}${noDIText}${sectorText}`;
+      });
+      lines.push(`${tagBySlot[slot]} throw DI received: ${parts.join("; ")}`);
+    }
+  }
+
+  return lines;
+}
+
+/**
+ * Compact per-game recovery + edgeguard commitment block. Sample sizes are
+ * always shown — the depth × kill numbers are descriptive, not causal.
+ */
+function formatRecoverySection(frameEvents: GameFrameEvents, tagBySlot: [string, string]): string[] {
+  const lines: string[] = [];
+
+  for (const slot of [0, 1] as PlayerSlot[]) {
+    const mine = frameEvents.recoverySpans.filter((r) => r.playerSlot === slot);
+    if (mine.length > 0) {
+      const count = (fn: (r: (typeof mine)[number]) => boolean): number => mine.filter(fn).length;
+      const deaths = count((r) => r.landing === "death");
+      const routes = ["high", "mid", "low"]
+        .map((route) => {
+          const n = count((r) => r.route === route);
+          const died = count((r) => r.route === route && r.landing === "death");
+          return n > 0 ? `${route} ${n}${died > 0 ? ` (${died} died)` : ""}` : null;
+        })
+        .filter(Boolean)
+        .join(", ");
+      const djUsed = mine.filter((r) => r.djFrame != null);
+      const djEarly = djUsed.filter((r) => r.djEarly).length;
+      const contestedDeaths = count((r) => r.contested && r.landing === "death");
+
+      // Up-B timing variance per launch bucket: metronomic = interceptable.
+      const byQuadrant = new Map<string, number[]>();
+      for (const r of mine) {
+        if (r.upbDelay != null) {
+          const list = byQuadrant.get(r.launchQuadrant) ?? [];
+          list.push(r.upbDelay);
+          byQuadrant.set(r.launchQuadrant, list);
+        }
+      }
+      let timingNote = "";
+      for (const [quadrant, delays] of byQuadrant) {
+        if (delays.length >= 3) {
+          const mean = delays.reduce((s, d) => s + d, 0) / delays.length;
+          const sd = Math.sqrt(delays.reduce((s, d) => s + (d - mean) ** 2, 0) / delays.length);
+          if (sd < 3) {
+            timingNote = `; up-B timing from ${quadrant} is METRONOMIC (σ=${Math.round(sd * 10) / 10}f over ${delays.length} — interceptable on a timer)`;
+            break;
+          }
+        }
+      }
+
+      lines.push(
+        `${tagBySlot[slot]} recoveries: ${mine.length} — landings: ledge ${count((r) => r.landing === "ledge")}, stage ${count((r) => r.landing === "stage")}, died ${deaths}` +
+          (routes ? `; routes: ${routes}` : "") +
+          (djUsed.length > 0 ? `; DJ burned early ${djEarly}/${djUsed.length}` : "") +
+          (contestedDeaths > 0 ? `; ${contestedDeaths} deaths came while contested` : "") +
+          timingNote,
+      );
+    }
+
+    // Edgeguard side: this player guarding the OTHER player's recoveries.
+    const theirs = frameEvents.recoverySpans.filter((r) => r.playerSlot !== slot);
+    if (theirs.length > 0) {
+      const cells = (["onstage", "ledge", "shallow", "deep"] as const)
+        .map((depth) => {
+          const n = theirs.filter((r) => r.edgeguarderDepth === depth).length;
+          const kills = theirs.filter((r) => r.edgeguarderDepth === depth && r.landing === "death").length;
+          return n > 0 ? `${depth} ${kills}/${n}` : null;
+        })
+        .filter(Boolean)
+        .join(", ");
+      const invincible = theirs.filter((r) => r.edgeguarderInvincibleLedgeFrames > 0).length;
+      lines.push(
+        `${tagBySlot[slot]} edgeguarding (kills/attempts by deepest commitment — small samples, descriptive only): ${cells}` +
+          (invincible > 0 ? `; used invincible ledge-hold in ${invincible}` : ""),
+      );
+    }
+  }
+
+  return lines;
+}
+
+/**
+ * Compact per-game whiff-punish ledger: opportunities offered vs captured
+ * (capture side) and own whiffs punished (exposure side).
+ */
+function formatWhiffSection(frameEvents: GameFrameEvents, tagBySlot: [string, string]): string[] {
+  const lines: string[] = [];
+
+  for (const slot of [0, 1] as PlayerSlot[]) {
+    // Capture side: the OPPONENT's whiffs are this player's opportunities.
+    const offered = frameEvents.whiffs.filter((w) => w.whifferSlot !== slot && w.opportunity);
+    if (offered.length >= 2) {
+      const captured = offered.filter((w) => w.punished);
+      const ignored = offered.filter((w) => !w.punished);
+      const byMove = new Map<string, number>();
+      for (const w of ignored) byMove.set(w.attackLabel, (byMove.get(w.attackLabel) ?? 0) + 1);
+      const ignoredText = [...byMove.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([label, n]) => `${label} x${n}`)
+        .join(", ");
+      const delays = captured.map((w) => w.reactionDelay).filter((d): d is number => d != null);
+      const medianDelay = delays.length > 0 ? delays.sort((a, b) => a - b)[Math.floor(delays.length / 2)] : null;
+      lines.push(
+        `${tagBySlot[slot]}: given ${offered.length} free-punish windows (opponent whiffed in range with time to act) — captured ${captured.length}` +
+          (ignored.length > 0 ? `; left on the table: ${ignoredText}` : "") +
+          (medianDelay != null ? `; median reaction on captures ${medianDelay}f` : ""),
+      );
+    }
+
+    // Exposure side: this player's own whiffs inside punish range.
+    const exposed = frameEvents.whiffs.filter((w) => w.whifferSlot === slot && w.opportunity);
+    if (exposed.length >= 2) {
+      const paid = exposed.filter((w) => w.punished).length;
+      const byMove = new Map<string, number>();
+      for (const w of exposed) byMove.set(w.attackLabel, (byMove.get(w.attackLabel) ?? 0) + 1);
+      const topMove = [...byMove.entries()].sort((a, b) => b[1] - a[1])[0];
+      lines.push(
+        `${tagBySlot[slot]} exposure: whiffed punishably ${exposed.length}x, punished ${paid}x` +
+          (topMove ? ` (most exposed move: ${topMove[0]} x${topMove[1]})` : ""),
+      );
+    }
+  }
+
+  return lines;
+}
+
+/**
+ * Compact per-game shield frame-gap audit: measured gaps + graded OOS
+ * decisions per blocked move (defense), and pressure-gap quality (offense).
+ */
+function formatShieldSection(frameEvents: GameFrameEvents, tagBySlot: [string, string]): string[] {
+  const lines: string[] = [];
+
+  for (const slot of [0, 1] as PlayerSlot[]) {
+    const blocks = frameEvents.shieldBlocks.filter((b) => b.defenderSlot === slot);
+    if (blocks.length === 0) continue;
+
+    const finals = blocks.filter((b) => b.stringFinal && b.frameGap != null);
+    const taken = finals.filter((b) => b.grade === "punish-taken").length;
+    const missed = finals.filter((b) => b.grade === "punish-missed").length;
+    const unsafe = finals.filter((b) => b.grade === "unsafe-challenge").length;
+    const holds = finals.filter((b) => b.grade === "correct-hold").length;
+
+    // Per-move rollup, worst offenders first (by missed punishes then count).
+    const byMove = new Map<string, { n: number; gaps: number[]; missed: number; taken: number }>();
+    for (const b of finals) {
+      const e = byMove.get(b.attackLabel) ?? { n: 0, gaps: [], missed: 0, taken: 0 };
+      e.n++;
+      if (b.frameGap != null) e.gaps.push(b.frameGap);
+      if (b.grade === "punish-missed") e.missed++;
+      if (b.grade === "punish-taken") e.taken++;
+      byMove.set(b.attackLabel, e);
+    }
+    const moveText = [...byMove.entries()]
+      .sort((a, b) => b[1].missed - a[1].missed || b[1].n - a[1].n)
+      .slice(0, 3)
+      .map(([label, e]) => {
+        const avgGap =
+          e.gaps.length > 0 ? Math.round((e.gaps.reduce((s, g) => s + g, 0) / e.gaps.length) * 10) / 10 : 0;
+        return `${label} x${e.n} (avg gap ${avgGap >= 0 ? "+" : ""}${avgGap}f${e.missed > 0 ? `, missed ${e.missed} guaranteed` : ""}${e.taken > 0 ? `, took ${e.taken}` : ""})`;
+      })
+      .join("; ");
+
+    lines.push(
+      `${tagBySlot[slot]} on shield: ${blocks.length} blocks in ${new Set(blocks.map((b) => b.stringId)).size} strings — guaranteed punishes taken ${taken}, MISSED ${missed}; unsafe challenges ${unsafe}; correct holds ${holds}` +
+        (moveText ? `. By move blocked: ${moveText}` : ""),
+    );
+
+    // Offense mirror: this player's pressure = the opponent's block records.
+    const oppBlocks = frameEvents.shieldBlocks.filter((b) => b.defenderSlot !== slot && b.frameGap != null);
+    if (oppBlocks.length >= 3) {
+      const gaps = oppBlocks.map((b) => b.frameGap!);
+      const loose7 = gaps.filter((g) => g >= 7).length;
+      const punished = oppBlocks.filter((b) => b.frameGap! >= 7 && b.punishedAttacker).length;
+      lines.push(
+        `${tagBySlot[slot]} shield pressure quality: ${gaps.length} measured gaps on opponent shield; ${loose7} were ≥7f (grab-vulnerable)${punished > 0 ? `, punished ${punished}x` : ""}`,
+      );
+    }
+  }
+
+  return lines;
+}
 // ── System prompt ─────────────────────────────────────────────────────
 
 // prettier-ignore
@@ -350,6 +599,18 @@ export function assembleAggregatePrompt(
   return lines.join("\n");
 }
 
+export const SYSTEM_PROMPT_CHARACTER_BLURB = `You are MAGI writing a scouting-report identity summary of how this player pilots one specific character, addressed to the player in second person.
+
+Write 2-4 sentences of plain prose only — no headers, no markdown, no bullet points:
+- Sentence 1 names the player's archetype on this character (e.g. "a patient whiff-punish Marth", "a shield-pressure-heavy rushdown Fox").
+- Then two genuine strengths, each backed by a real number from the data.
+- Then 1-3 concrete leaks, each with its number.
+
+Hard rules:
+- Only cite a stat when its sample size meets its threshold: habit options n>=15, deaths n>=20, whiff opportunities n>=25, shield blocks n>=30, recovery spans n>=20.
+- Prefer the per-instance event profile (measured, with sample sizes) over the averaged aggregate stats.
+- Never invent numbers.`;
+
 // ── Discovery (Deep Pattern) prompts ───────────────────────────────────
 
 export const SYSTEM_PROMPT_DISCOVERY = `You are MAGI, a superhuman Melee data scientist.
@@ -423,7 +684,13 @@ export interface DossierHeadToHead {
   losses: number;
   totalGames: number;
   winRate: number;
-  characterBreakdown: { opponentCharacter: string; wins: number; losses: number; totalGames: number; winRate: number }[];
+  characterBreakdown: {
+    opponentCharacter: string;
+    wins: number;
+    losses: number;
+    totalGames: number;
+    winRate: number;
+  }[];
   stageBreakdown: { stage: string; wins: number; losses: number; totalGames: number; winRate: number }[];
 }
 
@@ -470,7 +737,7 @@ export function assembleOpponentDossierPrompt(
   return lines.join("\n");
 }
 
-function stripNulls(obj: unknown): unknown {
+export function stripNulls(obj: unknown): unknown {
   if (obj === null || obj === undefined) return undefined;
   if (Array.isArray(obj)) {
     const filtered = obj.map(stripNulls).filter((v) => v !== undefined);
@@ -649,6 +916,34 @@ export function assembleUserPrompt(
       JSON.stringify(stripNulls(insightsObj), null, 2),
     );
 
+    // Measured DI: stick-input ground truth for deaths + throw DI
+    const diLines = formatMeasuredDISection(result.frameEvents, [gp1.tag, gp2.tag]);
+    if (diLines.length > 0) {
+      lines.push("", `--- Measured DI (read from actual stick inputs — treat as ground truth over diQuality) ---`);
+      for (const l of diLines) lines.push(`  ${l}`);
+    }
+
+    // Recovery blueprint + edgeguard commitment matrix
+    const recoveryLines = formatRecoverySection(result.frameEvents, [gp1.tag, gp2.tag]);
+    if (recoveryLines.length > 0) {
+      lines.push("", `--- Recovery & Edgeguard Commitment (per-span measurements) ---`);
+      for (const l of recoveryLines) lines.push(`  ${l}`);
+    }
+
+    // Shield frame-gap audit
+    const shieldLines = formatShieldSection(result.frameEvents, [gp1.tag, gp2.tag]);
+    if (shieldLines.length > 0) {
+      lines.push("", `--- Shield Frame-Gap Audit (measured per blocked hit; positive gap = defender's advantage) ---`);
+      for (const l of shieldLines) lines.push(`  ${l}`);
+    }
+
+    // Whiff-punish ledger
+    const whiffLines = formatWhiffSection(result.frameEvents, [gp1.tag, gp2.tag]);
+    if (whiffLines.length > 0) {
+      lines.push("", `--- Whiff-Punish Ledger (free punishes offered vs taken) ---`);
+      for (const l of whiffLines) lines.push(`  ${l}`);
+    }
+
     // Append timestamped key moments timeline
     if (allMoments.length > 0) {
       lines.push("", `--- Key Moments Timeline (use these timestamps in your analysis) ---`);
@@ -810,7 +1105,9 @@ export function assembleCornermanPrompt(
     lines.push("=== PRIOR SCOUTING DOSSIER ===");
     lines.push("(pre-set data; use only where live set data is thin)");
     lines.push("");
-    lines.push(dossierText.length > CORNERMAN_DOSSIER_CAP ? dossierText.slice(0, CORNERMAN_DOSSIER_CAP) + "…" : dossierText);
+    lines.push(
+      dossierText.length > CORNERMAN_DOSSIER_CAP ? dossierText.slice(0, CORNERMAN_DOSSIER_CAP) + "…" : dossierText,
+    );
     lines.push("");
   }
 

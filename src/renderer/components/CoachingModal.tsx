@@ -83,10 +83,10 @@ export function CoachingModal({
   }, [scope, id, preloadedText]);
 
   useEffect(() => {
-    if (isOpen && !analysis && !loading) {
+    if (isOpen && !analysis && !loading && !error) {
       runAnalysis();
     }
-  }, [isOpen, analysis, loading, runAnalysis]);
+  }, [isOpen, analysis, loading, error, runAnalysis]);
 
   // Close on Escape while open
   useEffect(() => {
@@ -160,7 +160,14 @@ export function CoachingModal({
         </header>
 
         <div ref={bodyRef} className="coaching-body custom-scrollbar">
-          {error && <div className="coaching-error">{error}</div>}
+          {error && (
+            <div className="coaching-error">
+              <div>{error}</div>
+              <button className="btn" onClick={runAnalysis}>
+                Try Again
+              </button>
+            </div>
+          )}
 
           {!analysis && loading && (
             <div className="coaching-loading">

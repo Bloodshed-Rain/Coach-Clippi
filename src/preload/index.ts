@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { CornermanLiveEvent } from "../cornermanLiveEvents";
 import type { CornermanLiveSnapshot } from "../cornermanLiveStats";
+import type { ProviderSpeechEvent, ProviderSpeechRequest } from "../providerVoice";
 
 const api = {
   // Config
@@ -26,7 +28,9 @@ const api = {
   generateDossier: (opponentKey: string, targetPlayer?: string, streamId?: string) =>
     ipcRenderer.invoke("analyze:dossier", opponentKey, targetPlayer, streamId),
   analyzeDiscovery: (streamId?: string) => ipcRenderer.invoke("analyze:discovery", streamId),
-  analyzeSession: (date: string) => ipcRenderer.invoke("llm:analyzeSession", date),
+  analyzeCharacterBlurb: (character: string, force?: boolean) =>
+    ipcRenderer.invoke("analyze:characterBlurb", character, force),
+  analyzeSession: (date: string, force?: boolean) => ipcRenderer.invoke("llm:analyzeSession", date, force),
   generatePracticePlan: (weaknessSummary: string) => ipcRenderer.invoke("llm:generatePracticePlan", weaknessSummary),
   listPracticePlans: () => ipcRenderer.invoke("llm:listPracticePlans"),
   setDrillCompletion: (drillId: number, completed: boolean) =>
@@ -41,6 +45,13 @@ const api = {
   getCurrentModel: () => ipcRenderer.invoke("llm:currentModel"),
   fetchOpenRouterModels: () => ipcRenderer.invoke("openrouter:models"),
   fetchAllModels: () => ipcRenderer.invoke("llm:fetch-all-models"),
+  startProviderSpeech: (request: ProviderSpeechRequest) => ipcRenderer.invoke("voice:synthesize:start", request),
+  cancelProviderSpeech: (requestId: string) => ipcRenderer.invoke("voice:synthesize:cancel", requestId),
+  onProviderSpeechEvent: (callback: (event: ProviderSpeechEvent) => void) => {
+    const listener = (_event: unknown, speechEvent: ProviderSpeechEvent) => callback(speechEvent);
+    ipcRenderer.on("voice:synthesis:event", listener);
+    return () => ipcRenderer.removeListener("voice:synthesis:event", listener);
+  },
 
   // Stats
   getOverallRecord: () => ipcRenderer.invoke("stats:overall"),
@@ -57,6 +68,7 @@ const api = {
   getCharacterStageStats: (character: string) => ipcRenderer.invoke("stats:characterStages", character),
   getCharacterSignatureStats: (character: string) => ipcRenderer.invoke("stats:characterSignature", character),
   getCharacterGameStats: (character: string) => ipcRenderer.invoke("stats:characterGameStats", character),
+  getCharacterEventProfile: (character: string) => ipcRenderer.invoke("stats:characterEventProfile", character),
   getOpponentDetail: (opponentKey: string) => ipcRenderer.invoke("stats:opponentDetail", opponentKey),
   getDashboardHighlights: () => ipcRenderer.invoke("stats:dashboardHighlights"),
   getGameHighlights: (gameId: number) => ipcRenderer.invoke("stats:gameHighlights", gameId),
@@ -69,6 +81,12 @@ const api = {
     ipcRenderer.invoke("stats:trendSeries", metric, range, filterChar),
   getTrendSeriesBundle: (range: string, filterChar: string | null) =>
     ipcRenderer.invoke("stats:trendSeriesBundle", range, filterChar),
+  getPerformanceHub: () => ipcRenderer.invoke("stats:performanceHub"),
+  getTrainingLog: (limit?: number) => ipcRenderer.invoke("stats:trainingLog", limit),
+  createTrainingLog: (entry: unknown) => ipcRenderer.invoke("stats:trainingLog:create", entry),
+  getGameReviewNotes: (gameId: number) => ipcRenderer.invoke("stats:gameReviewNotes", gameId),
+  addGameReviewNote: (gameId: number, note: { content: string; author?: string; category?: string }) =>
+    ipcRenderer.invoke("stats:gameReviewNotes:add", gameId, note),
 
   // Stock timeline
   getStockTimeline: (replayPath: string) => ipcRenderer.invoke("stats:stockTimeline", replayPath),
@@ -83,7 +101,10 @@ const api = {
     replayPath: string,
     bounds: { x: number; y: number; width: number; height: number },
     startFrame?: number,
-  ) => ipcRenderer.invoke("replay:embed:open", { replayPath, bounds, startFrame }),
+    endFrame?: number,
+  ) => ipcRenderer.invoke("replay:embed:open", { replayPath, bounds, startFrame, endFrame }),
+  embedReplaySeek: (sessionId: string, frame: number, endFrame?: number) =>
+    ipcRenderer.invoke("replay:embed:seek", sessionId, frame, endFrame),
   embedReplaySetBounds: (sessionId: string, bounds: { x: number; y: number; width: number; height: number }) =>
     ipcRenderer.invoke("replay:embed:setBounds", sessionId, bounds),
   embedReplayClose: (sessionId: string) => ipcRenderer.invoke("replay:embed:close", sessionId),
@@ -220,37 +241,8 @@ const api = {
     ipcRenderer.on("cornerman:set-update", listener);
     return () => ipcRenderer.removeListener("cornerman:set-update", listener);
   },
-  onCornermanLiveEvent: (
-    callback: (event: {
-      id: string;
-      type: string;
-      title: string;
-      body: string;
-      timestamp: string;
-      frame: number;
-      actorTag: string;
-      actorCharacter: string;
-      victimTag: string | null;
-      victimCharacter: string | null;
-      importance: "info" | "high";
-    }) => void,
-  ) => {
-    const listener = (
-      _event: unknown,
-      liveEvent: {
-        id: string;
-        type: string;
-        title: string;
-        body: string;
-        timestamp: string;
-        frame: number;
-        actorTag: string;
-        actorCharacter: string;
-        victimTag: string | null;
-        victimCharacter: string | null;
-        importance: "info" | "high";
-      },
-    ) => callback(liveEvent);
+  onCornermanLiveEvent: (callback: (event: CornermanLiveEvent) => void) => {
+    const listener = (_event: unknown, liveEvent: CornermanLiveEvent) => callback(liveEvent);
     ipcRenderer.on("cornerman:live-event", listener);
     return () => ipcRenderer.removeListener("cornerman:live-event", listener);
   },

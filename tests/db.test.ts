@@ -24,6 +24,11 @@ describe("database schema", () => {
       "game_stats",
       "coaching_analyses",
       "character_signature_stats",
+      "training_log_entries",
+      "game_review_notes",
+      "conversions",
+      "stock_deaths",
+      "habit_instances",
     ];
     for (const table of tables) {
       expect(schema).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
@@ -118,6 +123,13 @@ describe("db.ts module structure", () => {
     expect(DB_SOURCE).toContain("LIMIT ? OFFSET ?");
   });
 
+  it("searches Library games through detected replay moments", () => {
+    expect(DB_SOURCE).toContain("buildHighlightSearchPredicate");
+    expect(DB_SOURCE).toContain("EXISTS (SELECT 1 FROM highlights hs");
+    expect(DB_SOURCE).toContain("buildSignatureSearchPredicate");
+    expect(DB_SOURCE).toContain("searchMatches");
+  });
+
   it("keeps rival queries lightweight", () => {
     expect(DB_SOURCE).toContain("WITH opponent_records AS");
     expect(DB_SOURCE).toContain("characters LIKE ?");
@@ -152,6 +164,35 @@ describe("db.ts module structure", () => {
     expect(DB_SOURCE).toMatch(/gameResults:\s*\{\s*id:\s*number;\s*result:\s*string;?\s*\}\s*\[\]/);
     expect(DB_SOURCE).toContain("existing.gameResults.push({ id: r.id, result: r.result });");
   });
+
+  it("groups and loads sessions by the user's local calendar date", () => {
+    expect(DB_SOURCE).toContain("date(played_at, 'localtime') as date");
+    expect(DB_SOURCE).toContain("WHERE date(g.played_at, 'localtime') = ?");
+  });
+
+  it("stores Oracle exchanges and practice plans atomically", () => {
+    expect(DB_SOURCE).toContain("export function appendOracleExchange");
+    expect(DB_SOURCE).toMatch(/appendOracleExchange[\s\S]*?db\.transaction/);
+    expect(DB_SOURCE).toMatch(/insertPracticePlan[\s\S]*?return db\.transaction/);
+  });
+
+  it("persists player context and coach notes alongside replay telemetry", () => {
+    expect(DB_SOURCE).toContain("export function getPerformanceHub");
+    expect(DB_SOURCE).toContain("export function createTrainingLogEntry");
+    expect(DB_SOURCE).toContain("export function listGameReviewNotes");
+    expect(DB_SOURCE).toContain("export function addGameReviewNote");
+    expect(DB_SOURCE).toContain("idx_training_log_logged_at");
+    expect(DB_SOURCE).toContain("idx_game_review_notes_game");
+  });
+
+  it("exports per-instance event insert helpers", () => {
+    expect(DB_SOURCE).toContain("export function insertConversionEvents");
+    expect(DB_SOURCE).toContain("export function insertStockDeaths");
+    expect(DB_SOURCE).toContain("export function insertHabitInstances");
+    expect(DB_SOURCE).toContain("idx_conversions_game");
+    expect(DB_SOURCE).toContain("idx_stock_deaths_game");
+    expect(DB_SOURCE).toContain("idx_habit_instances_lookup");
+  });
 });
 
 describe("win-rate correctness", () => {
@@ -169,6 +210,58 @@ describe("win-rate correctness", () => {
     );
   });
 
+  it("has migration v9 for the Performance Lab's durable data", () => {
+    expect(DB_SOURCE).toContain("version: 9");
+    expect(DB_SOURCE).toContain("Add training log and per-game review notes");
+  });
+
+  it("has migration v10 for per-instance event tables", () => {
+    expect(DB_SOURCE).toContain("version: 10");
+    expect(DB_SOURCE).toContain("Add per-instance event tables: conversions, stock_deaths, habit_instances");
+  });
+
+  it("has migration v11 for measured DI", () => {
+    expect(DB_SOURCE).toContain("version: 11");
+    expect(DB_SOURCE).toContain("Add measured-DI columns to stock_deaths and the throw_di table");
+    expect(DB_SOURCE).toContain("export function insertThrowDIRows");
+    expect(DB_SOURCE).toContain("idx_throw_di_lookup");
+  });
+
+  it("has migration v12 for recovery spans", () => {
+    expect(DB_SOURCE).toContain("version: 12");
+    expect(DB_SOURCE).toContain("Add recovery_spans table (recovery blueprint + edgeguard commitment)");
+    expect(DB_SOURCE).toContain("export function insertRecoverySpans");
+    expect(DB_SOURCE).toContain("idx_recovery_spans_lookup");
+  });
+
+  it("has migration v13 for the shield frame-gap audit", () => {
+    expect(DB_SOURCE).toContain("version: 13");
+    expect(DB_SOURCE).toContain("Add shield_blocks table (shield frame-gap audit)");
+    expect(DB_SOURCE).toContain("export function insertShieldBlocks");
+    expect(DB_SOURCE).toContain("idx_shield_blocks_lookup");
+  });
+
+  it("has migration v14 for the whiff-punish ledger", () => {
+    expect(DB_SOURCE).toContain("version: 14");
+    expect(DB_SOURCE).toContain("Add whiff_events table (whiff-punish ledger)");
+    expect(DB_SOURCE).toContain("export function insertWhiffEvents");
+    expect(DB_SOURCE).toContain("idx_whiff_events_lookup");
+  });
+
+  it("supports event backfill: candidate query + per-game row deletion", () => {
+    expect(DB_SOURCE).toContain("export function getBackfillCandidates");
+    expect(DB_SOURCE).toContain("export function deleteFrameEventRows");
+    // The marker table for "already backfilled" must be stock_deaths — every
+    // parsed game writes stock records, so absence reliably means missing.
+    expect(DB_SOURCE).toContain("WHERE NOT EXISTS (SELECT 1 FROM stock_deaths sd WHERE sd.game_id = g.id)");
+
+    const BACKFILL_SOURCE = fs.readFileSync(path.resolve(__dirname, "../src/backfill.ts"), "utf-8");
+    // Rows are replaced atomically and files re-hashed before attribution.
+    expect(BACKFILL_SOURCE).toContain("deleteFrameEventRows(candidate.id)");
+    expect(BACKFILL_SOURCE).toContain("persistFrameEvents(candidate.id");
+    expect(BACKFILL_SOURCE).toContain("hash !== candidate.replayHash");
+  });
+
   it("never divides win rate by total games (draws must not count as losses)", () => {
     // Every SQL winRate must use the decisive-games denominator
     expect(DB_SOURCE).not.toMatch(/AS REAL\) \/ COUNT\(\*\)/);
@@ -181,6 +274,8 @@ describe("win-rate correctness", () => {
   });
 
   it("library summary exposes losses separately from draws", () => {
-    expect(DB_SOURCE).toMatch(/SUM\(CASE WHEN g\.result = 'loss' THEN 1 ELSE 0 END\) as losses,\s*\n\s*COUNT\(DISTINCT COALESCE/);
+    expect(DB_SOURCE).toMatch(
+      /SUM\(CASE WHEN g\.result = 'loss' THEN 1 ELSE 0 END\) as losses,\s*\n\s*COUNT\(DISTINCT COALESCE/,
+    );
   });
 });

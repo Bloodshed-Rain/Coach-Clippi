@@ -1,0 +1,127 @@
+.habit-ledger-filters {
+  margin-bottom: 12px;
+}
+
+.habit-ledger-empty-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 6px 0;
+}
+
+.habit-ledger-section {
+  margin-bottom: 16px;
+}
+
+.habit-ledger-section:last-of-type {
+  margin-bottom: 8px;
+}
+
+.habit-ledger-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.habit-ledger-situation {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--char-color, var(--accent)) 72%, var(--text-muted));
+}
+
+.habit-ledger-section-n {
+  font-family: var(--font-mono);
+}
+
+.habit-ledger-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 168px) 1fr 84px 104px;
+  gap: 10px;
+  align-items: center;
+  padding: 3px 0;
+}
+
+.habit-ledger-row-dim {
+  opacity: 0.45;
+}
+
+.habit-ledger-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.habit-ledger-option-label {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.habit-ledger-scoutable {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--yellow);
+  background: rgba(var(--yellow-rgb), 0.12);
+  border: 1px solid rgba(var(--yellow-rgb), 0.32);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+}
+
+.habit-ledger-bar-track {
+  height: 8px;
+  min-width: 40px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.habit-ledger-bar-fill {
+  height: 100%;
+  background: color-mix(in srgb, var(--char-color, var(--accent)) 42%, transparent);
+}
+
+.habit-ledger-share {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.habit-ledger-ratio {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.habit-ledger-punished {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--red);
+}
+
+.habit-ledger-punished-na {
+  color: var(--text-muted);
+}
+
+.habit-ledger-caption {
+  margin-top: 6px;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}

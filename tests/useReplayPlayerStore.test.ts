@@ -9,6 +9,7 @@ describe("useReplayPlayerStore", () => {
       playerCharacter: null,
       opponentCharacter: null,
       startFrame: null,
+      seekRevision: 0,
     });
   });
 
@@ -30,10 +31,12 @@ describe("useReplayPlayerStore", () => {
     expect(s.replayPath).toBeNull();
   });
 
-  it("openPlayer does nothing if the same replay is already open", () => {
+  it("openPlayer seeks when the same replay is already open", () => {
     useReplayPlayerStore.getState().openPlayer("/r.slp", 0);
+    const firstRevision = useReplayPlayerStore.getState().seekRevision;
     useReplayPlayerStore.getState().openPlayer("/r.slp", 500);
     const s = useReplayPlayerStore.getState();
-    expect(s.startFrame).toBe(0); // Should not have updated to 500
+    expect(s.startFrame).toBe(500);
+    expect(s.seekRevision).toBe(firstRevision + 1);
   });
 });

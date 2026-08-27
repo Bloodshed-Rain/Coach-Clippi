@@ -1,11 +1,7 @@
 // Resolves the user's live-stats preferences from config into a validated shape.
 // Mirrors cornermanPopupSettings.ts: pure, no IO, tolerant of malformed input.
 
-import {
-  ALL_LIVE_STAT_IDS,
-  isCornermanLiveStatId,
-  type CornermanLiveStatId,
-} from "./cornermanLiveStats";
+import { ALL_LIVE_STAT_IDS, isCornermanLiveStatId, type CornermanLiveStatId } from "./cornermanLiveStats";
 
 export interface CornermanLiveStatsSettings {
   enabled: boolean;

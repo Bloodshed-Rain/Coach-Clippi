@@ -1,0 +1,143 @@
+/* IdentityCard — AI Scouting Report. All classes prefixed .identity-card-*; theme tokens only. */
+
+.identity-card {
+  width: 100%;
+}
+
+.identity-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* Mirrors .character-radar-eyebrow */
+.identity-card-eyebrow {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.identity-card-regen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.identity-card-regen:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--border-subtle);
+  color: var(--char-color, var(--accent));
+}
+
+.identity-card-regen:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.identity-card-regen-icon--spin {
+  animation: identity-card-spin 0.9s linear infinite;
+}
+
+@keyframes identity-card-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.identity-card-skeleton {
+  display: grid;
+  gap: 10px;
+}
+
+.identity-card-skeleton-line {
+  height: 14px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    color-mix(in srgb, var(--char-color, var(--accent)) 14%, var(--surface-2)) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: identity-card-shimmer 1.4s ease-in-out infinite;
+}
+
+.identity-card-skeleton-line--short {
+  width: 62%;
+}
+
+@keyframes identity-card-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.identity-card-insufficient {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.identity-card-body {
+  position: relative;
+}
+
+.identity-card-body--pending .identity-card-blurb,
+.identity-card-body--pending .identity-card-caption {
+  opacity: 0.5;
+}
+
+.identity-card-body--pending::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 35%, transparent);
+  pointer-events: none;
+}
+
+.identity-card-blurb {
+  padding-left: 14px;
+  border-left: 2px solid color-mix(in srgb, var(--char-color, var(--accent)) 42%, transparent);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.identity-card-blurb p {
+  margin: 0 0 10px;
+}
+
+.identity-card-blurb p:last-child {
+  margin-bottom: 0;
+}
+
+.identity-card-blurb > p:first-of-type::first-line {
+  font-weight: 600;
+}
+
+.identity-card-blurb strong {
+  color: var(--char-color, var(--accent));
+}
+
+.identity-card-caption {
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}

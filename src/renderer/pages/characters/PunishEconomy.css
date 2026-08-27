@@ -1,0 +1,169 @@
+/* Punish Economy module — whiff capture + shield punish telemetry.
+   All classes prefixed .punish-economy-*; theme tokens only. */
+
+.punish-economy {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.punish-economy-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.punish-economy-subheader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.punish-economy-subheader::before {
+  content: "";
+  width: 12px;
+  height: 2px;
+  background: color-mix(in srgb, var(--char-color, var(--accent)) 70%, transparent);
+}
+
+.punish-economy-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.punish-economy-minihead {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--char-color, var(--accent)) 42%, var(--text-muted));
+}
+
+.punish-economy-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.punish-economy-caption {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.punish-economy-mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.punish-economy-cell-hot {
+  color: var(--red);
+}
+
+/* Grade distribution stacked bar */
+.punish-economy-bar {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+}
+
+.punish-economy-seg {
+  height: 100%;
+  min-width: 2px;
+}
+
+.punish-economy-seg-taken {
+  background: var(--green);
+}
+
+.punish-economy-seg-missed {
+  background: var(--red);
+}
+
+.punish-economy-seg-unsafe {
+  background: color-mix(in srgb, var(--red) 55%, transparent);
+}
+
+.punish-economy-seg-hold {
+  background: var(--text-muted);
+}
+
+.punish-economy-seg-faint {
+  background: color-mix(in srgb, var(--text-muted) 30%, transparent);
+}
+
+.punish-economy-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.punish-economy-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.punish-economy-legend-item b {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.punish-economy-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+/* Per-move ledger rows */
+.punish-economy-move-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--char-color, var(--accent)) 4%, var(--surface-2));
+}
+
+.punish-economy-move-row .punish-economy-mono {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.punish-economy-move-label {
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.punish-economy-row-hot {
+  border-color: rgba(var(--red-rgb), 0.35);
+  background: rgba(var(--red-rgb), 0.08);
+}
+
+.punish-economy-row-hot .punish-economy-mono {
+  color: var(--red);
+}

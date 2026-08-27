@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "node scripts/dev.js",
     "build:renderer": "vite build",
-    "build": "tsc -p tsconfig.main.json && vite build && electron-builder",
-    "build:win": "tsc -p tsconfig.main.json && vite build && electron-builder --win",
-    "build:mac": "tsc -p tsconfig.main.json && vite build && electron-builder --mac",
-    "build:linux": "tsc -p tsconfig.main.json && vite build && electron-builder --linux",
+    "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.renderer.json",
+    "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && vite build && electron-builder",
+    "build:win": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && vite build && electron-builder --win",
+    "build:mac": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && vite build && electron-builder --mac",
+    "build:linux": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && vite build && electron-builder --linux",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src/",
@@ -124,19 +125,19 @@
     }
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.28.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@slippi/slippi-js": "^9.0.0",
     "@tanstack/react-query": "^5.95.2",
     "better-sqlite3": "^12.8.0",
     "chokidar": "^5.0.0",
-    "electron-updater": "^6.8.3",
+    "electron-updater": "^6.8.9",
     "framer-motion": "^12.38.0",
     "koffi": "^2.16.2",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^7.13.2",
+    "react-router-dom": "^7.18.2",
     "recharts": "^3.8.0",
     "zustand": "^5.0.12"
   },
@@ -154,11 +155,14 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.26",
     "prettier": "^3.8.1",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.1",
     "vite": "^7.3.2",
     "vitest": "^4.1.0"
+  },
+  "overrides": {
+    "esbuild": "^0.28.2"
   }
 }

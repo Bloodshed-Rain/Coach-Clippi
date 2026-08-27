@@ -29,10 +29,7 @@ export function injectTimestampLinks(text: string): string {
  * When `onSeek` is provided, clicks call it instead of opening the global ReplayPlayer.
  * Used by GameTheater to route timestamp clicks to its inline embed.
  */
-export function makeTimestampComponents(
-  replayPath: string,
-  onSeek?: (frame: number) => void,
-): Components {
+export function makeTimestampComponents(replayPath: string, onSeek?: (frame: number) => void): Components {
   return {
     code: ({ children }) => {
       const text = String(children);

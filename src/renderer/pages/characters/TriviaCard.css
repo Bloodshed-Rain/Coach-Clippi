@@ -1,0 +1,47 @@
+.trivia-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.trivia-card-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-left: 2px solid color-mix(in srgb, var(--char-color, var(--accent)) 42%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+.trivia-card-value {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--char-color, var(--accent)) 42%, currentColor);
+}
+
+.trivia-card-value-green {
+  color: var(--green);
+}
+
+.trivia-card-value-red {
+  color: var(--red);
+}
+
+.trivia-card-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.trivia-card-caption {
+  font-size: 11px;
+  color: var(--text-muted);
+}

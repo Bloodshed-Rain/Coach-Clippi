@@ -119,7 +119,9 @@ function getLiveBaseline(targetTag: string): CornermanLiveBaseline | null {
     if (rows.length < 5) return null;
 
     const avg = (pick: (r: (typeof rows)[number]) => number, excludeZero: boolean): number | null => {
-      const values = rows.map(pick).filter((v) => typeof v === "number" && Number.isFinite(v) && (!excludeZero || v > 0));
+      const values = rows
+        .map(pick)
+        .filter((v) => typeof v === "number" && Number.isFinite(v) && (!excludeZero || v > 0));
       if (values.length < 5) return null;
       return values.reduce((sum, v) => sum + v, 0) / values.length;
     };

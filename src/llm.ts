@@ -3,6 +3,7 @@
  *
  * Supports:
  *   - OpenAI direct
+ *   - Azure OpenAI
  *   - OpenRouter (DeepSeek, Claude, etc.)
  *   - Anthropic direct (Claude)
  *   - Gemini direct
@@ -94,14 +95,18 @@ export function getModelLabel(modelId: string): string {
 
 export interface LLMConfig {
   modelId: string | null; // null = no provider/model selected yet
+  activeProvider: ProviderId | null;
   apiKeys: Partial<Record<ProviderId, string>>;
   localEndpoint: string | null; // e.g. "http://localhost:1234/v1"
+  azureEndpoint: string | null; // e.g. "https://resource.openai.azure.com"
 }
 
 export const LLM_DEFAULTS: LLMConfig = {
   modelId: null,
+  activeProvider: null,
   apiKeys: {},
   localEndpoint: null,
+  azureEndpoint: null,
 };
 
 /** Resolve the active model from a config that has activeProvider + modelByProvider.
@@ -154,6 +159,23 @@ class EmptyResponseError extends Error {
   }
 }
 
+/** Provider control/status messages are not usable model answers. */
+export function isUsableLLMResponse(text: string): boolean {
+  const normalized = text.trim();
+  if (!normalized) return false;
+
+  return !/^(?:(?:user|assistant|model)\s+)?safety\s*:\s*(?:safe|unsafe|unknown)\s*[.!]?$/i.test(normalized);
+}
+
+class InvalidResponseError extends Error {
+  constructor() {
+    super(
+      "The AI provider returned a safety status instead of an analysis. Try again or choose a specific model instead of an automatic/free model router.",
+    );
+    this.name = "InvalidResponseError";
+  }
+}
+
 // ── Main call function ───────────────────────────────────────────────
 
 export interface CallLLMOptions {
@@ -183,24 +205,45 @@ export async function callLLM(opts: CallLLMOptions): Promise<string> {
     throw new NoModelSelectedError();
   }
 
-  const provider = getModelProvider(modelId);
+  const provider = opts.modelOverride
+    ? getModelProvider(modelId)
+    : (opts.config.activeProvider ?? getModelProvider(modelId));
 
-  switch (provider) {
-    case "openrouter":
-      return await callOpenRouter(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-    case "gemini":
-      return await callGemini(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-    case "anthropic":
-      return await callAnthropic(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-    case "openai":
-      return await callOpenAI(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-    case "pollinations":
-      return await callPollinations(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-    case "local":
-      return await callLocal(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
-    default:
-      throw new Error(`Unknown provider: ${provider}`);
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    let text: string;
+    switch (provider) {
+      case "openrouter":
+        text = await callOpenRouter(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+        break;
+      case "gemini":
+        text = await callGemini(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+        break;
+      case "anthropic":
+        text = await callAnthropic(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+        break;
+      case "openai":
+        text = await callOpenAI(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+        break;
+      case "azure":
+        text = await callOpenAI(opts.systemPrompt, opts.userPrompt, modelId, opts.config, "azure");
+        break;
+      case "pollinations":
+        text = await callPollinations(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+        break;
+      case "local":
+        text = await callLocal(opts.systemPrompt, opts.userPrompt, modelId, opts.config);
+        break;
+      default:
+        throw new Error(`Unknown provider: ${provider}`);
+    }
+
+    if (isUsableLLMResponse(text)) return text;
+    if (attempt < MAX_RETRIES) {
+      console.error(`AI provider returned status metadata, retrying (${attempt}/${MAX_RETRIES})...`);
+    }
   }
+
+  throw new InvalidResponseError();
 }
 
 // ── Streaming support ────────────────────────────────────────────────
@@ -219,7 +262,9 @@ export async function callLLMStream(opts: CallLLMOptions, onChunk: StreamChunkCa
     throw new NoModelSelectedError();
   }
 
-  const provider = getModelProvider(modelId);
+  const provider = opts.modelOverride
+    ? getModelProvider(modelId)
+    : (opts.config.activeProvider ?? getModelProvider(modelId));
 
   switch (provider) {
     case "gemini":
@@ -230,6 +275,8 @@ export async function callLLMStream(opts: CallLLMOptions, onChunk: StreamChunkCa
       return await callAnthropicStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
     case "openai":
       return await callOpenAIStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
+    case "azure":
+      return await callOpenAIStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk, "azure");
     case "pollinations":
       return await callPollinationsStream(opts.systemPrompt, opts.userPrompt, modelId, opts.config, onChunk);
     case "local":
@@ -240,6 +287,19 @@ export async function callLLMStream(opts: CallLLMOptions, onChunk: StreamChunkCa
 }
 
 // ── Shared SSE reader for OpenAI-compatible streams ─────────────────
+
+function consumeSseLines(buffer: string, onLine: (line: string) => void, flush: boolean = false): string {
+  const lines = buffer.split(/\r?\n/);
+  const remainder = flush ? "" : (lines.pop() ?? "");
+  for (const line of lines) onLine(line);
+  return remainder;
+}
+
+function getSseData(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("data:")) return null;
+  return trimmed.slice(5).trimStart();
+}
 
 /**
  * Reads an SSE stream from an OpenAI-compatible API (OpenRouter, OpenAI, Local).
@@ -257,34 +317,33 @@ async function readOpenAICompatibleStream(
 
     const decoder = new TextDecoder();
     let buffer = "";
+    const processLine = (line: string) => {
+      const dataText = getSseData(line);
+      if (!dataText || dataText === "[DONE]") return;
+
+      try {
+        const data = JSON.parse(dataText) as {
+          choices?: { delta?: { content?: string } }[];
+        };
+        const text = data.choices?.[0]?.delta?.content;
+        if (text) {
+          accumulated += text;
+          onChunk(text);
+        }
+      } catch {
+        // Malformed JSON chunk — skip
+      }
+    };
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed === "data: [DONE]") continue;
-        if (!trimmed.startsWith("data: ")) continue;
-
-        try {
-          const data = JSON.parse(trimmed.slice(6)) as {
-            choices?: { delta?: { content?: string } }[];
-          };
-          const text = data.choices?.[0]?.delta?.content;
-          if (text) {
-            accumulated += text;
-            onChunk(text);
-          }
-        } catch {
-          // Malformed JSON chunk — skip
-        }
-      }
+      buffer = consumeSseLines(buffer, processLine);
     }
+    buffer += decoder.decode();
+    consumeSseLines(buffer, processLine, true);
   } finally {
     clearTimeout(timeoutHandle);
   }
@@ -598,43 +657,37 @@ async function callGeminiStream(
 
       const decoder = new TextDecoder();
       let buffer = "";
+      const processLine = (line: string) => {
+        const dataText = getSseData(line);
+        if (!dataText || dataText === "[DONE]") return;
+
+        try {
+          const data = JSON.parse(dataText) as {
+            candidates?: {
+              content?: { parts?: { text?: string }[] };
+            }[];
+          };
+
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            accumulated += text;
+            anyChunksSent = true;
+            onChunk(text);
+          }
+        } catch {
+          // Malformed JSON chunk — skip it
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-
-        // Process complete SSE events in the buffer
-        const lines = buffer.split("\n");
-        // Keep the last potentially incomplete line in the buffer
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed === "data: [DONE]") continue;
-
-          if (trimmed.startsWith("data: ")) {
-            const jsonStr = trimmed.slice(6);
-            try {
-              const data = JSON.parse(jsonStr) as {
-                candidates?: {
-                  content?: { parts?: { text?: string }[] };
-                }[];
-              };
-
-              const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (text) {
-                accumulated += text;
-                anyChunksSent = true;
-                onChunk(text);
-              }
-            } catch {
-              // Malformed JSON chunk — skip it
-            }
-          }
-        }
+        buffer = consumeSseLines(buffer, processLine);
       }
+      buffer += decoder.decode();
+      consumeSseLines(buffer, processLine, true);
     } finally {
       clearTimeout(timeout);
     }
@@ -802,34 +855,34 @@ async function callAnthropicStream(
 
       const decoder = new TextDecoder();
       let buffer = "";
+      const processLine = (line: string) => {
+        const dataText = getSseData(line);
+        if (!dataText) return;
+
+        try {
+          const data = JSON.parse(dataText) as {
+            type?: string;
+            delta?: { type?: string; text?: string };
+          };
+          if (data.type === "content_block_delta" && data.delta?.text) {
+            accumulated += data.delta.text;
+            anyChunksSent = true;
+            onChunk(data.delta.text);
+          }
+        } catch {
+          // Malformed JSON — skip
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith("data: ")) continue;
-
-          try {
-            const data = JSON.parse(trimmed.slice(6)) as {
-              type?: string;
-              delta?: { type?: string; text?: string };
-            };
-            if (data.type === "content_block_delta" && data.delta?.text) {
-              accumulated += data.delta.text;
-              anyChunksSent = true;
-              onChunk(data.delta.text);
-            }
-          } catch {
-            // Malformed JSON — skip
-          }
-        }
+        buffer = consumeSseLines(buffer, processLine);
       }
+      buffer += decoder.decode();
+      consumeSseLines(buffer, processLine, true);
     } finally {
       clearTimeout(timeout);
     }
@@ -850,12 +903,62 @@ async function callAnthropicStream(
   throw new EmptyResponseError("unknown");
 }
 
-// ── OpenAI direct ────────────────────────────────────────────────────
+// ── OpenAI and Azure OpenAI ─────────────────────────────────────────
 
-function resolveOpenAIEndpoint(config: LLMConfig): { url: string; headers: Record<string, string> } {
-  const apiKey = getApiKey("openai", config);
+type OpenAICloudProvider = "openai" | "azure";
+
+function resolveAzureChatCompletionsUrl(config: LLMConfig): string {
+  const endpoint = config.azureEndpoint?.trim() || process.env.AZURE_OPENAI_ENDPOINT?.trim();
+  if (!endpoint) {
+    throw new Error(
+      "Azure OpenAI endpoint is not set. Add it in Settings or set the AZURE_OPENAI_ENDPOINT environment variable.",
+    );
+  }
+
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    throw new Error("Azure OpenAI endpoint must be a valid HTTPS URL.");
+  }
+  if (url.protocol !== "https:") {
+    throw new Error("Azure OpenAI endpoint must use HTTPS.");
+  }
+
+  const path = url.pathname.replace(/\/+$/, "");
+  if (!path) {
+    url.pathname = "/openai/v1/chat/completions";
+  } else if (/\/openai$/i.test(path)) {
+    url.pathname = `${path}/v1/chat/completions`;
+  } else if (/\/openai\/v1$/i.test(path)) {
+    url.pathname = `${path}/chat/completions`;
+  } else {
+    url.pathname = `${path}/openai/v1/chat/completions`;
+  }
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
+function resolveOpenAIEndpoint(
+  config: LLMConfig,
+  provider: OpenAICloudProvider = "openai",
+): { url: string; headers: Record<string, string> } {
+  const apiKey = getApiKey(provider, config);
   if (!apiKey) {
-    throw new Error("OpenAI API key is not set. Add it in Settings or set the OPENAI_API_KEY environment variable.");
+    const envVar = PROVIDER_BY_ID[provider].envVar;
+    throw new Error(
+      `${PROVIDER_BY_ID[provider].label} API key is not set. Add it in Settings or set the ${envVar} environment variable.`,
+    );
+  }
+  if (provider === "azure") {
+    return {
+      url: resolveAzureChatCompletionsUrl(config),
+      headers: {
+        "api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+    };
   }
   return {
     url: "https://api.openai.com/v1/chat/completions",
@@ -871,6 +974,7 @@ async function callOpenAI(
   userPrompt: string,
   modelId: string,
   config: LLMConfig,
+  provider: OpenAICloudProvider = "openai",
 ): Promise<string> {
   const body = JSON.stringify({
     model: modelId,
@@ -880,7 +984,8 @@ async function callOpenAI(
       { role: "user", content: userPrompt },
     ],
   });
-  const { url, headers } = resolveOpenAIEndpoint(config);
+  const { url, headers } = resolveOpenAIEndpoint(config, provider);
+  const providerLabel = PROVIDER_BY_ID[provider].label;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const response = await fetchWithTimeout(url, {
@@ -896,15 +1001,15 @@ async function callOpenAI(
         continue;
       }
       if (response.status === 429) {
-        throw new Error("OpenAI rate limit exceeded. Please try again in a moment.");
+        throw new Error(`${providerLabel} rate limit exceeded. Please try again in a moment.`);
       }
       const errorBody = await response.text();
-      throw new Error(`OpenAI API error (${response.status}): ${errorBody}`);
+      throw new Error(`${providerLabel} API error (${response.status}): ${errorBody}`);
     }
 
     if (!response.ok) {
       const errorBody = await response.text();
-      throw new Error(`OpenAI API error (${response.status}): ${errorBody}`);
+      throw new Error(`${providerLabel} API error (${response.status}): ${errorBody}`);
     }
 
     const data = (await response.json()) as {
@@ -915,7 +1020,7 @@ async function callOpenAI(
     if (text) return text;
 
     if (attempt < MAX_RETRIES) {
-      console.error(`OpenAI returned empty response, retrying (${attempt}/${MAX_RETRIES})...`);
+      console.error(`${providerLabel} returned empty response, retrying (${attempt}/${MAX_RETRIES})...`);
       await sleep(RETRY_DELAY_MS * attempt);
     } else {
       throw new EmptyResponseError("empty choices");
@@ -933,6 +1038,7 @@ async function callOpenAIStream(
   modelId: string,
   config: LLMConfig,
   onChunk: StreamChunkCallback,
+  provider: OpenAICloudProvider = "openai",
 ): Promise<string> {
   const body = JSON.stringify({
     model: modelId,
@@ -943,7 +1049,8 @@ async function callOpenAIStream(
       { role: "user", content: userPrompt },
     ],
   });
-  const { url, headers } = resolveOpenAIEndpoint(config);
+  const { url, headers } = resolveOpenAIEndpoint(config, provider);
+  const providerLabel = PROVIDER_BY_ID[provider].label;
 
   let anyChunksSent = false;
   const wrappedOnChunk: StreamChunkCallback = (chunk) => {
@@ -975,15 +1082,17 @@ async function callOpenAIStream(
         await sleep(Number.isFinite(retryAfter) ? retryAfter * 1000 : RETRY_DELAY_MS * attempt * 2);
         continue;
       }
-      if (response.status === 429) throw new Error("OpenAI rate limit exceeded. Please try again in a moment.");
+      if (response.status === 429) {
+        throw new Error(`${providerLabel} rate limit exceeded. Please try again in a moment.`);
+      }
       const errorBody = await response.text();
-      throw new Error(`OpenAI API error (${response.status}): ${errorBody}`);
+      throw new Error(`${providerLabel} API error (${response.status}): ${errorBody}`);
     }
 
     if (!response.ok) {
       clearTimeout(timeout);
       const errorBody = await response.text();
-      throw new Error(`OpenAI API error (${response.status}): ${errorBody}`);
+      throw new Error(`${providerLabel} API error (${response.status}): ${errorBody}`);
     }
 
     const accumulated = await readOpenAICompatibleStream(response, wrappedOnChunk, timeout);
@@ -993,7 +1102,7 @@ async function callOpenAIStream(
     if (anyChunksSent) throw new EmptyResponseError("streaming returned partial text");
 
     if (attempt < MAX_RETRIES) {
-      console.error(`OpenAI stream returned empty, retrying (${attempt}/${MAX_RETRIES})...`);
+      console.error(`${providerLabel} stream returned empty, retrying (${attempt}/${MAX_RETRIES})...`);
       await sleep(RETRY_DELAY_MS * attempt);
     } else {
       throw new EmptyResponseError("streaming returned no text");

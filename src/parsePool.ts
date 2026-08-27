@@ -3,7 +3,7 @@
  *
  * Uses a pool of worker_threads to parse replays concurrently without
  * blocking the Electron main process. Pool size defaults to
- * Math.max(1, cpuCount - 2) to leave headroom for the UI and Dolphin.
+ * Math.min(8, Math.max(1, cpuCount - 2)) to leave headroom for the UI and Dolphin.
  *
  * Workers are spawned lazily and reused across jobs via message passing.
  */
@@ -47,7 +47,7 @@ export class ParsePool {
   private queue: ParseJob[] = [];
 
   constructor(poolSize?: number) {
-    this.poolSize = poolSize ?? Math.max(1, os.cpus().length - 2);
+    this.poolSize = poolSize ?? Math.min(8, Math.max(1, os.cpus().length - 2));
   }
 
   /**
@@ -114,6 +114,9 @@ export class ParsePool {
 
   /** Shut down all workers */
   terminate(): void {
+    for (const job of this.activeJobs.values()) {
+      job.reject(new Error("Pool terminated"));
+    }
     for (const w of this.workers) {
       w.terminate();
     }

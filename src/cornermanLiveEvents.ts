@@ -1,12 +1,6 @@
 import { State, type ConversionType, type FramesType, type ItemUpdateType } from "@slippi/slippi-js/node";
 
-import {
-  frameToTimestamp,
-  getMoveName,
-  isOffstage,
-  moveIdToName,
-  SHIELD_BREAK_FLY,
-} from "./pipeline/helpers";
+import { frameToTimestamp, getMoveName, isOffstage, moveIdToName, SHIELD_BREAK_FLY } from "./pipeline/helpers";
 import {
   countMoveId,
   hasAdjacentSequence,
@@ -94,8 +88,10 @@ export interface CornermanLiveEvent {
   frame: number;
   actorTag: string;
   actorCharacter: string;
+  actorIsTarget: boolean;
   victimTag: string | null;
   victimCharacter: string | null;
+  victimIsTarget: boolean | null;
   importance: "info" | "high";
 }
 
@@ -199,8 +195,10 @@ function makeConversionEvent({
     frame: eventFrame,
     actorTag: actor.tag,
     actorCharacter: actor.character,
+    actorIsTarget: actor.isTarget,
     victimTag: victim.tag,
     victimCharacter: victim.character,
+    victimIsTarget: victim.isTarget,
     importance,
     priority,
   };
@@ -680,8 +678,10 @@ export function detectLiveFrameEvents({
           frame,
           actorTag: player.tag,
           actorCharacter: player.character,
+          actorIsTarget: player.isTarget,
           victimTag: null,
           victimCharacter: null,
+          victimIsTarget: null,
           importance: "high",
         });
       }
@@ -709,8 +709,10 @@ export function detectLiveFrameEvents({
         frame,
         actorTag: player.tag,
         actorCharacter: player.character,
+        actorIsTarget: player.isTarget,
         victimTag: null,
         victimCharacter: null,
+        victimIsTarget: null,
         importance: "high",
       });
     }
@@ -758,8 +760,10 @@ export function detectLiveItemEvents({
           frame,
           actorTag: actor.tag,
           actorCharacter: actor.character,
+          actorIsTarget: actor.isTarget,
           victimTag: null,
           victimCharacter: null,
+          victimIsTarget: null,
           importance: "high",
         });
         continue;
@@ -777,8 +781,10 @@ export function detectLiveItemEvents({
         frame,
         actorTag: actor.tag,
         actorCharacter: actor.character,
+        actorIsTarget: actor.isTarget,
         victimTag: null,
         victimCharacter: null,
+        victimIsTarget: null,
         importance: "high",
       });
     }

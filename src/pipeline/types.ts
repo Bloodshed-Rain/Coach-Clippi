@@ -1,4 +1,5 @@
 import type { GameHighlight } from "./highlights.js";
+import type { GameFrameEvents } from "./frameEvents.js";
 
 // ── Interfaces from the spec ──────────────────────────────────────────
 
@@ -454,10 +455,27 @@ export type GameResult = {
   gameSummary: GameSummary;
   derivedInsights: [DerivedInsights, DerivedInsights];
   highlights: [GameHighlight[], GameHighlight[]];
+  /** Per-instance event records (conversions, stocks, habit choices) — Phase 0 of decision-grading stats. */
+  frameEvents: GameFrameEvents;
   startAt: string | null;
 };
 
 export type { GameHighlight } from "./highlights.js";
+export type {
+  GameFrameEvents,
+  ConversionRecord,
+  StockRecord,
+  HabitInstance,
+  HabitSituation,
+  AttackInstance,
+  NeutralSegment,
+  PlayerSlot,
+  DeathVerdict,
+  ThrowDIRecord,
+  RecoverySpan,
+  ShieldBlockRecord,
+  WhiffEvent,
+} from "./frameEvents.js";
 
 /** Historical player context for LLM coaching prompts */
 export interface PlayerHistory {

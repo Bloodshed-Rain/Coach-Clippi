@@ -91,6 +91,7 @@ body.overlay-mode #root {
 .overlay-toast-controls {
   display: flex;
   align-items: center;
+  gap: 10px;
   padding: 0 12px;
   max-height: 0;
   opacity: 0;
@@ -121,10 +122,29 @@ body.overlay-mode #root {
   grid-template-columns: auto 1fr 34px;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   color: var(--text-secondary, #cfd4dc);
   font-size: 11px;
   -webkit-app-region: no-drag;
+}
+
+.overlay-voice-toggle {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary, #cfd4dc);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.overlay-voice-toggle-on {
+  border-color: color-mix(in srgb, var(--accent, #7dd3fc) 55%, transparent);
+  color: var(--accent, #7dd3fc);
 }
 
 .overlay-transparency input {

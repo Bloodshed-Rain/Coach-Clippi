@@ -166,8 +166,10 @@ async function main() {
   const userConfig = configMod.loadConfig();
   const llmConfig: import("./llm").LLMConfig = {
     modelId: llmMod.getActiveModelId(userConfig),
+    activeProvider: userConfig.activeProvider,
     apiKeys: userConfig.apiKeys,
     localEndpoint: userConfig.localEndpoint,
+    azureEndpoint: userConfig.azureEndpoint,
   };
 
   if (!llmConfig.modelId) {

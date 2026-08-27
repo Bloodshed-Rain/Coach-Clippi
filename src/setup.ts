@@ -9,6 +9,7 @@ const KEY_FLAGS: Record<string, ProviderId> = {
   "--key": "gemini", // legacy short alias
   "--anthropic-key": "anthropic",
   "--openai-key": "openai",
+  "--azure-key": "azure",
 };
 
 function printConfig() {
@@ -25,6 +26,7 @@ function printConfig() {
     console.log(`  ${p.label.padEnd(17)} key: ${set}`);
   }
   console.log(`  Local endpoint:   ${config.localEndpoint ?? "(default: localhost:1234)"}`);
+  console.log(`  Azure endpoint:   ${config.azureEndpoint ?? "(not set)"}`);
 }
 
 function main() {
@@ -38,6 +40,9 @@ function main() {
     console.log("  npx tsx src/setup.ts --tag YourTag --code YOUR#123 --folder /path/to/replays");
     console.log("  npx tsx src/setup.ts --model deepseek/deepseek-chat --openrouter-key sk-or-...");
     console.log("  npx tsx src/setup.ts --model gemini-2.5-flash --gemini-key AIza...");
+    console.log(
+      "  npx tsx src/setup.ts --azure-deployment my-deployment --azure-key ... --azure-endpoint https://resource.openai.azure.com",
+    );
     return;
   }
 
@@ -62,11 +67,19 @@ function main() {
       updates.modelByProvider = { [provider]: next };
       updates.llmModelId = next;
       i++;
+    } else if (arg === "--azure-deployment" && next) {
+      updates.activeProvider = "azure";
+      updates.modelByProvider = { azure: next };
+      updates.llmModelId = next;
+      i++;
     } else if (arg in KEY_FLAGS && next) {
       apiKeyUpdates[KEY_FLAGS[arg]!] = next;
       i++;
     } else if (arg === "--local-endpoint" && next) {
       updates.localEndpoint = next;
+      i++;
+    } else if (arg === "--azure-endpoint" && next) {
+      updates.azureEndpoint = next;
       i++;
     }
   }

@@ -1,0 +1,104 @@
+/* FormStrip — slim recent-form + per-character trend sparklines.
+   All classes prefixed .form-strip-*; theme tokens only. */
+
+.form-strip-body {
+  display: flex;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.form-strip-recent {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  min-width: 180px;
+  padding-right: 24px;
+  border-right: 1px solid color-mix(in srgb, var(--char-color, var(--accent)) 42%, transparent);
+}
+
+.form-strip-dots {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.form-strip-caption {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.form-strip-sparks {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(130px, 1fr));
+  gap: 12px 20px;
+}
+
+.form-strip-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--char-color, var(--accent)) 4%, var(--surface-2));
+}
+
+.form-strip-cell-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.form-strip-cell-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.form-strip-cell-value {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.form-strip-cell-delta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.form-strip-up {
+  color: var(--green);
+}
+
+.form-strip-down {
+  color: var(--red);
+}
+
+.form-strip-spark {
+  width: 90px;
+  height: 24px;
+}
+
+@media (max-width: 900px) {
+  .form-strip-body {
+    flex-direction: column;
+  }
+
+  .form-strip-recent {
+    min-width: 0;
+    padding-right: 0;
+    border-right: 0;
+    padding-bottom: 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--char-color, var(--accent)) 42%, transparent);
+  }
+
+  .form-strip-sparks {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+}

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { motion } from "framer-motion";
+import { motion, type MotionStyle } from "framer-motion";
 import {
   useCharacterList,
   useCharacterMatchups,
@@ -9,12 +9,19 @@ import {
 import { Card } from "../components/ui/Card";
 import { DataTable } from "../components/ui/DataTable";
 import { WinrateBar } from "../components/ui/WinrateBar";
-import { type StatItem } from "../components/ui/StatGroupCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { computeRadarStats, type RadarGameStats, type RadarStats } from "../radarStats";
 
 const PlayerRadar = lazy(() => import("../components/RadarChart").then((m) => ({ default: m.PlayerRadar })));
 const CoachingModal = lazy(() => import("../components/CoachingModal").then((m) => ({ default: m.CoachingModal })));
+const IdentityCard = lazy(() => import("./characters/IdentityCard").then((m) => ({ default: m.IdentityCard })));
+const FormStrip = lazy(() => import("./characters/FormStrip").then((m) => ({ default: m.FormStrip })));
+const PunishEconomy = lazy(() => import("./characters/PunishEconomy").then((m) => ({ default: m.PunishEconomy })));
+const HabitLedger = lazy(() => import("./characters/HabitLedger").then((m) => ({ default: m.HabitLedger })));
+const RecoveryMatrix = lazy(() => import("./characters/RecoveryMatrix").then((m) => ({ default: m.RecoveryMatrix })));
+const DeathReport = lazy(() => import("./characters/DeathReport").then((m) => ({ default: m.DeathReport })));
+const StageCard = lazy(() => import("./characters/StageCard").then((m) => ({ default: m.StageCard })));
+const TriviaCard = lazy(() => import("./characters/TriviaCard").then((m) => ({ default: m.TriviaCard })));
 
 // ── Character card art (dynamic, falls back to emoji) ────────────────
 
@@ -76,6 +83,20 @@ interface SignatureStat {
   suffix?: string;
   highlight?: boolean;
   tip?: string;
+}
+
+interface CharacterSummary {
+  gamesPlayed?: number;
+  wins?: number;
+  losses?: number;
+  winRate?: number;
+}
+
+interface HeroCallout {
+  label: string;
+  value: string;
+  detail?: string;
+  highlight?: boolean;
 }
 
 // ── Character metadata ────────────────────────────────────────────────
@@ -383,7 +404,13 @@ export function Characters({ refreshKey: _ }: { refreshKey: number }) {
   }, []);
 
   if (selected) {
-    return <CharacterDetail character={selected} onBack={() => setSelected(null)} />;
+    return (
+      <CharacterDetail
+        character={selected}
+        summary={list.find((item) => item.character === selected)}
+        onBack={() => setSelected(null)}
+      />
+    );
   }
 
   if (isLoading) {
@@ -478,9 +505,18 @@ export function Characters({ refreshKey: _ }: { refreshKey: number }) {
   );
 }
 
-function CharacterDetail({ character, onBack }: { character: string; onBack: () => void }) {
+function CharacterDetail({
+  character,
+  summary,
+  onBack,
+}: {
+  character: string;
+  summary?: CharacterSummary;
+  onBack: () => void;
+}) {
   const meta = CHARACTER_META[character] ?? DEFAULT_META;
-  const { data: matchups = [] } = useCharacterMatchups(character);
+  const { data: matchupData } = useCharacterMatchups(character);
+  const matchups = matchupData ?? [];
   const { data: signature } = useCharacterSignatureStats(character);
   const { data: gameStats, isLoading: statsLoading } = useCharacterGameStats(character);
   const [coachOpen, setCoachOpen] = useState(false);
@@ -501,16 +537,10 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
         ]
       : [];
 
-  const sigItems: StatItem[] = useMemo(() => {
+  const signatureStats = useMemo<SignatureStat[]>(() => {
     if (!signature) return [];
     const rawArray = Array.isArray(signature) ? (signature as any[]) : [];
-    const aggregated = aggregateSignatureStats(rawArray, character);
-    return aggregated.map((s) => {
-      const displayValue = `${s.value}${s.suffix ?? ""}`;
-      const item: StatItem = { label: s.label, value: displayValue };
-      if (s.highlight) item.good = true;
-      return item;
-    });
+    return aggregateSignatureStats(rawArray, character);
   }, [signature, character]);
 
   // Unplayed character: no stats to show and nothing useful to coach on.
@@ -539,19 +569,34 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
     );
   }
 
-  // Signature stats flank the wireframe — half on each side.
-  // If a character has no sig stats, fall back to flanking with the
-  // generic hero stats so the layout never feels empty.
-  const flankItems: Array<{ label: string; value: string; highlight?: boolean }> =
-    sigItems.length > 0
-      ? sigItems.map((s) => ({
-          label: s.label,
-          value: String(s.value),
-          ...(s.good ? { highlight: true } : {}),
-        }))
+  // Keep the character art central and use at most four signature callouts
+  // around it. Highlighted character-specific moments win the limited space.
+  const flankItems: HeroCallout[] =
+    signatureStats.length > 0
+      ? [...signatureStats]
+          .sort((a, b) => Number(Boolean(b.highlight)) - Number(Boolean(a.highlight)))
+          .slice(0, 4)
+          .map((stat) => {
+            const item: HeroCallout = {
+              label: stat.label,
+              value: `${stat.value}${stat.suffix ?? ""}`,
+            };
+            if (stat.highlight) item.highlight = true;
+            if (!stat.suffix && totalGames > 0) {
+              const perGame = stat.value / totalGames;
+              item.detail = `${perGame >= 10 ? perGame.toFixed(1) : perGame.toFixed(2)} / game`;
+            }
+            return item;
+          })
       : heroStats.map(([label, value]) => ({ label, value }));
-  const leftFlank = flankItems.slice(0, Math.ceil(flankItems.length / 2));
-  const rightFlank = flankItems.slice(Math.ceil(flankItems.length / 2));
+  const leftFlank = flankItems.filter((_, index) => index % 2 === 0);
+  const rightFlank = flankItems.filter((_, index) => index % 2 === 1);
+
+  const summaryGames = summary?.gamesPlayed ?? totalGames;
+  const summaryWins = summary?.wins ?? 0;
+  const summaryLosses = summary?.losses ?? 0;
+  const summaryDecisions = summaryWins + summaryLosses;
+  const summaryWinRate = summary?.winRate ?? (summaryDecisions > 0 ? summaryWins / summaryDecisions : 0);
 
   return (
     <div>
@@ -559,7 +604,39 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
         &larr; All Characters
       </button>
 
-      <Card tone="chrome-plate" className="character-hero-banner">
+      <Card
+        tone="chrome-plate"
+        className="character-hero-banner"
+        style={{ "--char-color": meta.color, "--char-glow": meta.glowColor } as MotionStyle}
+      >
+        <div className="character-hero-head">
+          <div className="character-hero-identity">
+            <div className="character-hero-eyebrow">Character dossier</div>
+            <div className="character-hero-title-row">
+              <h2>{character}</h2>
+              <span className="character-hero-games mono">
+                {summaryGames} {summaryGames === 1 ? "game" : "games"}
+              </span>
+            </div>
+            {summaryDecisions > 0 && (
+              <div className="character-hero-record mono">
+                <span className="character-hero-wins">{summaryWins}W</span>
+                <span aria-hidden="true">–</span>
+                <span className="character-hero-losses">{summaryLosses}L</span>
+                <span className="character-hero-record-divider" aria-hidden="true">
+                  •
+                </span>
+                <span>{(summaryWinRate * 100).toFixed(1)}% win rate</span>
+              </div>
+            )}
+          </div>
+          {!statsLoading && totalGames > 0 && (
+            <button className="btn btn-primary character-hero-cta" onClick={() => setCoachOpen(true)}>
+              Analyze Character
+            </button>
+          )}
+        </div>
+
         <div className="character-hero-stage">
           <div className="character-hero-side character-hero-side--left">
             {leftFlank.map((s) => (
@@ -569,6 +646,7 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
               >
                 <div className="character-hero-stat-value mono">{s.value}</div>
                 <div className="character-hero-stat-label">{s.label}</div>
+                {s.detail && <div className="character-hero-stat-detail mono">{s.detail}</div>}
               </div>
             ))}
           </div>
@@ -589,37 +667,50 @@ function CharacterDetail({ character, onBack }: { character: string; onBack: () 
               >
                 <div className="character-hero-stat-value mono">{s.value}</div>
                 <div className="character-hero-stat-label">{s.label}</div>
+                {s.detail && <div className="character-hero-stat-detail mono">{s.detail}</div>}
               </div>
             ))}
           </div>
         </div>
 
-        <div className="character-hero-foot">
-          <h2 style={{ color: meta.color, margin: 0 }}>{character}</h2>
-          <div style={{ color: "var(--text-muted)", fontSize: 12 }}>{totalGames} games</div>
-          {sigItems.length > 0 && heroStats.length > 0 && (
-            <div className="character-hero-stripe">
-              {heroStats.map(([label, value]) => (
-                <div key={label} className="character-hero-stripe-cell">
-                  <div className="mono character-hero-stripe-value">{value}</div>
-                  <div className="character-hero-stripe-label">{label}</div>
-                </div>
-              ))}
-            </div>
-          )}
-          {!statsLoading && totalGames > 0 && (
-            <button className="btn btn-primary character-hero-cta" onClick={() => setCoachOpen(true)}>
-              Analyze Matchup
-            </button>
-          )}
-        </div>
+        {signatureStats.length > 0 && heroStats.length > 0 && (
+          <div className="character-hero-stripe">
+            {heroStats.map(([label, value]) => (
+              <div key={label} className="character-hero-stripe-cell">
+                <div className="mono character-hero-stripe-value">{value}</div>
+                <div className="character-hero-stripe-label">{label}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
+
+      <Suspense
+        fallback={
+          <div className="character-analytics-loading" aria-label="Loading character analytics">
+            <div className="spinner" />
+          </div>
+        }
+      >
+        <section className="character-analytics-stack" aria-label={`${character} analytics`}>
+          <IdentityCard character={character} color={meta.color} glowColor={meta.glowColor} />
+          <FormStrip character={character} color={meta.color} glowColor={meta.glowColor} />
+          <div className="character-analytics-grid">
+            <PunishEconomy character={character} color={meta.color} glowColor={meta.glowColor} />
+            <HabitLedger character={character} color={meta.color} glowColor={meta.glowColor} />
+            <RecoveryMatrix character={character} color={meta.color} glowColor={meta.glowColor} />
+            <DeathReport character={character} color={meta.color} glowColor={meta.glowColor} />
+            <StageCard character={character} color={meta.color} glowColor={meta.glowColor} />
+            <TriviaCard character={character} color={meta.color} glowColor={meta.glowColor} />
+          </div>
+        </section>
+      </Suspense>
 
       <div className="character-detail-bottom">
         <Card
           tone="chrome-plate"
           className="character-radar-card"
-          style={{ "--char-color": meta.color, "--char-glow": meta.glowColor } as CSSProperties}
+          style={{ "--char-color": meta.color, "--char-glow": meta.glowColor } as MotionStyle}
         >
           <div className="character-radar-head">
             <div>

@@ -1,95 +1,22 @@
-import {
-  State,
-  Frames,
-  type FramesType,
-  type StatsType,
-  type ConversionType,
-  type StockType,
-} from "@slippi/slippi-js/node";
+import { type FramesType, type StatsType, type ConversionType, type StockType } from "@slippi/slippi-js/node";
 
 import type { DerivedInsights, HabitProfile } from "./types.js";
-import {
-  ratio,
-  entropy,
-  frameToTimestamp,
-  moveIdToName,
-  getMoveName,
-  isKnockdown,
-  isLedgeGrab,
-  isShielding,
-  isOffstage,
-} from "./helpers.js";
+import type { GameFrameEvents, HabitInstance, HabitSituation, PlayerSlot } from "./frameEvents.js";
+import { ratio, entropy, frameToTimestamp, moveIdToName, getMoveName, isOffstage } from "./helpers.js";
 
 // ── Derived insights ──────────────────────────────────────────────────
 
-function classifyPostState(actionState: number): string | null {
-  // After knockdown: what did they do?
-  if (actionState === State.NEUTRAL_TECH) return "tech in place";
-  if (actionState === State.FORWARD_TECH) return "tech forward";
-  if (actionState === State.BACKWARD_TECH) return "tech backward";
-  if (actionState === State.TECH_MISS_UP || actionState === State.TECH_MISS_DOWN) return "missed tech";
-  if (actionState === State.JAB_RESET_UP || actionState === State.JAB_RESET_DOWN) return "jab reset";
-
-  // Getup attacks (195-198 range)
-  if (actionState >= 195 && actionState <= 198) return "getup attack";
-
-  return null;
-}
-
-function classifyLedgeOption(actionState: number): string | null {
-  if (actionState === State.ROLL_FORWARD) return "ledge roll";
-  // Ledge jump (254), ledge attack (256), ledge getup (250), ledge drop
-  if (actionState === 250) return "ledge getup";
-  if (actionState === 254) return "ledge jump";
-  if (actionState === 256) return "ledge attack";
-  if (actionState === State.FALL || actionState === State.FALL_FORWARD || actionState === State.FALL_BACKWARD)
-    return "ledge drop";
-  // Air dodge from ledge (ledgedash)
-  if (actionState === State.AIR_DODGE) return "ledgedash";
-  return null;
-}
-
-function classifyShieldOption(actionState: number): string | null {
-  if (actionState === State.ROLL_FORWARD) return "roll forward";
-  if (actionState === State.ROLL_BACKWARD) return "roll backward";
-  if (actionState === State.SPOT_DODGE) return "spot dodge";
-  if (actionState === State.GRAB || actionState === State.DASH_GRAB) return "grab OOS";
-  if (actionState >= State.CONTROLLED_JUMP_START && actionState <= State.CONTROLLED_JUMP_END) return "jump OOS";
-  // Aerial OOS
-  if (actionState >= State.AERIAL_ATTACK_START && actionState <= State.AERIAL_DAIR) return "aerial OOS";
-  // Shine OOS would appear as a special move — hard to distinguish without character check
-  if (actionState >= State.GROUND_ATTACK_START && actionState <= State.GROUND_ATTACK_END) return "attack OOS";
-  return null;
-}
-
-function buildHabitProfile(
-  playerIndex: number,
-  frames: FramesType,
-  lastFrame: number,
-  triggerFn: (actionState: number) => boolean,
-  classifyFn: (actionState: number) => string | null,
-): HabitProfile {
+/**
+ * Aggregate per-instance habit choices (from frameEvents) into the legacy
+ * HabitProfile shape. Single source of truth for situation/option detection
+ * lives in frameEvents.ts — this replaced the old aggregate-only walkers,
+ * whose ledge classifier used wrong action-state IDs (250/254/256).
+ */
+function buildHabitProfile(habits: HabitInstance[], playerSlot: PlayerSlot, situation: HabitSituation): HabitProfile {
   const counts = new Map<string, number>();
-  let inTrigger = false;
-
-  for (let f = Frames.FIRST_PLAYABLE; f <= lastFrame; f++) {
-    const frame = frames[f];
-    if (!frame) continue;
-    const pd = frame.players[playerIndex]?.post;
-    if (!pd) continue;
-    const actionState = pd.actionStateId ?? 0;
-
-    if (triggerFn(actionState)) {
-      inTrigger = true;
-    } else if (inTrigger) {
-      // Player just left the trigger state — classify what they did
-      const option = classifyFn(actionState);
-      if (option) {
-        counts.set(option, (counts.get(option) ?? 0) + 1);
-        inTrigger = false;
-      }
-      // If we can't classify yet, keep waiting (they might transition through intermediate states)
-    }
+  for (const h of habits) {
+    if (h.playerSlot !== playerSlot || h.situation !== situation) continue;
+    counts.set(h.option, (counts.get(h.option) ?? 0) + 1);
   }
 
   const options = [...counts.entries()]
@@ -214,14 +141,16 @@ export function buildDerivedInsights(
   frames: FramesType,
   lastFrame: number,
   stageId: number,
+  frameEvents: GameFrameEvents,
+  playerSlot: PlayerSlot,
 ): DerivedInsights {
   const playerStocks = stats.stocks.filter((s) => s.playerIndex === playerIndex);
 
-  const afterKnockdown = buildHabitProfile(playerIndex, frames, lastFrame, isKnockdown, classifyPostState);
+  const afterKnockdown = buildHabitProfile(frameEvents.habits, playerSlot, "knockdown");
 
-  const afterLedgeGrab = buildHabitProfile(playerIndex, frames, lastFrame, isLedgeGrab, classifyLedgeOption);
+  const afterLedgeGrab = buildHabitProfile(frameEvents.habits, playerSlot, "ledge");
 
-  const afterShieldPressure = buildHabitProfile(playerIndex, frames, lastFrame, isShielding, classifyShieldOption);
+  const afterShieldPressure = buildHabitProfile(frameEvents.habits, playerSlot, "oos");
 
   const performanceByStock = computePerformanceByStock(
     playerIndex,
@@ -266,11 +195,34 @@ export function buildDerivedInsights(
     if (c.playerIndex === playerIndex && c.didKill && c.moves.length > 0) {
       const lastMove = c.moves[c.moves.length - 1]!;
       const moveName = moveIdToName[lastMove.moveId] ?? getMoveName(lastMove.moveId);
+
+      // Measured DI: attach the stick-input verdict for this death when the
+      // kill conversion lines up with a died stock record.
+      const stock = frameEvents.stocks.find(
+        (s) =>
+          s.victimSlot === playerSlot &&
+          s.died &&
+          s.endFrame != null &&
+          c.endFrame != null &&
+          Math.abs(s.endFrame - c.endFrame) < 15,
+      );
+      const verdictText =
+        stock?.verdict === "NO_DI"
+          ? " — no DI input"
+          : stock?.verdict === "WRONG_DI"
+            ? ` — wrong survival DI (score ${stock.diScore ?? 0})`
+            : stock?.verdict === "OK_DI"
+              ? " — partial survival DI"
+              : stock?.verdict === "GOOD_DI"
+                ? " — good survival DI"
+                : "";
+      const resourceText = stock?.resourceFault ? " (double jump unused)" : "";
+
       keyMoments.push({
         timestamp: frameToTimestamp(c.startFrame),
         frame: c.startFrame,
         type: "death",
-        description: `Died to ${moveName} at ${Math.round(c.startPercent)}%`,
+        description: `Died to ${moveName} at ${Math.round(c.startPercent)}%${verdictText}${resourceText}`,
       });
     }
   }

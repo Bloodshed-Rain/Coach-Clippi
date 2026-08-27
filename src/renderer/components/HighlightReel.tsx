@@ -7,7 +7,7 @@ import { Card } from "./ui/Card";
 
 // ── Types ────────────────────────────────────────────────────────────
 
-interface HighlightItem {
+export interface HighlightItem {
   id: number;
   gameId: number;
   type: string;
@@ -32,7 +32,7 @@ interface RecentHighlightItem extends HighlightItem {
 
 // Game-result highlights (4-stocks, JV4/JV5, comebacks) describe the whole
 // game rather than a moment — startFrame is 0, so there's no seek target.
-const GAME_RESULT_TYPES = new Set(["four-stock", "jv5", "jv4", "comeback"]);
+export const GAME_RESULT_TYPES = new Set(["four-stock", "jv5", "jv4", "comeback"]);
 
 function HighlightIcon({ type }: { type: string }) {
   const size = 12;
@@ -50,7 +50,7 @@ export function GameHighlightReel({
   onSeekFrame,
 }: {
   gameId: number;
-  onSeekFrame?: (frame: number) => void;
+  onSeekFrame?: ((frame: number) => void) | undefined;
 }) {
   const { data } = useGameHighlights(gameId);
   const highlights = (data ?? []) as HighlightItem[];

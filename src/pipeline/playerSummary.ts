@@ -173,8 +173,7 @@ export function buildPlayerSummary(
     // frames of the shield going up = a physical power-shield. Track when the
     // shield was raised (any shield state entered from a non-shield state).
     const inShield = actionState === GUARD_REFLECT || actionState === GUARD_ON || actionState === GUARD;
-    const wasInShield =
-      prevActionState === GUARD_REFLECT || prevActionState === GUARD_ON || prevActionState === GUARD;
+    const wasInShield = prevActionState === GUARD_REFLECT || prevActionState === GUARD_ON || prevActionState === GUARD;
     if (inShield && !wasInShield) {
       shieldRaisedAtFrame = f;
     }

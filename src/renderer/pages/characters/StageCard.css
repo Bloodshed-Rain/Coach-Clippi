@@ -1,0 +1,167 @@
+/* StageCard — stage report card / ban sheet. All classes prefixed .stage-card-. */
+
+.stage-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* --- Best / worst callout tiles ------------------------------------------ */
+
+.stage-card-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.stage-card-tile {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stage-card-tile-best {
+  border-color: rgba(var(--green-rgb), 0.4);
+  background: color-mix(in srgb, rgb(var(--green-rgb)) 7%, var(--surface-2));
+}
+
+.stage-card-tile-worst {
+  border-color: rgba(var(--red-rgb), 0.4);
+  background: color-mix(in srgb, rgb(var(--red-rgb)) 7%, var(--surface-2));
+}
+
+.stage-card-tile-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.stage-card-tile-best .stage-card-tile-label {
+  color: var(--green);
+}
+
+.stage-card-tile-worst .stage-card-tile-label {
+  color: var(--red);
+}
+
+.stage-card-tile-stage {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stage-card-tile-value {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.stage-card-tile-caption {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* --- Stage table ---------------------------------------------------------- */
+
+.stage-card-stage-name {
+  font-weight: 600;
+}
+
+.stage-card-num {
+  font-family: var(--font-mono);
+}
+
+.stage-card-w {
+  color: var(--green);
+}
+
+.stage-card-l {
+  color: var(--red);
+}
+
+.stage-card-wr-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stage-card-pct {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  min-width: 4ch;
+}
+
+.stage-card-pct-up {
+  color: var(--green);
+}
+
+.stage-card-pct-down {
+  color: var(--red);
+}
+
+/* Character-accent the winrate bars inside this card (liquid theme keeps its
+   own chrome fill via its higher-specificity override). */
+.stage-card .winrate-bar-fill {
+  background: var(--char-color, var(--accent));
+}
+
+.stage-card-row-dim td {
+  opacity: 0.55;
+}
+
+.stage-card-footnote {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* --- Ban sheet strip ------------------------------------------------------ */
+
+.stage-card-ban {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stage-card-ban-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.stage-card-ban-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stage-card-chip {
+  border: 1px solid color-mix(in srgb, var(--char-color, var(--accent)) 42%, transparent);
+  background: color-mix(in srgb, var(--char-color, var(--accent)) 8%, var(--surface-2));
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.stage-card-chip b {
+  font-weight: 700;
+}
+
+.stage-card-chip-best b {
+  color: var(--green);
+}
+
+.stage-card-chip-worst b {
+  color: var(--red);
+}

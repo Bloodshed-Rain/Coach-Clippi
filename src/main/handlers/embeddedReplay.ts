@@ -7,6 +7,7 @@ import * as fs from "fs";
 import { spawn, type ChildProcess } from "child_process";
 import { screen, type BrowserWindow } from "electron";
 import { loadConfig } from "../../config.js";
+import { buildReplayCommData } from "../../replayComm.js";
 import { validatePath, type SafeHandleFn } from "../ipc.js";
 import { getMainWindow } from "../state.js";
 
@@ -22,6 +23,8 @@ interface EmbedSession {
   renderHwnd: bigint | null;
   parentHwnd: bigint | null;
   closed: boolean;
+  commandSequence: number;
+  lastCommMtimeSeconds: number;
 }
 
 let activeSession: EmbedSession | null = null;
@@ -73,23 +76,48 @@ function resolveDolphinAndIso(): { dolphinPath: string; isoPath: string } {
   return { dolphinPath, isoPath };
 }
 
-function writeCommFile(commFile: string, replayPath: string, startFrame: number | null): void {
-  const seek = startFrame != null ? Math.max(0, Math.floor(startFrame)) : null;
-  const data: Record<string, unknown> =
-    seek != null
-      ? {
-          mode: "queue",
-          queue: [{ path: replayPath, startFrame: seek }],
-          isRealTimeMode: false,
-          commandId: Math.random().toString(36).slice(2) + Date.now().toString(36),
-        }
-      : {
-          mode: "normal",
-          replay: replayPath,
-          isRealTimeMode: false,
-          commandId: Math.random().toString(36).slice(2) + Date.now().toString(36),
-        };
+function createCommandId(sequence: number): string {
+  return `magi-${Date.now().toString(36)}-${sequence.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function writeCommFile(
+  commFile: string,
+  replayPath: string,
+  startFrame: number | null,
+  endFrame: number | null,
+  commandId: string,
+): void {
+  const data = buildReplayCommData({ replayPath, startFrame, endFrame, commandId });
   fs.writeFileSync(commFile, JSON.stringify(data));
+}
+
+function rewriteSessionComm(session: EmbedSession, startFrame: number, endFrame: number | null): void {
+  session.commandSequence += 1;
+  const tempFile = `${session.commFile}.${process.pid}.${session.commandSequence}.tmp`;
+  const data = buildReplayCommData({
+    replayPath: session.replayPath,
+    startFrame,
+    endFrame,
+    commandId: createCommandId(session.commandSequence),
+  });
+
+  try {
+    fs.writeFileSync(tempFile, JSON.stringify(data));
+    fs.renameSync(tempFile, session.commFile);
+
+    // Older Playback Dolphin builds compare whole-second mtimes. Make every
+    // seek distinct even when the user clicks several markers rapidly.
+    const nextMtimeSeconds = Math.max(Math.floor(Date.now() / 1000), session.lastCommMtimeSeconds + 1);
+    const nextMtime = new Date(nextMtimeSeconds * 1000);
+    fs.utimesSync(session.commFile, nextMtime, nextMtime);
+    session.lastCommMtimeSeconds = nextMtimeSeconds;
+  } finally {
+    try {
+      if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+    } catch {
+      // Best-effort temp cleanup.
+    }
+  }
 }
 
 function killSession(session: EmbedSession): void {
@@ -134,6 +162,7 @@ interface OpenArgs {
    */
   bounds: { x: number; y: number; width: number; height: number };
   startFrame?: number;
+  endFrame?: number;
 }
 
 /**
@@ -170,6 +199,7 @@ async function spawnEmbedSession(
   replayPath: string,
   bounds: { x: number; y: number; width: number; height: number },
   startFrame: number,
+  endFrame: number | null,
 ): Promise<OpenResult> {
   const mainWindow = getMainWindow();
   if (!mainWindow) throw new Error("Main window unavailable");
@@ -177,7 +207,7 @@ async function spawnEmbedSession(
   const { dolphinPath, isoPath } = resolveDolphinAndIso();
 
   const commFile = path.join(require("os").tmpdir(), `magi-embed-${Date.now()}.json`);
-  writeCommFile(commFile, replayPath, startFrame);
+  writeCommFile(commFile, replayPath, startFrame, endFrame, createCommandId(0));
 
   const child = spawn(dolphinPath, ["-b", "-e", isoPath, "-i", commFile], {
     detached: false,
@@ -204,6 +234,8 @@ async function spawnEmbedSession(
     mainHwnd: null,
     parentHwnd: null,
     closed: false,
+    commandSequence: 0,
+    lastCommMtimeSeconds: Math.floor(fs.statSync(commFile).mtimeMs / 1000),
   };
   activeSession = session;
 
@@ -267,7 +299,22 @@ export function registerEmbeddedReplayHandlers(safeHandle: SafeHandleFn): void {
       activeSession = null;
     }
 
-    return spawnEmbedSession(safeReplayPath, args.bounds, args.startFrame ?? 0);
+    const startFrame = normalizeFrame(args.startFrame, "start frame") ?? 0;
+    const endFrame = normalizeFrame(args.endFrame, "end frame");
+    return spawnEmbedSession(safeReplayPath, args.bounds, startFrame, endFrame);
+  });
+
+  safeHandle("replay:embed:seek", async (_e, sessionId: string, frame: number, endFrame?: number) => {
+    if (!activeSession || activeSession.id !== sessionId || activeSession.closed) return false;
+    const normalizedFrame = normalizeFrame(frame, "seek frame");
+    if (normalizedFrame == null) throw new Error("Seek frame is required.");
+    const normalizedEndFrame = normalizeFrame(endFrame, "clip end frame");
+    rewriteSessionComm(
+      activeSession,
+      normalizedFrame,
+      normalizedEndFrame == null ? null : Math.max(normalizedFrame, normalizedEndFrame),
+    );
+    return true;
   });
 
   safeHandle(
@@ -303,6 +350,12 @@ export function registerEmbeddedReplayHandlers(safeHandle: SafeHandleFn): void {
     sendKey(activeSession.mainHwnd, vk);
     return true;
   });
+}
+
+function normalizeFrame(value: unknown, label: string): number | null {
+  if (value == null) return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Invalid ${label}.`);
+  return Math.max(0, Math.floor(value));
 }
 
 /** Tear down on app quit so we don't leak a Dolphin child process. */

@@ -4,7 +4,19 @@ export interface LibraryGame {
   opponentCharacter: string;
   stage: string;
   result: "win" | "loss";
+  searchMatches?: LibrarySearchMatch[];
+  searchTechniqueMatch?: boolean;
   [k: string]: unknown;
+}
+
+export interface LibrarySearchMatch {
+  id: number;
+  type: string;
+  label: string;
+  description: string;
+  startFrame: number;
+  timestamp: string;
+  didKill: boolean;
 }
 
 export interface LibraryFilters {

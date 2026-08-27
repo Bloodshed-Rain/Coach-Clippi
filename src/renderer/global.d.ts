@@ -17,6 +17,13 @@ import type {
   CornermanLiveStatValue as LiveStatValue,
   CornermanLiveBaseline as LiveBaseline,
 } from "../cornermanLiveStats";
+import type {
+  CharacterEventProfile as EventProfile,
+  CharacterBlurbResult as BlurbResult,
+} from "../characterEventProfile";
+import type { CornermanLiveEvent as LiveEvent } from "../cornermanLiveEvents";
+import type { ProviderId as LlmProviderId } from "../llm";
+import type { ProviderSpeechEvent, ProviderSpeechRequest } from "../providerVoice";
 
 declare global {
   // Re-exported from the single source of truth (src/cornermanLiveStats.ts) so
@@ -25,6 +32,10 @@ declare global {
   type CornermanLivePlayerStats = LivePlayerStats;
   type CornermanLiveStatValue = LiveStatValue;
   type CornermanLiveBaseline = LiveBaseline;
+
+  // Re-exported from src/characterEventProfile.ts (per-character analytics contract).
+  type CharacterEventProfile = EventProfile;
+  type CharacterBlurbResult = BlurbResult;
 
   interface CornermanStatus {
     active: boolean;
@@ -43,19 +54,7 @@ declare global {
     losses: number;
   }
 
-  interface CornermanLiveEvent {
-    id: string;
-    type: string;
-    title: string;
-    body: string;
-    timestamp: string;
-    frame: number;
-    actorTag: string;
-    actorCharacter: string;
-    victimTag: string | null;
-    victimCharacter: string | null;
-    importance: "info" | "high";
-  }
+  type CornermanLiveEvent = LiveEvent;
 
   interface Window {
     clippi: {
@@ -70,7 +69,8 @@ declare global {
       analyzeScoped: (scope: string, id: string | number, targetPlayer?: string, streamId?: string) => Promise<string>;
       generateDossier: (opponentKey: string, targetPlayer?: string, streamId?: string) => Promise<string>;
       analyzeDiscovery: (streamId?: string) => Promise<string>;
-      analyzeSession: (date: string) => Promise<string>;
+      analyzeCharacterBlurb: (character: string, force?: boolean) => Promise<CharacterBlurbResult>;
+      analyzeSession: (date: string, force?: boolean) => Promise<string>;
       generatePracticePlan: (weaknessSummary: string) => Promise<{
         id: number;
         name: string;
@@ -96,7 +96,10 @@ declare global {
       getLLMModels: () => Promise<any[]>;
       getCurrentModel: () => Promise<{ modelId: string; label: string }>;
       fetchOpenRouterModels: () => Promise<any[]>;
-      fetchAllModels: () => Promise<any[]>;
+      fetchAllModels: () => Promise<Record<string, Array<{ id: string; label: string; provider: LlmProviderId }>>>;
+      startProviderSpeech: (request: ProviderSpeechRequest) => Promise<boolean>;
+      cancelProviderSpeech: (requestId: string) => Promise<boolean>;
+      onProviderSpeechEvent: (callback: (event: ProviderSpeechEvent) => void) => () => void;
       getQueueStatus: () => Promise<{ pending: number; processing: boolean }>;
       getOverallRecord: () => Promise<any>;
       getMatchupRecords: () => Promise<any[]>;
@@ -110,7 +113,21 @@ declare global {
         limit?: number;
         offset?: number;
       }) => Promise<{
-        games: any[];
+        games: Array<
+          Record<string, unknown> & {
+            id: number;
+            searchTechniqueMatch: boolean;
+            searchMatches: Array<{
+              id: number;
+              type: string;
+              label: string;
+              description: string;
+              startFrame: number;
+              timestamp: string;
+              didKill: boolean;
+            }>;
+          }
+        >;
         total: number;
         totalUnfiltered: number;
         wins: number;
@@ -129,6 +146,7 @@ declare global {
       getCharacterStageStats: (character: string) => Promise<any[]>;
       getCharacterSignatureStats: (character: string) => Promise<any>;
       getCharacterGameStats: (character: string) => Promise<any[]>;
+      getCharacterEventProfile: (character: string) => Promise<CharacterEventProfile>;
       getOpponentDetail: (opponentKey: string) => Promise<any>;
       getDashboardHighlights: () => Promise<any>;
       getGameHighlights: (gameId: number) => Promise<any[]>;
@@ -170,13 +188,23 @@ declare global {
           Array<{ playedAt: string; value: number }>
         >
       >;
+      getPerformanceHub: () => Promise<PerformanceHub>;
+      getTrainingLog: (limit?: number) => Promise<TrainingLogEntry[]>;
+      createTrainingLog: (entry: CreateTrainingLogEntry) => Promise<TrainingLogEntry>;
+      getGameReviewNotes: (gameId: number) => Promise<GameReviewNote[]>;
+      addGameReviewNote: (
+        gameId: number,
+        note: { content: string; author?: string; category?: string },
+      ) => Promise<GameReviewNote>;
       openInDolphin: (replayPath: string) => Promise<boolean>;
       openInDolphinAtFrame: (replayPath: string, frame: number) => Promise<boolean>;
       embedReplayOpen: (
         replayPath: string,
         bounds: { x: number; y: number; width: number; height: number },
         startFrame?: number,
+        endFrame?: number,
       ) => Promise<{ embedded: boolean; sessionId?: string; reason?: string }>;
+      embedReplaySeek: (sessionId: string, frame: number, endFrame?: number) => Promise<boolean>;
       embedReplaySetBounds: (
         sessionId: string,
         bounds: { x: number; y: number; width: number; height: number },
@@ -192,6 +220,18 @@ declare global {
       stopWatcher: () => Promise<boolean>;
       onImported: (callback: (result: any) => void) => () => void;
       onWatcherError: (callback: (message: string) => void) => () => void;
+      onImportProgress: (
+        callback: (progress: {
+          current: number;
+          total: number;
+          lastFile: string;
+          importedSoFar: number;
+          skippedSoFar: number;
+          errorsSoFar: number;
+          lastError?: string;
+          lastFileStatus: "imported" | "skipped" | "error";
+        }) => void,
+      ) => () => void;
       onAnalysisStream: (callback: (chunk: string, streamId?: string) => void) => () => void;
       onAnalysisStreamEnd: (callback: (streamId?: string) => void) => () => void;
       cornermanStart: (replayFolder: string, targetPlayer: string) => Promise<CornermanStatus>;
@@ -211,6 +251,76 @@ declare global {
       onCornermanError: (callback: (message: string) => void) => () => void;
     };
   }
+}
+
+interface PerformanceMetric {
+  key:
+    | "neutralWinRate"
+    | "conversionRate"
+    | "avgDamagePerOpening"
+    | "openingsPerKill"
+    | "recoverySuccessRate"
+    | "avgDeathPercent"
+    | "lCancelRate"
+    | "edgeguardSuccessRate"
+    | "diSurvivalScore";
+  label: string;
+  current: number;
+  baseline: number | null;
+  delta: number | null;
+  higherIsBetter: boolean;
+  winValue: number | null;
+  lossValue: number | null;
+}
+
+interface PerformanceHub {
+  sample: { currentGames: number; baselineGames: number; gamesScanned: number };
+  metrics: PerformanceMetric[];
+  insights: Array<{ kind: "progress" | "focus" | "winSignal"; title: string; detail: string }>;
+  reviewQueue: Array<{
+    id: number;
+    playedAt: string | null;
+    playerCharacter: string;
+    opponentCharacter: string;
+    opponentTag: string;
+    stage: string;
+    playerFinalStocks: number;
+    opponentFinalStocks: number;
+    reviewReason: string;
+    priority: "high" | "medium";
+    noteCount: number;
+  }>;
+}
+
+interface TrainingLogEntry {
+  id: number;
+  loggedAt: string;
+  activityType: string;
+  minutes: number;
+  focus: string;
+  energy: number | null;
+  confidence: number | null;
+  notes: string;
+  createdAt: string;
+}
+
+interface CreateTrainingLogEntry {
+  loggedAt?: string;
+  activityType: string;
+  minutes: number;
+  focus?: string;
+  energy?: number | null;
+  confidence?: number | null;
+  notes?: string;
+}
+
+interface GameReviewNote {
+  id: number;
+  gameId: number;
+  author: string;
+  category: string;
+  content: string;
+  createdAt: string;
 }
 
 export {};

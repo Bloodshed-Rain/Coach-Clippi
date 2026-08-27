@@ -3,6 +3,9 @@ import path from "path";
 import os from "os";
 import fs from "fs";
 import type { AggregateStats, PlayerHistory } from "./pipeline/index.js";
+import type { CharacterEventProfile } from "./characterEventProfile.js";
+import { moveIdToName } from "./pipeline/helpers.js";
+import { buildReplaySearchTerms, buildReplaySignatureSearchKeys } from "./replaySearch.js";
 
 // ── Database path ────────────────────────────────────────────────────
 
@@ -103,6 +106,9 @@ const SCHEMA = `
     session_id INTEGER REFERENCES sessions(id),
     model_used TEXT NOT NULL,
     analysis_text TEXT NOT NULL,
+    scope TEXT NOT NULL DEFAULT 'game',
+    scope_identifier TEXT,
+    title TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -143,6 +149,166 @@ const SCHEMA = `
 
   CREATE INDEX IF NOT EXISTS idx_highlights_game_id ON highlights(game_id);
   CREATE INDEX IF NOT EXISTS idx_highlights_type ON highlights(type);
+
+  CREATE TABLE IF NOT EXISTS training_log_entries (
+    id INTEGER PRIMARY KEY,
+    logged_at TEXT NOT NULL DEFAULT (datetime('now')),
+    activity_type TEXT NOT NULL,
+    minutes INTEGER NOT NULL DEFAULT 0,
+    focus TEXT NOT NULL DEFAULT '',
+    energy INTEGER,
+    confidence INTEGER,
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS game_review_notes (
+    id INTEGER PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    author TEXT NOT NULL DEFAULT 'Player',
+    category TEXT NOT NULL DEFAULT 'review',
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_training_log_logged_at ON training_log_entries(logged_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_game_review_notes_game ON game_review_notes(game_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS conversions (
+    id INTEGER PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    attacker_is_player INTEGER NOT NULL,
+    start_frame INTEGER NOT NULL,
+    end_frame INTEGER,
+    start_percent REAL NOT NULL,
+    end_percent REAL NOT NULL,
+    damage REAL NOT NULL,
+    move_count INTEGER NOT NULL,
+    opener_move_id INTEGER,
+    last_move_id INTEGER,
+    opening_type TEXT NOT NULL,
+    did_kill INTEGER NOT NULL DEFAULT 0,
+    moves_json TEXT NOT NULL DEFAULT '[]'
+  );
+
+  CREATE TABLE IF NOT EXISTS stock_deaths (
+    id INTEGER PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    victim_is_player INTEGER NOT NULL,
+    stock_number INTEGER NOT NULL,
+    start_frame INTEGER NOT NULL,
+    end_frame INTEGER,
+    start_percent REAL NOT NULL,
+    death_percent REAL,
+    killer_move_id INTEGER,
+    death_direction TEXT,
+    died INTEGER NOT NULL DEFAULT 0,
+    verdict TEXT,
+    di_score REAL,
+    stick_x REAL,
+    stick_y REAL,
+    launch_angle_deg REAL,
+    resource_fault INTEGER NOT NULL DEFAULT 0,
+    final_hit_frame INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS throw_di (
+    id INTEGER PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    victim_is_player INTEGER NOT NULL,
+    frame INTEGER NOT NULL,
+    throw_direction TEXT NOT NULL,
+    percent REAL NOT NULL,
+    stick_x REAL NOT NULL,
+    stick_y REAL NOT NULL,
+    sector INTEGER NOT NULL,
+    no_di INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_throw_di_game ON throw_di(game_id);
+  CREATE INDEX IF NOT EXISTS idx_throw_di_lookup ON throw_di(victim_is_player, throw_direction);
+
+  CREATE TABLE IF NOT EXISTS recovery_spans (
+    id INTEGER PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    recovering_is_player INTEGER NOT NULL,
+    start_frame INTEGER NOT NULL,
+    end_frame INTEGER NOT NULL,
+    start_x REAL NOT NULL,
+    start_y REAL NOT NULL,
+    launch_quadrant TEXT NOT NULL,
+    dj_frame INTEGER,
+    dj_early INTEGER NOT NULL DEFAULT 0,
+    route TEXT,
+    upb_delay INTEGER,
+    airdodge_used INTEGER NOT NULL DEFAULT 0,
+    landing TEXT NOT NULL,
+    edgeguarder_depth TEXT NOT NULL,
+    edgeguarder_invincible_ledge_frames INTEGER NOT NULL DEFAULT 0,
+    contested INTEGER NOT NULL DEFAULT 0,
+    hit_during_recovery INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_recovery_spans_game ON recovery_spans(game_id);
+  CREATE INDEX IF NOT EXISTS idx_recovery_spans_lookup ON recovery_spans(recovering_is_player, landing);
+
+  CREATE TABLE IF NOT EXISTS shield_blocks (
+    id INTEGER PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    defender_is_player INTEGER NOT NULL,
+    block_frame INTEGER NOT NULL,
+    attack_kind TEXT NOT NULL,
+    attack_label TEXT NOT NULL,
+    defender_actionable_frame INTEGER,
+    attacker_actionable_frame INTEGER,
+    frame_gap INTEGER,
+    in_grab_range INTEGER NOT NULL DEFAULT 0,
+    choice TEXT,
+    grade TEXT NOT NULL,
+    string_id INTEGER NOT NULL,
+    string_final INTEGER NOT NULL DEFAULT 1,
+    punished_attacker INTEGER NOT NULL DEFAULT 0,
+    got_hit INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_shield_blocks_game ON shield_blocks(game_id);
+  CREATE INDEX IF NOT EXISTS idx_shield_blocks_lookup ON shield_blocks(defender_is_player, attack_label, grade);
+
+  CREATE TABLE IF NOT EXISTS whiff_events (
+    id INTEGER PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    whiffer_is_player INTEGER NOT NULL,
+    start_frame INTEGER NOT NULL,
+    vulnerable_end_frame INTEGER NOT NULL,
+    attack_label TEXT NOT NULL,
+    attack_kind TEXT NOT NULL,
+    min_distance REAL NOT NULL,
+    opportunity INTEGER NOT NULL DEFAULT 0,
+    punished INTEGER NOT NULL DEFAULT 0,
+    reaction_delay INTEGER
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_whiff_events_game ON whiff_events(game_id);
+  CREATE INDEX IF NOT EXISTS idx_whiff_events_lookup ON whiff_events(whiffer_is_player, opportunity, attack_label);
+
+  CREATE TABLE IF NOT EXISTS habit_instances (
+    id INTEGER PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    is_player INTEGER NOT NULL,
+    situation TEXT NOT NULL,
+    option TEXT NOT NULL,
+    frame INTEGER NOT NULL,
+    percent REAL NOT NULL,
+    cornered INTEGER NOT NULL DEFAULT 0,
+    pressured INTEGER NOT NULL DEFAULT 0,
+    punished INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_conversions_game ON conversions(game_id);
+  CREATE INDEX IF NOT EXISTS idx_conversions_attacker ON conversions(attacker_is_player, opening_type);
+  CREATE INDEX IF NOT EXISTS idx_stock_deaths_game ON stock_deaths(game_id);
+  CREATE INDEX IF NOT EXISTS idx_habit_instances_game ON habit_instances(game_id);
+  CREATE INDEX IF NOT EXISTS idx_habit_instances_lookup ON habit_instances(is_player, situation, option);
 `;
 
 // ── Migration system ─────────────────────────────────────────────────
@@ -317,6 +483,204 @@ const migrations: Migration[] = [
           AND duration_seconds < 30
           AND player_final_stocks > 0 AND opponent_final_stocks > 0
           AND result IN ('win', 'loss')
+      `);
+    },
+  },
+  {
+    version: 9,
+    description: "Add training log and per-game review notes",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS training_log_entries (
+          id INTEGER PRIMARY KEY,
+          logged_at TEXT NOT NULL DEFAULT (datetime('now')),
+          activity_type TEXT NOT NULL,
+          minutes INTEGER NOT NULL DEFAULT 0,
+          focus TEXT NOT NULL DEFAULT '',
+          energy INTEGER,
+          confidence INTEGER,
+          notes TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS game_review_notes (
+          id INTEGER PRIMARY KEY,
+          game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+          author TEXT NOT NULL DEFAULT 'Player',
+          category TEXT NOT NULL DEFAULT 'review',
+          content TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_training_log_logged_at ON training_log_entries(logged_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_game_review_notes_game ON game_review_notes(game_id, created_at DESC);
+      `);
+    },
+  },
+  {
+    version: 10,
+    description: "Add per-instance event tables: conversions, stock_deaths, habit_instances",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS conversions (
+          id INTEGER PRIMARY KEY,
+          game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+          attacker_is_player INTEGER NOT NULL,
+          start_frame INTEGER NOT NULL,
+          end_frame INTEGER,
+          start_percent REAL NOT NULL,
+          end_percent REAL NOT NULL,
+          damage REAL NOT NULL,
+          move_count INTEGER NOT NULL,
+          opener_move_id INTEGER,
+          last_move_id INTEGER,
+          opening_type TEXT NOT NULL,
+          did_kill INTEGER NOT NULL DEFAULT 0,
+          moves_json TEXT NOT NULL DEFAULT '[]'
+        );
+        CREATE TABLE IF NOT EXISTS stock_deaths (
+          id INTEGER PRIMARY KEY,
+          game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+          victim_is_player INTEGER NOT NULL,
+          stock_number INTEGER NOT NULL,
+          start_frame INTEGER NOT NULL,
+          end_frame INTEGER,
+          start_percent REAL NOT NULL,
+          death_percent REAL,
+          killer_move_id INTEGER,
+          death_direction TEXT,
+          died INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS habit_instances (
+          id INTEGER PRIMARY KEY,
+          game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+          is_player INTEGER NOT NULL,
+          situation TEXT NOT NULL,
+          option TEXT NOT NULL,
+          frame INTEGER NOT NULL,
+          percent REAL NOT NULL,
+          cornered INTEGER NOT NULL DEFAULT 0,
+          pressured INTEGER NOT NULL DEFAULT 0,
+          punished INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_conversions_game ON conversions(game_id);
+        CREATE INDEX IF NOT EXISTS idx_conversions_attacker ON conversions(attacker_is_player, opening_type);
+        CREATE INDEX IF NOT EXISTS idx_stock_deaths_game ON stock_deaths(game_id);
+        CREATE INDEX IF NOT EXISTS idx_habit_instances_game ON habit_instances(game_id);
+        CREATE INDEX IF NOT EXISTS idx_habit_instances_lookup ON habit_instances(is_player, situation, option);
+      `);
+    },
+  },
+  {
+    version: 11,
+    description: "Add measured-DI columns to stock_deaths and the throw_di table",
+    up: (db) => {
+      const columns = db.pragma("table_info(stock_deaths)") as { name: string }[];
+      if (!columns.some((c) => c.name === "verdict")) {
+        db.exec(`
+          ALTER TABLE stock_deaths ADD COLUMN verdict TEXT;
+          ALTER TABLE stock_deaths ADD COLUMN di_score REAL;
+          ALTER TABLE stock_deaths ADD COLUMN stick_x REAL;
+          ALTER TABLE stock_deaths ADD COLUMN stick_y REAL;
+          ALTER TABLE stock_deaths ADD COLUMN launch_angle_deg REAL;
+          ALTER TABLE stock_deaths ADD COLUMN resource_fault INTEGER NOT NULL DEFAULT 0;
+          ALTER TABLE stock_deaths ADD COLUMN final_hit_frame INTEGER;
+        `);
+      }
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS throw_di (
+          id INTEGER PRIMARY KEY,
+          game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+          victim_is_player INTEGER NOT NULL,
+          frame INTEGER NOT NULL,
+          throw_direction TEXT NOT NULL,
+          percent REAL NOT NULL,
+          stick_x REAL NOT NULL,
+          stick_y REAL NOT NULL,
+          sector INTEGER NOT NULL,
+          no_di INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_throw_di_game ON throw_di(game_id);
+        CREATE INDEX IF NOT EXISTS idx_throw_di_lookup ON throw_di(victim_is_player, throw_direction);
+      `);
+    },
+  },
+  {
+    version: 12,
+    description: "Add recovery_spans table (recovery blueprint + edgeguard commitment)",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS recovery_spans (
+          id INTEGER PRIMARY KEY,
+          game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+          recovering_is_player INTEGER NOT NULL,
+          start_frame INTEGER NOT NULL,
+          end_frame INTEGER NOT NULL,
+          start_x REAL NOT NULL,
+          start_y REAL NOT NULL,
+          launch_quadrant TEXT NOT NULL,
+          dj_frame INTEGER,
+          dj_early INTEGER NOT NULL DEFAULT 0,
+          route TEXT,
+          upb_delay INTEGER,
+          airdodge_used INTEGER NOT NULL DEFAULT 0,
+          landing TEXT NOT NULL,
+          edgeguarder_depth TEXT NOT NULL,
+          edgeguarder_invincible_ledge_frames INTEGER NOT NULL DEFAULT 0,
+          contested INTEGER NOT NULL DEFAULT 0,
+          hit_during_recovery INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_recovery_spans_game ON recovery_spans(game_id);
+        CREATE INDEX IF NOT EXISTS idx_recovery_spans_lookup ON recovery_spans(recovering_is_player, landing);
+      `);
+    },
+  },
+  {
+    version: 13,
+    description: "Add shield_blocks table (shield frame-gap audit)",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS shield_blocks (
+          id INTEGER PRIMARY KEY,
+          game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+          defender_is_player INTEGER NOT NULL,
+          block_frame INTEGER NOT NULL,
+          attack_kind TEXT NOT NULL,
+          attack_label TEXT NOT NULL,
+          defender_actionable_frame INTEGER,
+          attacker_actionable_frame INTEGER,
+          frame_gap INTEGER,
+          in_grab_range INTEGER NOT NULL DEFAULT 0,
+          choice TEXT,
+          grade TEXT NOT NULL,
+          string_id INTEGER NOT NULL,
+          string_final INTEGER NOT NULL DEFAULT 1,
+          punished_attacker INTEGER NOT NULL DEFAULT 0,
+          got_hit INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_shield_blocks_game ON shield_blocks(game_id);
+        CREATE INDEX IF NOT EXISTS idx_shield_blocks_lookup ON shield_blocks(defender_is_player, attack_label, grade);
+      `);
+    },
+  },
+  {
+    version: 14,
+    description: "Add whiff_events table (whiff-punish ledger)",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS whiff_events (
+          id INTEGER PRIMARY KEY,
+          game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+          whiffer_is_player INTEGER NOT NULL,
+          start_frame INTEGER NOT NULL,
+          vulnerable_end_frame INTEGER NOT NULL,
+          attack_label TEXT NOT NULL,
+          attack_kind TEXT NOT NULL,
+          min_distance REAL NOT NULL,
+          opportunity INTEGER NOT NULL DEFAULT 0,
+          punished INTEGER NOT NULL DEFAULT 0,
+          reaction_delay INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_whiff_events_game ON whiff_events(game_id);
+        CREATE INDEX IF NOT EXISTS idx_whiff_events_lookup ON whiff_events(whiffer_is_player, opportunity, attack_label);
       `);
     },
   },
@@ -612,6 +976,347 @@ export function insertGameStats(params: InsertGameStatsParams): void {
     params.diAvgComboLengthReceived,
     params.diAvgComboLengthDealt,
   );
+}
+
+// ── Per-instance event persistence (Phase 0 decision-grading infra) ──
+// Rows come from pipeline frameEvents; the caller maps player slots to
+// the target-player perspective and runs these inside its transaction.
+
+export interface ConversionEventRow {
+  attackerIsPlayer: boolean;
+  startFrame: number;
+  endFrame: number | null;
+  startPercent: number;
+  endPercent: number;
+  damage: number;
+  moveCount: number;
+  openerMoveId: number | null;
+  lastMoveId: number | null;
+  openingType: string;
+  didKill: boolean;
+  movesJson: string;
+}
+
+export function insertConversionEvents(gameId: number, rows: ConversionEventRow[]): void {
+  if (rows.length === 0) return;
+  const stmt = getDb().prepare(`
+    INSERT INTO conversions (
+      game_id, attacker_is_player, start_frame, end_frame,
+      start_percent, end_percent, damage, move_count,
+      opener_move_id, last_move_id, opening_type, did_kill, moves_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const r of rows) {
+    stmt.run(
+      gameId,
+      r.attackerIsPlayer ? 1 : 0,
+      r.startFrame,
+      r.endFrame,
+      r.startPercent,
+      r.endPercent,
+      r.damage,
+      r.moveCount,
+      r.openerMoveId,
+      r.lastMoveId,
+      r.openingType,
+      r.didKill ? 1 : 0,
+      r.movesJson,
+    );
+  }
+}
+
+export interface StockDeathRow {
+  victimIsPlayer: boolean;
+  stockNumber: number;
+  startFrame: number;
+  endFrame: number | null;
+  startPercent: number;
+  deathPercent: number | null;
+  killerMoveId: number | null;
+  deathDirection: string | null;
+  died: boolean;
+  verdict: string | null;
+  diScore: number | null;
+  stickX: number | null;
+  stickY: number | null;
+  launchAngleDeg: number | null;
+  resourceFault: boolean;
+  finalHitFrame: number | null;
+}
+
+export function insertStockDeaths(gameId: number, rows: StockDeathRow[]): void {
+  if (rows.length === 0) return;
+  const stmt = getDb().prepare(`
+    INSERT INTO stock_deaths (
+      game_id, victim_is_player, stock_number, start_frame, end_frame,
+      start_percent, death_percent, killer_move_id, death_direction, died,
+      verdict, di_score, stick_x, stick_y, launch_angle_deg, resource_fault, final_hit_frame
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const r of rows) {
+    stmt.run(
+      gameId,
+      r.victimIsPlayer ? 1 : 0,
+      r.stockNumber,
+      r.startFrame,
+      r.endFrame,
+      r.startPercent,
+      r.deathPercent,
+      r.killerMoveId,
+      r.deathDirection,
+      r.died ? 1 : 0,
+      r.verdict,
+      r.diScore,
+      r.stickX,
+      r.stickY,
+      r.launchAngleDeg,
+      r.resourceFault ? 1 : 0,
+      r.finalHitFrame,
+    );
+  }
+}
+
+export interface ThrowDIRow {
+  victimIsPlayer: boolean;
+  frame: number;
+  throwDirection: string;
+  percent: number;
+  stickX: number;
+  stickY: number;
+  sector: number;
+  noDI: boolean;
+}
+
+export function insertThrowDIRows(gameId: number, rows: ThrowDIRow[]): void {
+  if (rows.length === 0) return;
+  const stmt = getDb().prepare(`
+    INSERT INTO throw_di (
+      game_id, victim_is_player, frame, throw_direction, percent, stick_x, stick_y, sector, no_di
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const r of rows) {
+    stmt.run(
+      gameId,
+      r.victimIsPlayer ? 1 : 0,
+      r.frame,
+      r.throwDirection,
+      r.percent,
+      r.stickX,
+      r.stickY,
+      r.sector,
+      r.noDI ? 1 : 0,
+    );
+  }
+}
+
+export interface RecoverySpanRow {
+  recoveringIsPlayer: boolean;
+  startFrame: number;
+  endFrame: number;
+  startX: number;
+  startY: number;
+  launchQuadrant: string;
+  djFrame: number | null;
+  djEarly: boolean;
+  route: string | null;
+  upbDelay: number | null;
+  airdodgeUsed: boolean;
+  landing: string;
+  edgeguarderDepth: string;
+  edgeguarderInvincibleLedgeFrames: number;
+  contested: boolean;
+  hitDuringRecovery: boolean;
+}
+
+export function insertRecoverySpans(gameId: number, rows: RecoverySpanRow[]): void {
+  if (rows.length === 0) return;
+  const stmt = getDb().prepare(`
+    INSERT INTO recovery_spans (
+      game_id, recovering_is_player, start_frame, end_frame, start_x, start_y,
+      launch_quadrant, dj_frame, dj_early, route, upb_delay, airdodge_used,
+      landing, edgeguarder_depth, edgeguarder_invincible_ledge_frames, contested, hit_during_recovery
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const r of rows) {
+    stmt.run(
+      gameId,
+      r.recoveringIsPlayer ? 1 : 0,
+      r.startFrame,
+      r.endFrame,
+      r.startX,
+      r.startY,
+      r.launchQuadrant,
+      r.djFrame,
+      r.djEarly ? 1 : 0,
+      r.route,
+      r.upbDelay,
+      r.airdodgeUsed ? 1 : 0,
+      r.landing,
+      r.edgeguarderDepth,
+      r.edgeguarderInvincibleLedgeFrames,
+      r.contested ? 1 : 0,
+      r.hitDuringRecovery ? 1 : 0,
+    );
+  }
+}
+
+export interface ShieldBlockRow {
+  defenderIsPlayer: boolean;
+  blockFrame: number;
+  attackKind: string;
+  attackLabel: string;
+  defenderActionableFrame: number | null;
+  attackerActionableFrame: number | null;
+  frameGap: number | null;
+  inGrabRange: boolean;
+  choice: string | null;
+  grade: string;
+  stringId: number;
+  stringFinal: boolean;
+  punishedAttacker: boolean;
+  gotHit: boolean;
+}
+
+export function insertShieldBlocks(gameId: number, rows: ShieldBlockRow[]): void {
+  if (rows.length === 0) return;
+  const stmt = getDb().prepare(`
+    INSERT INTO shield_blocks (
+      game_id, defender_is_player, block_frame, attack_kind, attack_label,
+      defender_actionable_frame, attacker_actionable_frame, frame_gap, in_grab_range,
+      choice, grade, string_id, string_final, punished_attacker, got_hit
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const r of rows) {
+    stmt.run(
+      gameId,
+      r.defenderIsPlayer ? 1 : 0,
+      r.blockFrame,
+      r.attackKind,
+      r.attackLabel,
+      r.defenderActionableFrame,
+      r.attackerActionableFrame,
+      r.frameGap,
+      r.inGrabRange ? 1 : 0,
+      r.choice,
+      r.grade,
+      r.stringId,
+      r.stringFinal ? 1 : 0,
+      r.punishedAttacker ? 1 : 0,
+      r.gotHit ? 1 : 0,
+    );
+  }
+}
+
+export interface WhiffEventRow {
+  whifferIsPlayer: boolean;
+  startFrame: number;
+  vulnerableEndFrame: number;
+  attackLabel: string;
+  attackKind: string;
+  minDistance: number;
+  opportunity: boolean;
+  punished: boolean;
+  reactionDelay: number | null;
+}
+
+export function insertWhiffEvents(gameId: number, rows: WhiffEventRow[]): void {
+  if (rows.length === 0) return;
+  const stmt = getDb().prepare(`
+    INSERT INTO whiff_events (
+      game_id, whiffer_is_player, start_frame, vulnerable_end_frame,
+      attack_label, attack_kind, min_distance, opportunity, punished, reaction_delay
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const r of rows) {
+    stmt.run(
+      gameId,
+      r.whifferIsPlayer ? 1 : 0,
+      r.startFrame,
+      r.vulnerableEndFrame,
+      r.attackLabel,
+      r.attackKind,
+      r.minDistance,
+      r.opportunity ? 1 : 0,
+      r.punished ? 1 : 0,
+      r.reactionDelay,
+    );
+  }
+}
+
+// ── Backfill support ─────────────────────────────────────────────────
+
+export interface BackfillCandidate {
+  id: number;
+  replayPath: string;
+  replayHash: string;
+  playerTag: string;
+}
+
+/**
+ * Games whose per-instance event rows are missing (or all games when
+ * `all` is true). stock_deaths is the marker table: every successfully
+ * parsed game writes at least two stock records, so absence = never
+ * backfilled.
+ */
+export function getBackfillCandidates(all: boolean, limit?: number): BackfillCandidate[] {
+  const where = all ? "" : "WHERE NOT EXISTS (SELECT 1 FROM stock_deaths sd WHERE sd.game_id = g.id)";
+  const limitSql = limit != null && limit > 0 ? `LIMIT ${Math.floor(limit)}` : "";
+  const rows = getDb()
+    .prepare(
+      `SELECT g.id as id, g.replay_path as replayPath, g.replay_hash as replayHash, g.player_tag as playerTag
+       FROM games g ${where} ORDER BY g.id ${limitSql}`,
+    )
+    .all() as BackfillCandidate[];
+  return rows;
+}
+
+/** Remove all per-instance event rows for a game (before re-inserting). */
+export function deleteFrameEventRows(gameId: number): void {
+  const db = getDb();
+  for (const table of [
+    "conversions",
+    "stock_deaths",
+    "habit_instances",
+    "throw_di",
+    "recovery_spans",
+    "shield_blocks",
+    "whiff_events",
+  ]) {
+    db.prepare(`DELETE FROM ${table} WHERE game_id = ?`).run(gameId);
+  }
+}
+
+export interface HabitInstanceRow {
+  isPlayer: boolean;
+  situation: string;
+  option: string;
+  frame: number;
+  percent: number;
+  cornered: boolean;
+  pressured: boolean;
+  punished: boolean;
+}
+
+export function insertHabitInstances(gameId: number, rows: HabitInstanceRow[]): void {
+  if (rows.length === 0) return;
+  const stmt = getDb().prepare(`
+    INSERT INTO habit_instances (
+      game_id, is_player, situation, option, frame, percent, cornered, pressured, punished
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const r of rows) {
+    stmt.run(
+      gameId,
+      r.isPlayer ? 1 : 0,
+      r.situation,
+      r.option,
+      r.frame,
+      r.percent,
+      r.cornered ? 1 : 0,
+      r.pressured ? 1 : 0,
+      r.punished ? 1 : 0,
+    );
+  }
 }
 
 export function insertCoachingAnalysis(
@@ -1625,7 +2330,7 @@ export interface LibraryGameFilters {
 }
 
 export interface LibraryGamesPage {
-  games: RecentGame[];
+  games: LibraryGameResult[];
   total: number;
   totalUnfiltered: number;
   wins: number;
@@ -1636,14 +2341,82 @@ export interface LibraryGamesPage {
   stages: string[];
 }
 
-function buildLibraryWhere(filters: LibraryGameFilters): { where: string; params: string[] } {
+export interface LibrarySearchMatch {
+  id: number;
+  type: string;
+  label: string;
+  description: string;
+  startFrame: number;
+  timestamp: string;
+  didKill: boolean;
+}
+
+export type LibraryGameResult = RecentGame & {
+  searchMatches: LibrarySearchMatch[];
+  searchTechniqueMatch: boolean;
+};
+
+function normalizedSearchSql(expression: string): string {
+  return `LOWER(REPLACE(REPLACE(REPLACE(REPLACE(${expression}, '-', ' '), '_', ' '), '#', ' '), '.', ' '))`;
+}
+
+function buildHighlightSearchPredicate(alias: string, searchTerms: string[]): { predicate: string; params: string[] } {
+  const fields = ["type", "label", "description", "character", "victim", "moves_json"];
+  const clauses: string[] = [];
+  const params: string[] = [];
+
+  for (const term of searchTerms) {
+    for (const field of fields) {
+      clauses.push(`${normalizedSearchSql(`${alias}.${field}`)} LIKE ?`);
+      params.push(`%${term}%`);
+    }
+  }
+
+  return { predicate: clauses.length > 0 ? `(${clauses.join(" OR ")})` : "0", params };
+}
+
+function buildSignatureSearchPredicate(alias: string, signatureKeys: string[]): string {
+  const safeKeys = signatureKeys.filter((key) => /^[A-Za-z][A-Za-z0-9]*$/.test(key));
+  if (safeKeys.length === 0) return "0";
+  return `(${safeKeys
+    .map((key) => `COALESCE(CAST(json_extract(${alias}.signature_json, '$.${key}') AS REAL), 0) > 0`)
+    .join(" OR ")})`;
+}
+
+function buildLibraryWhere(filters: LibraryGameFilters): {
+  where: string;
+  params: string[];
+  searchTerms: string[];
+  signatureKeys: string[];
+} {
   const conditions: string[] = [];
   const params: string[] = [];
   const search = filters.search?.trim();
+  const searchTerms = buildReplaySearchTerms(search ?? "");
+  const signatureKeys = buildReplaySignatureSearchKeys(search ?? "");
 
   if (search) {
-    conditions.push("(g.opponent_tag LIKE ? OR g.opponent_connect_code LIKE ?)");
-    params.push(`%${search}%`, `%${search}%`);
+    const gameFields = ["opponent_tag", "opponent_connect_code", "player_character", "opponent_character", "stage"];
+    const searchClauses = ["g.opponent_tag LIKE ?", "g.opponent_connect_code LIKE ?"];
+    const searchParams = [`%${search}%`, `%${search}%`];
+
+    for (const term of searchTerms) {
+      for (const field of gameFields) {
+        searchClauses.push(`${normalizedSearchSql(`g.${field}`)} LIKE ?`);
+        searchParams.push(`%${term}%`);
+      }
+    }
+
+    const highlightSearch = buildHighlightSearchPredicate("hs", searchTerms);
+    searchClauses.push(`EXISTS (SELECT 1 FROM highlights hs WHERE hs.game_id = g.id AND ${highlightSearch.predicate})`);
+    searchParams.push(...highlightSearch.params);
+    if (signatureKeys.length > 0) {
+      searchClauses.push(
+        `EXISTS (SELECT 1 FROM character_signature_stats css WHERE css.game_id = g.id AND ${buildSignatureSearchPredicate("css", signatureKeys)})`,
+      );
+    }
+    conditions.push(`(${searchClauses.join(" OR ")})`);
+    params.push(...searchParams);
   }
   if (filters.char && filters.char !== "all") {
     conditions.push("g.opponent_character = ?");
@@ -1661,12 +2434,70 @@ function buildLibraryWhere(filters: LibraryGameFilters): { where: string; params
   return {
     where: conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "",
     params,
+    searchTerms,
+    signatureKeys,
   };
+}
+
+function getLibrarySearchMatches(gameIds: number[], searchTerms: string[]): Map<number, LibrarySearchMatch[]> {
+  const matchesByGame = new Map<number, LibrarySearchMatch[]>();
+  if (gameIds.length === 0 || searchTerms.length === 0) return matchesByGame;
+
+  const placeholders = gameIds.map(() => "?").join(", ");
+  const highlightSearch = buildHighlightSearchPredicate("h", searchTerms);
+  const rows = getDb()
+    .prepare(
+      `
+      SELECT h.id, h.game_id as gameId, h.type, h.label, h.description,
+             h.start_frame as startFrame, h.timestamp, h.did_kill as didKill
+      FROM highlights h
+      WHERE h.game_id IN (${placeholders})
+        AND ${highlightSearch.predicate}
+      ORDER BY h.game_id, h.start_frame ASC
+    `,
+    )
+    .all(...gameIds, ...highlightSearch.params) as Array<
+    Omit<LibrarySearchMatch, "didKill"> & {
+      gameId: number;
+      didKill: number;
+    }
+  >;
+
+  for (const row of rows) {
+    const current = matchesByGame.get(row.gameId) ?? [];
+    current.push({
+      id: row.id,
+      type: row.type,
+      label: row.label,
+      description: row.description,
+      startFrame: row.startFrame,
+      timestamp: row.timestamp,
+      didKill: row.didKill === 1,
+    });
+    matchesByGame.set(row.gameId, current);
+  }
+  return matchesByGame;
+}
+
+function getLibraryTechniqueMatchGameIds(gameIds: number[], signatureKeys: string[]): Set<number> {
+  if (gameIds.length === 0 || signatureKeys.length === 0) return new Set();
+  const placeholders = gameIds.map(() => "?").join(", ");
+  const rows = getDb()
+    .prepare(
+      `
+      SELECT css.game_id as gameId
+      FROM character_signature_stats css
+      WHERE css.game_id IN (${placeholders})
+        AND ${buildSignatureSearchPredicate("css", signatureKeys)}
+    `,
+    )
+    .all(...gameIds) as Array<{ gameId: number }>;
+  return new Set(rows.map((row) => row.gameId));
 }
 
 export function getLibraryGames(filters: LibraryGameFilters = {}): LibraryGamesPage {
   const db = getDb();
-  const { where, params } = buildLibraryWhere(filters);
+  const { where, params, searchTerms, signatureKeys } = buildLibraryWhere(filters);
   const limit = Math.min(Math.max(Math.floor(filters.limit ?? 100), 1), 250);
   const offset = Math.max(Math.floor(filters.offset ?? 0), 0);
 
@@ -1737,6 +2568,20 @@ export function getLibraryGames(filters: LibraryGameFilters = {}): LibraryGamesP
     )
     .all(...params, limit, offset) as RecentGame[];
 
+  const searchMatches = getLibrarySearchMatches(
+    games.map((game) => game.id),
+    searchTerms,
+  );
+  const techniqueMatchGameIds = getLibraryTechniqueMatchGameIds(
+    games.map((game) => game.id),
+    signatureKeys,
+  );
+  const gamesWithMatches: LibraryGameResult[] = games.map((game) => ({
+    ...game,
+    searchMatches: searchMatches.get(game.id) ?? [],
+    searchTechniqueMatch: techniqueMatchGameIds.has(game.id),
+  }));
+
   const characters = db
     .prepare(
       `
@@ -1760,7 +2605,7 @@ export function getLibraryGames(filters: LibraryGameFilters = {}): LibraryGamesP
     .map((row: any) => row.value as string);
 
   return {
-    games,
+    games: gamesWithMatches,
     total: summary?.total ?? 0,
     totalUnfiltered,
     wins: summary?.wins ?? 0,
@@ -2248,6 +3093,501 @@ export function getCharacterStageStats(character: string): CharacterStageStats[]
     .all(character) as CharacterStageStats[];
 }
 
+// ── Character event profile (v10-v14 per-instance aggregates) ────────
+
+/** Resolve a slippi move id to a short human name ("uair", "bthrow"...). */
+function moveName(moveId: number): string {
+  return moveIdToName[moveId] ?? `Move #${moveId}`;
+}
+
+/**
+ * Aggregate the per-instance event tables (conversions, stock_deaths,
+ * habit_instances, throw_di, recovery_spans, shield_blocks, whiff_events)
+ * for every game played on `character`. All *_is_player flags are already
+ * target-player-perspective, so opponent-side rows (is_player = 0) feed the
+ * edgeguard / pressure-received / whiff-capture buckets. Stored enum strings
+ * pass through untouched — src/characterEventProfile.ts documents the
+ * vocabulary the pipeline writes.
+ */
+export function getCharacterEventProfile(character: string): CharacterEventProfile {
+  const db = getDb();
+
+  const totalGames = (
+    db.prepare("SELECT COUNT(*) as n FROM games WHERE player_character = ?").get(character) as { n: number }
+  ).n;
+
+  const gamesWithEvents = (
+    db
+      .prepare(
+        `
+    SELECT COUNT(DISTINCT e.game_id) as n FROM (
+      SELECT game_id FROM conversions
+      UNION SELECT game_id FROM stock_deaths
+      UNION SELECT game_id FROM habit_instances
+      UNION SELECT game_id FROM throw_di
+      UNION SELECT game_id FROM recovery_spans
+      UNION SELECT game_id FROM shield_blocks
+      UNION SELECT game_id FROM whiff_events
+    ) e
+    JOIN games g ON g.id = e.game_id
+    WHERE g.player_character = ?
+  `,
+      )
+      .get(character) as { n: number }
+  ).n;
+
+  // ── Habits (own defensive choices, with condition splits) ──────────
+  const habits = db
+    .prepare(
+      `
+    SELECT
+      h.situation, h.option,
+      COUNT(*) as total,
+      SUM(h.punished) as punished,
+      SUM(h.cornered) as cornered,
+      SUM(CASE WHEN h.cornered = 1 AND h.punished = 1 THEN 1 ELSE 0 END) as corneredPunished,
+      SUM(h.pressured) as pressured,
+      SUM(CASE WHEN h.pressured = 1 AND h.punished = 1 THEN 1 ELSE 0 END) as pressuredPunished
+    FROM habit_instances h
+    JOIN games g ON g.id = h.game_id
+    WHERE g.player_character = ? AND h.is_player = 1
+    GROUP BY h.situation, h.option
+    ORDER BY h.situation, total DESC
+  `,
+    )
+    .all(character) as CharacterEventProfile["habits"];
+
+  // ── Deaths (own stocks lost) ───────────────────────────────────────
+  const deathTotals = db
+    .prepare(
+      `
+    SELECT
+      COUNT(*) as total,
+      ROUND(AVG(sd.death_percent), 2) as avgDeathPercent,
+      COALESCE(SUM(sd.resource_fault), 0) as resourceFaults
+    FROM stock_deaths sd
+    JOIN games g ON g.id = sd.game_id
+    WHERE g.player_character = ? AND sd.victim_is_player = 1 AND sd.died = 1
+  `,
+    )
+    .get(character) as { total: number; avgDeathPercent: number | null; resourceFaults: number };
+
+  const verdicts = db
+    .prepare(
+      `
+    SELECT sd.verdict, COUNT(*) as count
+    FROM stock_deaths sd
+    JOIN games g ON g.id = sd.game_id
+    WHERE g.player_character = ? AND sd.victim_is_player = 1 AND sd.died = 1 AND sd.verdict IS NOT NULL
+    GROUP BY sd.verdict
+    ORDER BY count DESC
+  `,
+    )
+    .all(character) as { verdict: string; count: number }[];
+
+  const killerMoveRows = db
+    .prepare(
+      `
+    SELECT sd.killer_move_id as moveId, COUNT(*) as count, ROUND(AVG(sd.death_percent), 2) as avgDeathPercent
+    FROM stock_deaths sd
+    JOIN games g ON g.id = sd.game_id
+    WHERE g.player_character = ? AND sd.victim_is_player = 1 AND sd.died = 1 AND sd.killer_move_id IS NOT NULL
+    GROUP BY sd.killer_move_id
+    ORDER BY count DESC
+    LIMIT 8
+  `,
+    )
+    .all(character) as { moveId: number; count: number; avgDeathPercent: number | null }[];
+
+  const directions = db
+    .prepare(
+      `
+    SELECT sd.death_direction as direction, COUNT(*) as count
+    FROM stock_deaths sd
+    JOIN games g ON g.id = sd.game_id
+    WHERE g.player_character = ? AND sd.victim_is_player = 1 AND sd.died = 1 AND sd.death_direction IS NOT NULL
+    GROUP BY sd.death_direction
+    ORDER BY count DESC
+  `,
+    )
+    .all(character) as { direction: string; count: number }[];
+
+  const throwDI = db
+    .prepare(
+      `
+    SELECT td.throw_direction as direction, COUNT(*) as total, COALESCE(SUM(td.no_di), 0) as noDI
+    FROM throw_di td
+    JOIN games g ON g.id = td.game_id
+    WHERE g.player_character = ? AND td.victim_is_player = 1
+    GROUP BY td.throw_direction
+    ORDER BY total DESC
+  `,
+    )
+    .all(character) as { direction: string; total: number; noDI: number }[];
+
+  // ── Recovery (own spans) + edgeguards (opponent spans) ─────────────
+  const recoveryTotals = db
+    .prepare(
+      `
+    SELECT
+      COUNT(*) as ownSpans,
+      COALESCE(SUM(rs.dj_early), 0) as djEarlyTotal,
+      COALESCE(SUM(CASE WHEN rs.dj_early = 1 AND rs.landing = 'death' THEN 1 ELSE 0 END), 0) as djEarlyDied,
+      COALESCE(SUM(rs.contested), 0) as contestedTotal,
+      COALESCE(SUM(CASE WHEN rs.contested = 1 AND rs.landing = 'death' THEN 1 ELSE 0 END), 0) as contestedDied
+    FROM recovery_spans rs
+    JOIN games g ON g.id = rs.game_id
+    WHERE g.player_character = ? AND rs.recovering_is_player = 1
+  `,
+    )
+    .get(character) as {
+    ownSpans: number;
+    djEarlyTotal: number;
+    djEarlyDied: number;
+    contestedTotal: number;
+    contestedDied: number;
+  };
+
+  const routes = db
+    .prepare(
+      `
+    SELECT rs.route, COUNT(*) as total,
+      SUM(CASE WHEN rs.landing = 'death' THEN 1 ELSE 0 END) as died
+    FROM recovery_spans rs
+    JOIN games g ON g.id = rs.game_id
+    WHERE g.player_character = ? AND rs.recovering_is_player = 1 AND rs.route IS NOT NULL
+    GROUP BY rs.route
+    ORDER BY total DESC
+  `,
+    )
+    .all(character) as { route: string; total: number; died: number }[];
+
+  const landings = db
+    .prepare(
+      `
+    SELECT rs.landing, COUNT(*) as count
+    FROM recovery_spans rs
+    JOIN games g ON g.id = rs.game_id
+    WHERE g.player_character = ? AND rs.recovering_is_player = 1
+    GROUP BY rs.landing
+    ORDER BY count DESC
+  `,
+    )
+    .all(character) as { landing: string; count: number }[];
+
+  const edgeguardTotals = db
+    .prepare(
+      `
+    SELECT
+      COUNT(*) as opportunities,
+      COALESCE(SUM(CASE WHEN rs.edgeguarder_invincible_ledge_frames > 0 THEN 1 ELSE 0 END), 0) as invincibleLedgeSpans
+    FROM recovery_spans rs
+    JOIN games g ON g.id = rs.game_id
+    WHERE g.player_character = ? AND rs.recovering_is_player = 0
+  `,
+    )
+    .get(character) as { opportunities: number; invincibleLedgeSpans: number };
+
+  const edgeguardByDepth = db
+    .prepare(
+      `
+    SELECT rs.edgeguarder_depth as depth, COUNT(*) as total,
+      SUM(CASE WHEN rs.landing = 'death' THEN 1 ELSE 0 END) as kills
+    FROM recovery_spans rs
+    JOIN games g ON g.id = rs.game_id
+    WHERE g.player_character = ? AND rs.recovering_is_player = 0
+    GROUP BY rs.edgeguarder_depth
+    ORDER BY total DESC
+  `,
+    )
+    .all(character) as { depth: string; total: number; kills: number }[];
+
+  // ── Shield: own blocks (defense) + own attacks blocked (pressure) ──
+  const shieldDefenseTotal = (
+    db
+      .prepare(
+        `
+    SELECT COUNT(*) as n
+    FROM shield_blocks sb
+    JOIN games g ON g.id = sb.game_id
+    WHERE g.player_character = ? AND sb.defender_is_player = 1
+  `,
+      )
+      .get(character) as { n: number }
+  ).n;
+
+  const shieldGrades = db
+    .prepare(
+      `
+    SELECT sb.grade, COUNT(*) as count
+    FROM shield_blocks sb
+    JOIN games g ON g.id = sb.game_id
+    WHERE g.player_character = ? AND sb.defender_is_player = 1
+    GROUP BY sb.grade
+    ORDER BY count DESC
+  `,
+    )
+    .all(character) as { grade: string; count: number }[];
+
+  const shieldDefenseByMove = db
+    .prepare(
+      `
+    SELECT
+      sb.attack_label as attackLabel,
+      COUNT(*) as blocks,
+      SUM(CASE WHEN sb.grade = 'punish-taken' THEN 1 ELSE 0 END) as punishTaken,
+      SUM(CASE WHEN sb.grade = 'punish-missed' THEN 1 ELSE 0 END) as punishMissed,
+      ROUND(AVG(sb.frame_gap), 2) as avgFrameGap
+    FROM shield_blocks sb
+    JOIN games g ON g.id = sb.game_id
+    WHERE g.player_character = ? AND sb.defender_is_player = 1
+    GROUP BY sb.attack_label
+    ORDER BY blocks DESC
+  `,
+    )
+    .all(character) as CharacterEventProfile["shield"]["defense"]["byMove"];
+
+  const shieldPressureTotal = (
+    db
+      .prepare(
+        `
+    SELECT COUNT(*) as n
+    FROM shield_blocks sb
+    JOIN games g ON g.id = sb.game_id
+    WHERE g.player_character = ? AND sb.defender_is_player = 0
+  `,
+      )
+      .get(character) as { n: number }
+  ).n;
+
+  const shieldPressureByMove = db
+    .prepare(
+      `
+    SELECT
+      sb.attack_label as attackLabel,
+      COUNT(*) as blocks,
+      COALESCE(SUM(sb.punished_attacker), 0) as punishedByDefender,
+      ROUND(AVG(sb.frame_gap), 2) as avgFrameGap
+    FROM shield_blocks sb
+    JOIN games g ON g.id = sb.game_id
+    WHERE g.player_character = ? AND sb.defender_is_player = 0
+    GROUP BY sb.attack_label
+    ORDER BY blocks DESC
+  `,
+    )
+    .all(character) as CharacterEventProfile["shield"]["pressure"]["byMove"];
+
+  // ── Whiffs: opponent whiffs = capture, own whiffs = exposure ───────
+  const capture = db
+    .prepare(
+      `
+    SELECT COUNT(*) as opportunities, COALESCE(SUM(w.punished), 0) as punished
+    FROM whiff_events w
+    JOIN games g ON g.id = w.game_id
+    WHERE g.player_character = ? AND w.whiffer_is_player = 0 AND w.opportunity = 1
+  `,
+    )
+    .get(character) as { opportunities: number; punished: number };
+
+  const captureDelays = db
+    .prepare(
+      `
+    SELECT w.reaction_delay as delay
+    FROM whiff_events w
+    JOIN games g ON g.id = w.game_id
+    WHERE g.player_character = ? AND w.whiffer_is_player = 0 AND w.opportunity = 1 AND w.reaction_delay IS NOT NULL
+    ORDER BY w.reaction_delay
+  `,
+    )
+    .all(character) as { delay: number }[];
+
+  let captureMedianReactionDelay: number | null = null;
+  if (captureDelays.length > 0) {
+    const mid = Math.floor(captureDelays.length / 2);
+    captureMedianReactionDelay =
+      captureDelays.length % 2 === 1
+        ? captureDelays[mid]!.delay
+        : (captureDelays[mid - 1]!.delay + captureDelays[mid]!.delay) / 2;
+  }
+
+  const exposure = db
+    .prepare(
+      `
+    SELECT
+      w.attack_label as attackLabel,
+      COUNT(*) as total,
+      COALESCE(SUM(w.opportunity), 0) as opportunities,
+      COALESCE(SUM(w.punished), 0) as punished
+    FROM whiff_events w
+    JOIN games g ON g.id = w.game_id
+    WHERE g.player_character = ? AND w.whiffer_is_player = 1
+    GROUP BY w.attack_label
+    ORDER BY total DESC
+    LIMIT 12
+  `,
+    )
+    .all(character) as CharacterEventProfile["whiffs"]["exposure"];
+
+  // ── Conversions (own offense) ──────────────────────────────────────
+  const conversionTotals = db
+    .prepare(
+      `
+    SELECT
+      COUNT(*) as total,
+      COALESCE(SUM(CASE WHEN c.end_percent >= 100 AND c.did_kill = 0 THEN 1 ELSE 0 END), 0) as squanderedKillPercent
+    FROM conversions c
+    JOIN games g ON g.id = c.game_id
+    WHERE g.player_character = ? AND c.attacker_is_player = 1
+  `,
+    )
+    .get(character) as { total: number; squanderedKillPercent: number };
+
+  const byOpeningType = db
+    .prepare(
+      `
+    SELECT
+      c.opening_type as openingType,
+      COUNT(*) as count,
+      ROUND(AVG(c.damage), 2) as avgDamage,
+      COALESCE(SUM(c.did_kill), 0) as kills
+    FROM conversions c
+    JOIN games g ON g.id = c.game_id
+    WHERE g.player_character = ? AND c.attacker_is_player = 1
+    GROUP BY c.opening_type
+    ORDER BY count DESC
+  `,
+    )
+    .all(character) as { openingType: string; count: number; avgDamage: number | null; kills: number }[];
+
+  const killMoveRows = db
+    .prepare(
+      `
+    SELECT c.last_move_id as moveId, COUNT(*) as count, ROUND(AVG(c.end_percent), 2) as avgKillPercent
+    FROM conversions c
+    JOIN games g ON g.id = c.game_id
+    WHERE g.player_character = ? AND c.attacker_is_player = 1 AND c.did_kill = 1 AND c.last_move_id IS NOT NULL
+    GROUP BY c.last_move_id
+    ORDER BY count DESC
+    LIMIT 8
+  `,
+    )
+    .all(character) as { moveId: number; count: number; avgKillPercent: number | null }[];
+
+  // ── Trivia ─────────────────────────────────────────────────────────
+  const gameTrivia = db
+    .prepare(
+      `
+    SELECT
+      COALESCE(SUM(g.duration_seconds), 0) as totalPlaytimeSeconds,
+      MAX(g.duration_seconds) as longestGameSeconds,
+      COALESCE(SUM(CASE WHEN g.result = 'win' AND g.player_final_stocks = 4 THEN 1 ELSE 0 END), 0) as fourStockWins
+    FROM games g
+    WHERE g.player_character = ?
+  `,
+    )
+    .get(character) as { totalPlaytimeSeconds: number; longestGameSeconds: number | null; fourStockWins: number };
+
+  // time_in_air / time_at_ledge are stored as fractions of the game
+  // (playerSummary's ratio(frames, playableFrames)) — fraction × duration = seconds.
+  const statsTrivia = db
+    .prepare(
+      `
+    SELECT
+      COALESCE(SUM(gs.total_damage_dealt), 0) as totalDamageDealt,
+      COALESCE(SUM(gs.wavedash_count), 0) as totalWavedashes,
+      ROUND(COALESCE(SUM(gs.time_in_air * g.duration_seconds), 0), 1) as airtimeSeconds,
+      ROUND(COALESCE(SUM(gs.time_at_ledge * g.duration_seconds), 0), 1) as ledgeSeconds
+    FROM game_stats gs
+    JOIN games g ON g.id = gs.game_id
+    WHERE g.player_character = ?
+  `,
+    )
+    .get(character) as {
+    totalDamageDealt: number;
+    totalWavedashes: number;
+    airtimeSeconds: number;
+    ledgeSeconds: number;
+  };
+
+  const sdCount = (
+    db
+      .prepare(
+        `
+    SELECT COUNT(*) as n
+    FROM stock_deaths sd
+    JOIN games g ON g.id = sd.game_id
+    WHERE g.player_character = ? AND sd.victim_is_player = 1 AND sd.verdict = 'SD'
+  `,
+      )
+      .get(character) as { n: number }
+  ).n;
+
+  return {
+    character,
+    totalGames,
+    gamesWithEvents,
+    habits,
+    deaths: {
+      total: deathTotals.total,
+      avgDeathPercent: deathTotals.total > 0 ? deathTotals.avgDeathPercent : null,
+      verdicts,
+      resourceFaults: deathTotals.resourceFaults,
+      killerMoves: killerMoveRows.map((r) => ({
+        moveId: r.moveId,
+        moveName: moveName(r.moveId),
+        count: r.count,
+        avgDeathPercent: r.avgDeathPercent,
+      })),
+      directions,
+      throwDI,
+    },
+    recovery: {
+      ownSpans: recoveryTotals.ownSpans,
+      routes,
+      djEarly: { total: recoveryTotals.djEarlyTotal, died: recoveryTotals.djEarlyDied },
+      contested: { total: recoveryTotals.contestedTotal, died: recoveryTotals.contestedDied },
+      landings,
+      edgeguard: {
+        opportunities: edgeguardTotals.opportunities,
+        byDepth: edgeguardByDepth,
+        invincibleLedgeSpans: edgeguardTotals.invincibleLedgeSpans,
+      },
+    },
+    shield: {
+      defense: { total: shieldDefenseTotal, grades: shieldGrades, byMove: shieldDefenseByMove },
+      pressure: { total: shieldPressureTotal, byMove: shieldPressureByMove },
+    },
+    whiffs: {
+      captureOpportunities: capture.opportunities,
+      capturePunished: capture.punished,
+      captureMedianReactionDelay,
+      exposure,
+    },
+    conversions: {
+      total: conversionTotals.total,
+      byOpeningType,
+      killMoves: killMoveRows.map((r) => ({
+        moveId: r.moveId,
+        moveName: moveName(r.moveId),
+        count: r.count,
+        avgKillPercent: r.avgKillPercent,
+      })),
+      squanderedKillPercent: conversionTotals.squanderedKillPercent,
+    },
+    trivia: {
+      totalPlaytimeSeconds: gameTrivia.totalPlaytimeSeconds,
+      totalDamageDealt: statsTrivia.totalDamageDealt,
+      totalWavedashes: statsTrivia.totalWavedashes,
+      airtimeSeconds: statsTrivia.airtimeSeconds,
+      ledgeSeconds: statsTrivia.ledgeSeconds,
+      sdCount,
+      fourStockWins: gameTrivia.fourStockWins,
+      longestGameSeconds: gameTrivia.longestGameSeconds,
+      totalLasersOrProjectiles: null,
+    },
+  };
+}
+
 // ── Character signature stats ────────────────────────────────────────
 
 export function insertSignatureStats(gameId: number, signatureJson: string): void {
@@ -2596,12 +3936,12 @@ export function getSessionsByDay(daysBack: number = 90): DaySession[] {
     .prepare(
       `
     SELECT
-      substr(played_at, 1, 10) as date,
+      date(played_at, 'localtime') as date,
       id,
       result,
       opponent_tag as opponentTag
     FROM games
-    WHERE played_at >= date('now', '-' || ? || ' days')
+    WHERE date(played_at, 'localtime') >= date('now', 'localtime', '-' || ? || ' days')
     ORDER BY played_at DESC
   `,
     )
@@ -2676,7 +4016,7 @@ export function getGamesOnDate(date: string): RecentGame[] {
       NULL as killMove
     FROM games g
     JOIN game_stats gs ON gs.game_id = g.id
-    WHERE substr(g.played_at, 1, 10) = ?
+    WHERE date(g.played_at, 'localtime') = ?
     ORDER BY g.played_at ASC
   `,
     )
@@ -2778,6 +4118,363 @@ export function getTrendSeriesBundle(range: "7d" | "30d" | "all", filterChar: st
   return bundle;
 }
 
+// ── Performance Lab ───────────────────────────────────────────────
+
+/**
+ * These metrics deliberately stay close to replay-derived facts. MAGI uses
+ * them to prioritize review, not to make causal claims about a loss.
+ */
+export type PerformanceMetricKey =
+  | "neutralWinRate"
+  | "conversionRate"
+  | "avgDamagePerOpening"
+  | "openingsPerKill"
+  | "recoverySuccessRate"
+  | "avgDeathPercent"
+  | "lCancelRate"
+  | "edgeguardSuccessRate"
+  | "diSurvivalScore";
+
+export interface PerformanceMetric {
+  key: PerformanceMetricKey;
+  label: string;
+  current: number;
+  baseline: number | null;
+  delta: number | null;
+  higherIsBetter: boolean;
+  winValue: number | null;
+  lossValue: number | null;
+}
+
+export interface PerformanceReviewGame {
+  id: number;
+  playedAt: string | null;
+  playerCharacter: string;
+  opponentCharacter: string;
+  opponentTag: string;
+  stage: string;
+  playerFinalStocks: number;
+  opponentFinalStocks: number;
+  reviewReason: string;
+  priority: "high" | "medium";
+  noteCount: number;
+}
+
+export interface PerformanceHub {
+  sample: { currentGames: number; baselineGames: number; gamesScanned: number };
+  metrics: PerformanceMetric[];
+  insights: Array<{ kind: "progress" | "focus" | "winSignal"; title: string; detail: string }>;
+  reviewQueue: PerformanceReviewGame[];
+}
+
+interface PerformanceGameRow {
+  id: number;
+  playedAt: string | null;
+  playerCharacter: string;
+  opponentCharacter: string;
+  opponentTag: string;
+  stage: string;
+  result: "win" | "loss" | "draw";
+  playerFinalStocks: number;
+  opponentFinalStocks: number;
+  neutralWinRate: number;
+  conversionRate: number;
+  avgDamagePerOpening: number;
+  openingsPerKill: number;
+  recoverySuccessRate: number;
+  avgDeathPercent: number;
+  lCancelRate: number;
+  edgeguardSuccessRate: number;
+  diSurvivalScore: number;
+  noteCount: number;
+}
+
+const PERFORMANCE_METRICS: Array<{
+  key: PerformanceMetricKey;
+  label: string;
+  higherIsBetter: boolean;
+  /** Used only to compare the relative size of different metric changes. */
+  comparisonUnit: number;
+}> = [
+  { key: "neutralWinRate", label: "Neutral", higherIsBetter: true, comparisonUnit: 0.05 },
+  { key: "conversionRate", label: "Conversion", higherIsBetter: true, comparisonUnit: 0.05 },
+  { key: "avgDamagePerOpening", label: "Damage / opening", higherIsBetter: true, comparisonUnit: 4 },
+  { key: "openingsPerKill", label: "Openings / kill", higherIsBetter: false, comparisonUnit: 0.4 },
+  { key: "recoverySuccessRate", label: "Recovery", higherIsBetter: true, comparisonUnit: 0.05 },
+  { key: "avgDeathPercent", label: "Survival", higherIsBetter: true, comparisonUnit: 8 },
+  { key: "lCancelRate", label: "L-cancel", higherIsBetter: true, comparisonUnit: 0.05 },
+  { key: "edgeguardSuccessRate", label: "Edgeguard", higherIsBetter: true, comparisonUnit: 0.05 },
+  { key: "diSurvivalScore", label: "DI survival", higherIsBetter: true, comparisonUnit: 0.05 },
+];
+
+function averagePerformanceMetric(rows: PerformanceGameRow[], key: PerformanceMetricKey): number {
+  if (rows.length === 0) return 0;
+  return rows.reduce((sum, row) => sum + row[key], 0) / rows.length;
+}
+
+/**
+ * Current form is the most recent half of the sample (up to ten games),
+ * compared with the immediately preceding half. That keeps the comparison
+ * useful for newer players without pretending a tiny sample is conclusive.
+ */
+export function getPerformanceHub(sampleSize: number = 10): PerformanceHub {
+  const safeSampleSize = Math.max(1, Math.min(Math.floor(sampleSize), 20));
+  const rows = getDb()
+    .prepare(
+      `
+      SELECT
+        g.id, g.played_at as playedAt, g.player_character as playerCharacter,
+        g.opponent_character as opponentCharacter, g.opponent_tag as opponentTag,
+        g.stage, g.result, g.player_final_stocks as playerFinalStocks,
+        g.opponent_final_stocks as opponentFinalStocks,
+        gs.neutral_win_rate as neutralWinRate,
+        gs.conversion_rate as conversionRate,
+        gs.avg_damage_per_opening as avgDamagePerOpening,
+        gs.openings_per_kill as openingsPerKill,
+        gs.recovery_success_rate as recoverySuccessRate,
+        gs.avg_death_percent as avgDeathPercent,
+        gs.l_cancel_rate as lCancelRate,
+        gs.edgeguard_success_rate as edgeguardSuccessRate,
+        gs.di_survival_score as diSurvivalScore,
+        (SELECT COUNT(*) FROM game_review_notes n WHERE n.game_id = g.id) as noteCount
+      FROM games g
+      JOIN game_stats gs ON gs.game_id = g.id
+      ORDER BY g.played_at DESC, g.id DESC
+      LIMIT ?
+    `,
+    )
+    .all(safeSampleSize * 4) as PerformanceGameRow[];
+
+  const currentCount = rows.length === 0 ? 0 : Math.min(safeSampleSize, Math.ceil(rows.length / 2));
+  const currentRows = rows.slice(0, currentCount);
+  const baselineRows = rows.slice(currentCount, currentCount + currentCount);
+  const winRows = rows.filter((row) => row.result === "win");
+  const lossRows = rows.filter((row) => row.result === "loss");
+
+  const metrics: PerformanceMetric[] = PERFORMANCE_METRICS.map((definition) => {
+    const current = averagePerformanceMetric(currentRows, definition.key);
+    const baseline = baselineRows.length ? averagePerformanceMetric(baselineRows, definition.key) : null;
+    return {
+      key: definition.key,
+      label: definition.label,
+      current,
+      baseline,
+      delta: baseline == null ? null : current - baseline,
+      higherIsBetter: definition.higherIsBetter,
+      winValue: winRows.length ? averagePerformanceMetric(winRows, definition.key) : null,
+      lossValue: lossRows.length ? averagePerformanceMetric(lossRows, definition.key) : null,
+    };
+  });
+
+  const metricByKey = new Map(metrics.map((metric) => [metric.key, metric]));
+  const normalizedTrend = (metric: PerformanceMetric): number => {
+    const definition = PERFORMANCE_METRICS.find((item) => item.key === metric.key)!;
+    if (metric.delta == null) return 0;
+    return (metric.higherIsBetter ? metric.delta : -metric.delta) / definition.comparisonUnit;
+  };
+  const normalizedWinSignal = (metric: PerformanceMetric): number => {
+    const definition = PERFORMANCE_METRICS.find((item) => item.key === metric.key)!;
+    if (metric.winValue == null || metric.lossValue == null) return 0;
+    const rawDifference = metric.higherIsBetter
+      ? metric.winValue - metric.lossValue
+      : metric.lossValue - metric.winValue;
+    return rawDifference / definition.comparisonUnit;
+  };
+
+  const insights: PerformanceHub["insights"] = [];
+  if (baselineRows.length > 0) {
+    const sortedByTrend = [...metrics].sort((a, b) => normalizedTrend(b) - normalizedTrend(a));
+    const strongest = sortedByTrend[0];
+    const focus = sortedByTrend[sortedByTrend.length - 1];
+    if (strongest && normalizedTrend(strongest) > 0.25) {
+      insights.push({
+        kind: "progress",
+        title: `${strongest.label} is trending up`,
+        detail: `Your last ${currentRows.length} games are ahead of the previous ${baselineRows.length}. Keep this stable while you add one new focus.`,
+      });
+    }
+    if (focus && normalizedTrend(focus) < -0.25) {
+      insights.push({
+        kind: "focus",
+        title: `Make ${focus.label.toLowerCase()} this block's focus`,
+        detail: `It moved the furthest in the wrong direction versus your recent baseline. Review the queue before adding more drills.`,
+      });
+    }
+  } else if (currentRows.length > 0) {
+    insights.push({
+      kind: "progress",
+      title: "Build a trustworthy baseline",
+      detail: `MAGI has ${currentRows.length} game${currentRows.length === 1 ? "" : "s"} so far. Import another session to unlock current-form comparisons.`,
+    });
+  }
+
+  const strongestWinSignal = [...metrics].sort((a, b) => normalizedWinSignal(b) - normalizedWinSignal(a))[0];
+  if (strongestWinSignal && normalizedWinSignal(strongestWinSignal) > 0.25) {
+    insights.push({
+      kind: "winSignal",
+      title: `${strongestWinSignal.label} separates recent wins`,
+      detail:
+        "This is a pattern in your replay data, not proof of cause. Use it as a review question and test it in your next block.",
+    });
+  }
+
+  const reviewQueue = lossRows
+    .map((game) => {
+      const gaps = PERFORMANCE_METRICS.map((definition) => {
+        const metric = metricByKey.get(definition.key)!;
+        if (metric.winValue == null) return { definition, score: 0 };
+        const difference = definition.higherIsBetter
+          ? metric.winValue - game[definition.key]
+          : game[definition.key] - metric.winValue;
+        return { definition, score: Math.max(0, difference / definition.comparisonUnit) };
+      }).sort((a, b) => b.score - a.score);
+      const biggestGap = gaps[0]!;
+      const generic =
+        game.neutralWinRate < 0.5
+          ? "Neutral fell below 50% in this game."
+          : "Review the key stock and identify the repeatable decision.";
+      return {
+        id: game.id,
+        playedAt: game.playedAt,
+        playerCharacter: game.playerCharacter,
+        opponentCharacter: game.opponentCharacter,
+        opponentTag: game.opponentTag,
+        stage: game.stage,
+        playerFinalStocks: game.playerFinalStocks,
+        opponentFinalStocks: game.opponentFinalStocks,
+        reviewReason:
+          biggestGap.score > 0.15 ? `${biggestGap.definition.label} trailed your recent win baseline.` : generic,
+        priority: biggestGap.score > 0.8 ? ("high" as const) : ("medium" as const),
+        noteCount: game.noteCount,
+        score: biggestGap.score,
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6)
+    .map(({ score: _, ...game }) => game);
+
+  return {
+    sample: { currentGames: currentRows.length, baselineGames: baselineRows.length, gamesScanned: rows.length },
+    metrics,
+    insights,
+    reviewQueue,
+  };
+}
+
+// ── Training and review log ────────────────────────────────────────
+
+export interface TrainingLogEntry {
+  id: number;
+  loggedAt: string;
+  activityType: string;
+  minutes: number;
+  focus: string;
+  energy: number | null;
+  confidence: number | null;
+  notes: string;
+  createdAt: string;
+}
+
+export interface CreateTrainingLogEntry {
+  loggedAt?: string;
+  activityType: string;
+  minutes: number;
+  focus?: string;
+  energy?: number | null;
+  confidence?: number | null;
+  notes?: string;
+}
+
+function optionalRating(value: number | null | undefined): number | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  return Math.max(1, Math.min(5, Math.round(value)));
+}
+
+export function listTrainingLogEntries(limit: number = 30): TrainingLogEntry[] {
+  const safeLimit = Math.max(1, Math.min(Math.floor(limit), 200));
+  return getDb()
+    .prepare(
+      `
+      SELECT id, logged_at as loggedAt, activity_type as activityType, minutes, focus,
+             energy, confidence, notes, created_at as createdAt
+      FROM training_log_entries
+      ORDER BY logged_at DESC, id DESC
+      LIMIT ?
+    `,
+    )
+    .all(safeLimit) as TrainingLogEntry[];
+}
+
+export function createTrainingLogEntry(input: CreateTrainingLogEntry): TrainingLogEntry {
+  const activityType = input.activityType.trim().slice(0, 40);
+  if (!activityType) throw new Error("Choose the kind of work you did.");
+
+  const focus = (input.focus ?? "").trim().slice(0, 180);
+  const notes = (input.notes ?? "").trim().slice(0, 4000);
+  const minutes = Number.isFinite(input.minutes) ? Math.max(0, Math.min(1440, Math.round(input.minutes))) : 0;
+  const loggedAt = input.loggedAt?.trim() || new Date().toISOString();
+  const row = getDb()
+    .prepare(
+      `
+      INSERT INTO training_log_entries (logged_at, activity_type, minutes, focus, energy, confidence, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      RETURNING id, logged_at as loggedAt, activity_type as activityType, minutes, focus,
+                energy, confidence, notes, created_at as createdAt
+    `,
+    )
+    .get(
+      loggedAt,
+      activityType,
+      minutes,
+      focus,
+      optionalRating(input.energy),
+      optionalRating(input.confidence),
+      notes,
+    ) as TrainingLogEntry;
+  return row;
+}
+
+export interface GameReviewNote {
+  id: number;
+  gameId: number;
+  author: string;
+  category: string;
+  content: string;
+  createdAt: string;
+}
+
+export function listGameReviewNotes(gameId: number): GameReviewNote[] {
+  return getDb()
+    .prepare(
+      `
+      SELECT id, game_id as gameId, author, category, content, created_at as createdAt
+      FROM game_review_notes
+      WHERE game_id = ?
+      ORDER BY created_at DESC, id DESC
+    `,
+    )
+    .all(gameId) as GameReviewNote[];
+}
+
+export function addGameReviewNote(
+  gameId: number,
+  input: { content: string; author?: string; category?: string },
+): GameReviewNote {
+  const content = input.content.trim().slice(0, 4000);
+  if (!content) throw new Error("Write a note before saving it.");
+  const author = (input.author?.trim() || "Player").slice(0, 80);
+  const category = (input.category?.trim() || "review").slice(0, 40);
+  return getDb()
+    .prepare(
+      `
+      INSERT INTO game_review_notes (game_id, author, category, content)
+      VALUES (?, ?, ?, ?)
+      RETURNING id, game_id as gameId, author, category, content, created_at as createdAt
+    `,
+    )
+    .get(gameId, author, category, content) as GameReviewNote;
+}
+
 // ── Practice plans ──────────────────────────────────────────────────
 
 export interface PracticePlan {
@@ -2801,17 +4498,19 @@ export function insertPracticePlan(
   drills: Array<{ name: string; target: string }>,
 ): PracticePlan {
   const db = getDb();
-  const planRow = db
-    .prepare("INSERT INTO practice_plans (name, weakness_summary) VALUES (?, ?) RETURNING id, created_at")
-    .get(name, weaknessSummary) as { id: number; created_at: string };
-  const insertDrill = db.prepare(
-    "INSERT INTO practice_drills (plan_id, name, target, sort_order) VALUES (?, ?, ?, ?) RETURNING id",
-  );
-  const drillRows: PracticeDrill[] = drills.map((d, i) => {
-    const row = insertDrill.get(planRow.id, d.name, d.target, i) as { id: number };
-    return { id: row.id, name: d.name, target: d.target, completed: false, sortOrder: i };
-  });
-  return { id: planRow.id, name, weaknessSummary, createdAt: planRow.created_at, drills: drillRows };
+  return db.transaction(() => {
+    const planRow = db
+      .prepare("INSERT INTO practice_plans (name, weakness_summary) VALUES (?, ?) RETURNING id, created_at")
+      .get(name, weaknessSummary) as { id: number; created_at: string };
+    const insertDrill = db.prepare(
+      "INSERT INTO practice_drills (plan_id, name, target, sort_order) VALUES (?, ?, ?, ?) RETURNING id",
+    );
+    const drillRows: PracticeDrill[] = drills.map((d, i) => {
+      const row = insertDrill.get(planRow.id, d.name, d.target, i) as { id: number };
+      return { id: row.id, name: d.name, target: d.target, completed: false, sortOrder: i };
+    });
+    return { id: planRow.id, name, weaknessSummary, createdAt: planRow.created_at, drills: drillRows };
+  })();
 }
 
 export function listPracticePlans(): PracticePlan[] {
@@ -2821,20 +4520,34 @@ export function listPracticePlans(): PracticePlan[] {
       "SELECT id, name, weakness_summary as weaknessSummary, created_at as createdAt FROM practice_plans ORDER BY created_at DESC",
     )
     .all() as Array<{ id: number; name: string; weaknessSummary: string | null; createdAt: string }>;
-  const drillStmt = db.prepare(
-    "SELECT id, name, target, completed, sort_order as sortOrder FROM practice_drills WHERE plan_id = ? ORDER BY sort_order",
-  );
+  if (plans.length === 0) return [];
+  const drills = db
+    .prepare(
+      "SELECT id, plan_id as planId, name, target, completed, sort_order as sortOrder FROM practice_drills ORDER BY plan_id, sort_order",
+    )
+    .all() as Array<{
+    id: number;
+    planId: number;
+    name: string;
+    target: string;
+    completed: number;
+    sortOrder: number;
+  }>;
+  const drillsByPlan = new Map<number, PracticeDrill[]>();
+  for (const drill of drills) {
+    const planDrills = drillsByPlan.get(drill.planId) ?? [];
+    planDrills.push({
+      id: drill.id,
+      name: drill.name,
+      target: drill.target,
+      completed: drill.completed === 1,
+      sortOrder: drill.sortOrder,
+    });
+    drillsByPlan.set(drill.planId, planDrills);
+  }
   return plans.map((p) => ({
     ...p,
-    drills: (
-      drillStmt.all(p.id) as Array<{
-        id: number;
-        name: string;
-        target: string;
-        completed: number;
-        sortOrder: number;
-      }>
-    ).map((d) => ({ ...d, completed: d.completed === 1 })),
+    drills: drillsByPlan.get(p.id) ?? [],
   }));
 }
 
@@ -2845,7 +4558,6 @@ export function setDrillCompletion(drillId: number, completed: boolean): void {
 }
 
 export function deletePracticePlan(planId: number): void {
-  getDb().prepare("DELETE FROM practice_drills WHERE plan_id = ?").run(planId);
   getDb().prepare("DELETE FROM practice_plans WHERE id = ?").run(planId);
 }
 
@@ -2869,6 +4581,17 @@ export function appendOracleMessage(role: "user" | "assistant", content: string)
     .prepare("INSERT INTO oracle_messages (role, content) VALUES (?, ?) RETURNING id, created_at")
     .get(role, content) as { id: number; created_at: string };
   return { id: row.id, role, content, createdAt: row.created_at };
+}
+
+export function appendOracleExchange(
+  userContent: string,
+  assistantContent: string,
+): { user: OracleMessage; assistant: OracleMessage } {
+  const db = getDb();
+  return db.transaction(() => ({
+    user: appendOracleMessage("user", userContent),
+    assistant: appendOracleMessage("assistant", assistantContent),
+  }))();
 }
 
 export function clearOracleMessages(): void {

@@ -15,6 +15,7 @@ export interface Config {
   modelByProvider: Partial<Record<ProviderId, string>>; // remembered model selection per provider
   apiKeys: Partial<Record<ProviderId, string>>;
   localEndpoint: string | null;
+  azureEndpoint: string | null;
   // Dolphin
   dolphinPath: string | null;
   meleeIsoPath: string | null;
@@ -35,6 +36,17 @@ export interface Config {
   cornermanPopupAutoHideSeconds: number | null;
   cornermanLiveStatsEnabled: boolean | null;
   cornermanOverlayStatIds: string[] | null;
+  cornermanVoiceEnabled: boolean | null;
+  cornermanVoiceBackend: "system" | "openai" | "azure" | null;
+  cornermanVoiceBetweenGameAdjustments: boolean | null;
+  cornermanVoiceLiveAlerts: "all" | "high" | "off" | null;
+  cornermanVoiceURI: string | null;
+  cornermanVoiceModel: string | null;
+  cornermanProviderVoice: string | null;
+  cornermanVoiceInstructions: string | null;
+  cornermanVoiceRate: number | null;
+  cornermanVoiceVolume: number | null;
+  cornermanVoiceCooldownSeconds: number | null;
 }
 
 const DEFAULTS: Config = {
@@ -46,6 +58,7 @@ const DEFAULTS: Config = {
   modelByProvider: {},
   apiKeys: {},
   localEndpoint: null,
+  azureEndpoint: null,
   dolphinPath: null,
   meleeIsoPath: null,
   theme: null,
@@ -64,6 +77,17 @@ const DEFAULTS: Config = {
   cornermanPopupAutoHideSeconds: null,
   cornermanLiveStatsEnabled: null,
   cornermanOverlayStatIds: null,
+  cornermanVoiceEnabled: null,
+  cornermanVoiceBackend: null,
+  cornermanVoiceBetweenGameAdjustments: null,
+  cornermanVoiceLiveAlerts: null,
+  cornermanVoiceURI: null,
+  cornermanVoiceModel: null,
+  cornermanProviderVoice: null,
+  cornermanVoiceInstructions: null,
+  cornermanVoiceRate: null,
+  cornermanVoiceVolume: null,
+  cornermanVoiceCooldownSeconds: null,
 };
 
 const LEGACY_KEY_FIELDS: Array<{ field: string; provider: ProviderId }> = [
@@ -76,6 +100,7 @@ const LEGACY_KEY_FIELDS: Array<{ field: string; provider: ProviderId }> = [
 /** Heuristic mirror of getModelProvider in llm.ts — kept here so config.ts
  *  doesn't pull in the LLM module (avoids circular imports). */
 function inferProviderFromModelId(modelId: string): ProviderId {
+  if (modelId === "pollinations") return "pollinations";
   if (modelId.includes("/")) return "openrouter";
   if (modelId.startsWith("gemini")) return "gemini";
   if (modelId.startsWith("claude")) return "anthropic";

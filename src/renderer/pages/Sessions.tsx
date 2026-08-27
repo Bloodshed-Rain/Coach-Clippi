@@ -45,7 +45,7 @@ function DayCard({ day }: { day: Day }) {
     setLoading(true);
     setErr(null);
     try {
-      const res = await window.clippi.analyzeSession(day.date);
+      const res = await window.clippi.analyzeSession(day.date, report !== null);
       setReport(res);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));

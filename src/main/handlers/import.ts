@@ -52,7 +52,7 @@ export function registerImportHandlers(safeHandle: SafeHandleFn): void {
     const onProgress = createProgressSender();
     const result = await importReplays(files, targetPlayer, onProgress);
     return {
-      imported: result.imported.filter((r) => !r.skipped).length,
+      imported: result.imported.filter((r) => r.gameId !== undefined).length,
       skipped: result.skipped,
       errors: result.errors,
       errorDetails: result.errorDetails,

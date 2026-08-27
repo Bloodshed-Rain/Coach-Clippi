@@ -1,0 +1,161 @@
+/* DeathReport — measured DI verdicts + what kills you.
+   All colors via theme tokens; char accent enters through accentVars() on the Card root. */
+
+.death-report {
+  min-width: 0;
+}
+
+/* ── DI verdict stacked bar ────────────────────────────────────── */
+.death-report-bar {
+  display: flex;
+  height: 14px;
+  gap: 1px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.death-report-seg {
+  height: 100%;
+  min-width: 2px;
+}
+
+/* Verdict colors — shared by bar segments and legend chips. */
+.death-report-c-no-di {
+  background: var(--red);
+}
+.death-report-c-wrong-di {
+  background: color-mix(in srgb, var(--red) 55%, transparent);
+}
+.death-report-c-ok-di {
+  background: var(--text-muted);
+}
+.death-report-c-good-di {
+  background: var(--green);
+}
+.death-report-c-sd {
+  background: var(--yellow);
+}
+.death-report-c-unknown {
+  background: color-mix(in srgb, var(--text-muted) 40%, transparent);
+}
+
+.death-report-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 8px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.death-report-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.death-report-chip {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.death-report-legend-n {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.death-report-caption {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ── KPI row ───────────────────────────────────────────────────── */
+.death-report-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.death-report-kpi {
+  min-width: 0;
+}
+
+.death-report-kpi-bad .kpi-value {
+  color: var(--red);
+}
+
+.death-report-mono {
+  font-family: var(--font-mono);
+}
+
+/* ── Sections ──────────────────────────────────────────────────── */
+.death-report-section {
+  margin-top: 18px;
+}
+
+.death-report-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-left: 2px solid color-mix(in srgb, var(--char-color, var(--accent)) 42%, transparent);
+  padding-left: 6px;
+  margin-bottom: 8px;
+}
+
+.death-report-directions {
+  margin-top: 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+/* ── Throw DI rows ─────────────────────────────────────────────── */
+.death-report-throw-row {
+  display: grid;
+  grid-template-columns: minmax(96px, auto) 1fr minmax(112px, auto);
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.death-report-throw-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.death-report-throw-bar {
+  display: block;
+  height: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.death-report-throw-fill {
+  display: block;
+  height: 100%;
+  background: rgba(var(--red-rgb), 0.75);
+}
+
+.death-report-throw-n {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  text-align: right;
+  white-space: nowrap;
+}

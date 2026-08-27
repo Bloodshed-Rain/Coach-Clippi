@@ -17,6 +17,8 @@ import {
   DEFAULT_CORNERMAN_LIVE_STATS_SETTINGS,
   resolveCornermanLiveStatsSettings,
 } from "../../cornermanLiveStatsSettings";
+import { DEFAULT_CORNERMAN_VOICE_SETTINGS, resolveCornermanVoiceSettings } from "../../cornermanVoiceSettings";
+import { CornermanSpeechCoach, createHybridCornermanSpeechCoach } from "../utils/cornermanSpeech";
 import "../styles/overlay.css";
 
 type OverlayResizeHandle = "top-left" | "top-right" | "bottom-left" | "bottom-right";
@@ -34,11 +36,14 @@ export function CornermanOverlay() {
   const [liveEvents, setLiveEvents] = useState<CornermanLiveEvent[]>([]);
   const [transparency, setTransparency] = useState(DEFAULT_CORNERMAN_OVERLAY_TRANSPARENCY);
   const [hasLoadedTransparency, setHasLoadedTransparency] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(DEFAULT_CORNERMAN_VOICE_SETTINGS.enabled);
   const resizeDrag = useRef<{ handle: OverlayResizeHandle; x: number; y: number } | null>(null);
   const liveEventTimers = useRef<number[]>([]);
   const autoHideTimer = useRef<number | null>(null);
   const popupSettings = useRef(DEFAULT_CORNERMAN_POPUP_SETTINGS);
   const liveStatsSettings = useRef(DEFAULT_CORNERMAN_LIVE_STATS_SETTINGS);
+  const voiceSettings = useRef(DEFAULT_CORNERMAN_VOICE_SETTINGS);
+  const voiceCoach = useRef<CornermanSpeechCoach | null>(null);
   // Called before the main useEffect below so its onCornermanLiveStats listener
   // is registered before cornermanOverlayReady() flushes the main-process queue.
   // This is AMBIENT content only — it must never touch the auto-hide timer or
@@ -62,21 +67,34 @@ export function CornermanOverlay() {
   }, [clearAutoHideTimer]);
 
   useEffect(() => {
+    let disposed = false;
     document.documentElement.classList.add("overlay-mode");
     document.body.classList.add("overlay-mode");
+    voiceCoach.current = createHybridCornermanSpeechCoach((message) => {
+      console.error("Cornerman voice error:", message);
+    });
     window.clippi
       .cornermanStatus()
       .then(setStatus)
       .catch(() => {});
-    window.clippi
+    const configLoad = window.clippi
       .loadConfig()
       .then((config) => {
         setTransparency(clampCornermanOverlayTransparency(config?.cornermanOverlayTransparency));
         popupSettings.current = resolveCornermanPopupSettings(config ?? {});
         liveStatsSettings.current = resolveCornermanLiveStatsSettings(config ?? {});
+        voiceSettings.current = resolveCornermanVoiceSettings(config ?? {});
+        setVoiceEnabled(voiceSettings.current.enabled);
+        voiceCoach.current?.configure(voiceSettings.current);
       })
       .catch(() => {})
-      .finally(() => setHasLoadedTransparency(true));
+      .finally(() => {
+        if (disposed) return;
+        setHasLoadedTransparency(true);
+        // Configuration is loaded and all listeners are mounted. The main
+        // process can now flush events it queued while this window opened.
+        window.clippi.cornermanOverlayReady?.().catch(() => {});
+      });
     const offStream = window.clippi.onCornermanStream((chunk) => {
       if (!popupSettings.current.coachingCards) return;
       clearAutoHideTimer();
@@ -85,6 +103,7 @@ export function CornermanOverlay() {
       setText((prev) => prev + chunk);
     });
     const offCard = window.clippi.onCornermanCard((card) => {
+      voiceCoach.current?.speakBetweenGameAdjustment(card.text);
       if (!popupSettings.current.coachingCards) return;
       setIsStreaming(false);
       setText(card.text);
@@ -97,6 +116,7 @@ export function CornermanOverlay() {
       setText("");
     });
     const offLiveEvent = window.clippi.onCornermanLiveEvent((event) => {
+      voiceCoach.current?.enqueueLiveEvent(event);
       if (!shouldShowCornermanLiveAlert(popupSettings.current.liveAlerts, event.importance)) return;
       setLiveEvents((prev) => [event, ...prev.filter((e) => e.id !== event.id)].slice(0, 4));
       const timer = window.setTimeout(() => {
@@ -112,10 +132,9 @@ export function CornermanOverlay() {
       setError(message);
       scheduleAutoHide();
     });
-    // All listeners are mounted — tell main to flush anything it queued while
-    // this window was loading (sends before this point would have been lost).
-    window.clippi.cornermanOverlayReady?.().catch(() => {});
     return () => {
+      disposed = true;
+      void configLoad;
       document.documentElement.classList.remove("overlay-mode");
       document.body.classList.remove("overlay-mode");
       offStream();
@@ -126,6 +145,8 @@ export function CornermanOverlay() {
       clearAutoHideTimer();
       for (const timer of liveEventTimers.current) window.clearTimeout(timer);
       liveEventTimers.current = [];
+      voiceCoach.current?.dispose();
+      voiceCoach.current = null;
     };
   }, [clearAutoHideTimer, scheduleAutoHide]);
 
@@ -167,6 +188,15 @@ export function CornermanOverlay() {
 
   const dismiss = () => {
     window.clippi.cornermanOverlayDismiss().catch(() => {});
+  };
+
+  const toggleVoice = () => {
+    const enabled = !voiceEnabled;
+    const next = { ...voiceSettings.current, enabled };
+    voiceSettings.current = next;
+    setVoiceEnabled(enabled);
+    voiceCoach.current?.configure(next);
+    window.clippi.saveConfig({ cornermanVoiceEnabled: enabled }).catch(() => {});
   };
 
   const startResize = (handle: OverlayResizeHandle) => (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -212,6 +242,15 @@ export function CornermanOverlay() {
           />
           <span className="overlay-transparency-value">{transparency}%</span>
         </label>
+        <button
+          type="button"
+          className={`overlay-voice-toggle${voiceEnabled ? " overlay-voice-toggle-on" : ""}`}
+          aria-pressed={voiceEnabled}
+          onClick={toggleVoice}
+          title={voiceEnabled ? "Mute Cornerman voice" : "Enable Cornerman voice"}
+        >
+          Voice {voiceEnabled ? "on" : "off"}
+        </button>
       </div>
       <div className="overlay-toast-body">
         {liveStats.snapshot && status?.active !== false && liveStatsSettings.current.enabled && (

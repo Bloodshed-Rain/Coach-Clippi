@@ -128,6 +128,25 @@ export const useCharacterGameStats = (character: string | null) => {
   });
 };
 
+export const useCharacterEventProfile = (character: string | null) => {
+  return useQuery({
+    queryKey: ["characterEventProfile", character],
+    queryFn: () => (character ? window.clippi.getCharacterEventProfile(character) : null),
+    enabled: !!character,
+    gcTime: GC_10MIN,
+  });
+};
+
+export const useCharacterBlurb = (character: string | null) => {
+  return useQuery({
+    queryKey: ["characterBlurb", character],
+    queryFn: () => (character ? window.clippi.analyzeCharacterBlurb(character) : null),
+    enabled: !!character,
+    staleTime: Infinity,
+    gcTime: GC_10MIN,
+  });
+};
+
 export const useGetLatestAnalysis = () => {
   return useQuery({
     queryKey: ["latestAnalysis"],
@@ -149,6 +168,15 @@ export const useGameHighlights = (gameId: number | null) => {
     queryKey: ["gameHighlights", gameId],
     queryFn: () => window.clippi.getGameHighlights(gameId!),
     enabled: gameId != null,
+    gcTime: GC_10MIN,
+  });
+};
+
+export const useStockTimeline = (replayPath: string | null) => {
+  return useQuery({
+    queryKey: ["stockTimeline", replayPath],
+    queryFn: () => window.clippi.getStockTimeline(replayPath!),
+    enabled: Boolean(replayPath),
     gcTime: GC_10MIN,
   });
 };
@@ -206,6 +234,31 @@ export const useTrendSeriesBundle = (range: "7d" | "30d" | "all", filterChar: st
   return useQuery({
     queryKey: ["trendSeriesBundle", range, filterChar],
     queryFn: () => window.clippi.getTrendSeriesBundle(range, filterChar),
+    gcTime: GC_10MIN,
+  });
+};
+
+export const usePerformanceHub = () => {
+  return useQuery({
+    queryKey: ["performanceHub"],
+    queryFn: () => window.clippi.getPerformanceHub(),
+    gcTime: GC_10MIN,
+  });
+};
+
+export const useTrainingLog = (limit: number = 30) => {
+  return useQuery({
+    queryKey: ["trainingLog", limit],
+    queryFn: () => window.clippi.getTrainingLog(limit),
+    gcTime: GC_10MIN,
+  });
+};
+
+export const useGameReviewNotes = (gameId: number | null) => {
+  return useQuery({
+    queryKey: ["gameReviewNotes", gameId],
+    queryFn: () => window.clippi.getGameReviewNotes(gameId!),
+    enabled: gameId != null,
     gcTime: GC_10MIN,
   });
 };

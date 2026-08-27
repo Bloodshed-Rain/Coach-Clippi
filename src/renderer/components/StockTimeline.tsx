@@ -1,11 +1,12 @@
-import { useEffect, useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { useMemo } from "react";
+import { motion, type MotionStyle } from "framer-motion";
+import { useStockTimeline } from "../hooks/queries";
 import { useReplayPlayerStore } from "../stores/useReplayPlayerStore";
 import { timestampToFrame } from "../utils/timestampLinks";
 
 // ── Types ────────────────────────────────────────────────────────────
 
-interface StockData {
+export interface StockData {
   stockNumber: number;
   percentLost: number;
   killMove: string | null;
@@ -16,7 +17,7 @@ interface StockData {
   endTime: string;
 }
 
-interface StockTimelineData {
+export interface StockTimelineData {
   player: {
     tag: string;
     character: string;
@@ -104,7 +105,7 @@ function StockRow({
   isPlayer: boolean;
   momentumStocks: Set<number>;
   replayPath: string;
-  onSeekFrame?: (frame: number) => void;
+  onSeekFrame?: ((frame: number) => void) | undefined;
 }) {
   const openPlayer = useReplayPlayerStore((s) => s.openPlayer);
 
@@ -150,7 +151,7 @@ function StockRow({
                 "--segment-rgb": colorRgb,
                 "--segment-intensity": intensity,
                 cursor: "pointer",
-              } as React.CSSProperties
+              } as MotionStyle
             }
             title={`${summary}\nClick to watch`}
             onClick={onStockClick}
@@ -201,31 +202,8 @@ export function StockTimeline({
   opponentCharacter: string;
   onSeekFrame?: (frame: number) => void;
 }) {
-  const [data, setData] = useState<StockTimelineData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    window.clippi
-      .getStockTimeline(replayPath)
-      .then((result: StockTimelineData) => {
-        if (!cancelled) setData(result);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [replayPath]);
+  const { data: queryData, isLoading: loading, error } = useStockTimeline(replayPath);
+  const data = queryData as StockTimelineData | undefined;
 
   const analysis = useMemo(() => {
     if (!data) return null;
